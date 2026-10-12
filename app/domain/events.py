@@ -35,3 +35,17 @@ class DeviceDetailsUpdated(DomainEvent):
 @dataclass(frozen=True, kw_only=True)
 class DeviceRetired(DomainEvent):
     device_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class DeviceAssigned(DomainEvent):
+    device_id: int
+    user_id: int
+    assignment_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class DeviceReturned(DomainEvent):
+    device_id: int
+    user_id: int
+    assignment_id: int

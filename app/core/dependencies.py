@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
+from app.application.commands.assignments import AssignDeviceHandler, ReturnDeviceHandler
 from app.application.commands.devices import (
     RegisterDeviceHandler,
     RetireDeviceHandler,
@@ -67,6 +68,14 @@ def get_update_device_details_handler(uow: UnitOfWork = Depends(get_unit_of_work
 
 def get_retire_device_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
     return RetireDeviceHandler(uow)
+
+
+def get_assign_device_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return AssignDeviceHandler(uow)
+
+
+def get_return_device_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return ReturnDeviceHandler(uow)
 
 
 # --- Okuma tarafı / altyapı ---

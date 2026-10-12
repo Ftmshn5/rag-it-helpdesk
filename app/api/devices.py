@@ -10,6 +10,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 
+from app.application.commands.assignments import (
+    AssignDevice,
+    AssignDeviceHandler,
+    ReturnDevice,
+    ReturnDeviceHandler,
+)
 from app.application.commands.devices import (
     RegisterDevice,
     RegisterDeviceHandler,
@@ -19,9 +25,11 @@ from app.application.commands.devices import (
     UpdateDeviceDetailsHandler,
 )
 from app.core.dependencies import (
+    get_assign_device_handler,
     get_current_user_id,
     get_register_device_handler,
     get_retire_device_handler,
+    get_return_device_handler,
     get_update_device_details_handler,
 )
 
@@ -44,6 +52,10 @@ class UpdateDeviceDetailsRequest(BaseModel):
     model: str | None = Field(default=None, min_length=1, max_length=120)
     location: str | None = Field(default=None, min_length=1, max_length=120)
     purchase_date: date | None = None
+
+
+class AssignDeviceRequest(BaseModel):
+    user_id: int
 
 
 class CreatedResponse(BaseModel):
@@ -79,3 +91,29 @@ def retire_device(
     handler: RetireDeviceHandler = Depends(get_retire_device_handler),
 ) -> None:
     handler.handle(RetireDevice(actor_id=actor_id, device_id=device_id))
+
+
+@router.post(
+    "/{device_id}/assignments",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CreatedResponse,
+)
+def assign_device(
+    device_id: int,
+    body: AssignDeviceRequest,
+    actor_id: int = Depends(get_current_user_id),
+    handler: AssignDeviceHandler = Depends(get_assign_device_handler),
+) -> CreatedResponse:
+    assignment_id = handler.handle(
+        AssignDevice(actor_id=actor_id, device_id=device_id, user_id=body.user_id)
+    )
+    return CreatedResponse(id=assignment_id)
+
+
+@router.post("/{device_id}/return", status_code=status.HTTP_204_NO_CONTENT)
+def return_device(
+    device_id: int,
+    actor_id: int = Depends(get_current_user_id),
+    handler: ReturnDeviceHandler = Depends(get_return_device_handler),
+) -> None:
+    handler.handle(ReturnDevice(actor_id=actor_id, device_id=device_id))

@@ -117,3 +117,21 @@ def test_retire_assigned_device_returns_409(client, uow):
     response = client.post(f"/devices/{device.id}/retire", headers=ADMIN)
 
     assert response.status_code == 409
+
+
+def test_assign_and_return_via_api(client, uow):
+    device = uow.devices.add(
+        Device(asset_tag="PC-1", type="PC", brand="HP", model="X", serial_number="S1")
+    )
+
+    response = client.post(f"/devices/{device.id}/assignments", json={"user_id": 2}, headers=ADMIN)
+    assert response.status_code == 201
+    assert uow.devices.get(device.id).status == DeviceStatus.ASSIGNED
+
+    again = client.post(f"/devices/{device.id}/assignments", json={"user_id": 2}, headers=ADMIN)
+    assert again.status_code == 409
+    assert again.json()["detail"] == "Cihaz zaten zimmetli. Önce iade alınmalı."
+
+    returned = client.post(f"/devices/{device.id}/return", headers=ADMIN)
+    assert returned.status_code == 204
+    assert uow.devices.get(device.id).status == DeviceStatus.IN_STOCK

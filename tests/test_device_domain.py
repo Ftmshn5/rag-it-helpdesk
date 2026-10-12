@@ -4,7 +4,7 @@ import pytest
 
 from app.domain.enums import DeviceStatus
 from app.domain.errors import BusinessRuleViolation
-from app.domain.inventory import Device
+from app.domain.inventory import Assignment, Device
 
 
 def make_device(status: DeviceStatus = DeviceStatus.IN_STOCK) -> Device:
@@ -39,3 +39,47 @@ def test_device_in_use_cannot_be_retired(status):
 def test_retired_device_cannot_be_retired_again():
     with pytest.raises(BusinessRuleViolation, match="zaten hurdaya"):
         make_device(DeviceStatus.RETIRED).retire()
+
+
+# --- Zimmet ---
+
+
+def test_in_stock_device_can_be_assigned():
+    device = make_device()
+    device.assign()
+    assert device.status == DeviceStatus.ASSIGNED
+
+
+@pytest.mark.parametrize(
+    "status, message",
+    [
+        (DeviceStatus.ASSIGNED, "zaten zimmetli"),
+        (DeviceStatus.IN_REPAIR, "bakımda"),
+        (DeviceStatus.RETIRED, "Hurdaya ayrılmış"),
+    ],
+)
+def test_only_in_stock_device_can_be_assigned(status, message):
+    device = make_device(status)
+    with pytest.raises(BusinessRuleViolation, match=message):
+        device.assign()
+    assert device.status == status
+
+
+def test_assigned_device_returns_to_stock():
+    device = make_device(DeviceStatus.ASSIGNED)
+    device.mark_returned()
+    assert device.status == DeviceStatus.IN_STOCK
+
+
+def test_device_in_repair_cannot_be_returned():
+    device = make_device(DeviceStatus.IN_REPAIR)
+    with pytest.raises(BusinessRuleViolation, match="Önce bakımı tamamlayın"):
+        device.mark_returned()
+
+
+def test_assignment_cannot_be_closed_twice():
+    assignment = Assignment(device_id=1, user_id=2, assigned_by=3)
+    assignment.close()
+    assert not assignment.is_active
+    with pytest.raises(BusinessRuleViolation, match="zaten iade"):
+        assignment.close()

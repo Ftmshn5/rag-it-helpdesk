@@ -8,6 +8,13 @@ from app.domain.enums import DeviceStatus, MaintenanceType
 from app.domain.errors import BusinessRuleViolation
 
 
+UNAVAILABLE_FOR_ASSIGNMENT = {
+    DeviceStatus.ASSIGNED: "Cihaz zaten zimmetli. Önce iade alınmalı.",
+    DeviceStatus.IN_REPAIR: "Cihaz bakımda, zimmetlenemez.",
+    DeviceStatus.RETIRED: "Hurdaya ayrılmış cihaz zimmetlenemez.",
+}
+
+
 @dataclass(kw_only=True)
 class Device:
     """Cihaz. `status` alanı dışarıdan doğrudan değiştirilmez; yalnızca bu
@@ -50,6 +57,21 @@ class Device:
             if value is not None:
                 setattr(self, name, value)
 
+    def assign(self) -> None:
+        """Cihazı zimmetli duruma geçirir. Yalnızca depodaki cihaz zimmetlenebilir."""
+        if self.status != DeviceStatus.IN_STOCK:
+            raise BusinessRuleViolation(UNAVAILABLE_FOR_ASSIGNMENT[self.status])
+        self.status = DeviceStatus.ASSIGNED
+
+    def mark_returned(self) -> None:
+        if self.status == DeviceStatus.IN_REPAIR:
+            # İade edilirse bakım bitince cihaz "önceki durum" olan ASSIGNED'a
+            # döner ama ortada zimmet kalmaz; tutarsızlığı baştan engelliyoruz.
+            raise BusinessRuleViolation("Cihaz bakımda. Önce bakımı tamamlayın, sonra iade alın.")
+        if self.status != DeviceStatus.ASSIGNED:
+            raise BusinessRuleViolation("Cihaz zimmetli değil.")
+        self.status = DeviceStatus.IN_STOCK
+
     def retire(self) -> None:
         if self.status == DeviceStatus.RETIRED:
             raise BusinessRuleViolation("Cihaz zaten hurdaya ayrılmış.")
@@ -75,6 +97,12 @@ class Assignment:
     @property
     def is_active(self) -> bool:
         return self.returned_at is None
+
+    def close(self) -> None:
+        """Zimmeti iade alınmış olarak kapatır. Kayıt silinmez; geçmiş korunur."""
+        if not self.is_active:
+            raise BusinessRuleViolation("Bu zimmet zaten iade alınmış.")
+        self.returned_at = utc_now()
 
 
 @dataclass(kw_only=True)
