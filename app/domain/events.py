@@ -96,8 +96,16 @@ class TicketStatusChanged(DomainEvent):
     ticket_id: int
     old_status: TicketStatus
     new_status: TicketStatus
-    actor_id: int
+    actor_id: int | None  # None: geçişi bir kullanıcı değil sistem (AI asistan) yaptı
     assignee_id: int | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class AiAnswerRecorded(DomainEvent):
+    ticket_id: int
+    ai_response_id: int | None  # AI hiç yanıt üretemediyse None
+    confidence: float | None
+    escalated: bool
 
 
 @dataclass(frozen=True, kw_only=True)

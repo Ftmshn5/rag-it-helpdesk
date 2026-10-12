@@ -68,6 +68,20 @@ class Ticket:
     def is_urgent(self) -> bool:
         return TicketModifier.URGENT in self.modifiers
 
+    # --- İş kuralı 4 ---
+
+    def receive_ai_answer(self, confidence: float | None, threshold: float) -> bool:
+        """AI sonucunu uygular; yanıt kullanıcıya sunulacaksa True döner.
+
+        Güven eşiğin altındaysa (veya AI hiç yanıt üretemediyse: None) talep
+        AI yanıtı gösterilmeden doğrudan eskale edilir.
+        """
+        if confidence is not None and confidence >= threshold:
+            self.record_ai_answer()
+            return True
+        self.escalate()
+        return False
+
     # --- Durum geçişleri: kararı mevcut durum nesnesi verir ---
 
     def record_ai_answer(self) -> None:

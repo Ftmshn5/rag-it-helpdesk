@@ -23,7 +23,9 @@ class InMemoryEventBus(EventBus):
     def publish(self, event: DomainEvent) -> None:
         # __mro__: olayın kendi sınıfı ve üst sınıfları. Böylece DomainEvent'e
         # abone olan bir dinleyici (örn. loglama) tüm olayları alır.
-        for event_type in type(event).__mro__:
+        # Ters sıra: genel dinleyiciler (loglama) özel olanlardan ÖNCE çalışır;
+        # özel bir dinleyici iç içe yeni olaylar üretse bile log sırası korunur.
+        for event_type in reversed(type(event).__mro__):
             for handler in self._handlers.get(event_type, []):
                 try:
                     handler(event)

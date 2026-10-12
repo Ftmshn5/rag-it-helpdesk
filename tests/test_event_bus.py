@@ -52,6 +52,23 @@ def test_base_class_subscriber_receives_all_events():
     assert calls == ["SomethingHappened", "SomethingElseHappened"]
 
 
+def test_general_subscribers_run_before_specific_ones():
+    """Loglama gibi genel dinleyiciler, olayın yol açtığı iç içe olaylardan önce görür."""
+    bus = InMemoryEventBus()
+    calls = []
+
+    def react(event):
+        calls.append("özel")
+        bus.publish(SomethingElseHappened())  # iç içe olay
+
+    bus.subscribe(SomethingHappened, react)
+    bus.subscribe(DomainEvent, lambda e: calls.append(f"log:{type(e).__name__}"))
+
+    bus.publish(SomethingHappened(value=1))
+
+    assert calls == ["log:SomethingHappened", "özel", "log:SomethingElseHappened"]
+
+
 def test_failing_subscriber_does_not_stop_others(caplog):
     bus = InMemoryEventBus()
     calls = []

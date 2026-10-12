@@ -28,12 +28,17 @@ def event_bus() -> FakeEventBus:
 
 
 @pytest.fixture
-def sqlalchemy_uow(db_connection, event_bus) -> SqlAlchemyUnitOfWork:
-    session_factory = sessionmaker(
+def session_factory(db_connection):
+    """Test transaction'ına bağlı oturum fabrikası (commit'ler SAVEPOINT olur)."""
+    return sessionmaker(
         bind=db_connection,
         join_transaction_mode="create_savepoint",
         expire_on_commit=False,
     )
+
+
+@pytest.fixture
+def sqlalchemy_uow(session_factory, event_bus) -> SqlAlchemyUnitOfWork:
     return SqlAlchemyUnitOfWork(event_bus, session_factory)
 
 

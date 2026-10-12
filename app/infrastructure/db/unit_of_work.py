@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.infrastructure.db.repositories import (
+    SqlAlchemyAIResponseRepository,
     SqlAlchemyAssignmentRepository,
     SqlAlchemyDeviceRepository,
     SqlAlchemyMaintenanceRecordRepository,
@@ -41,6 +42,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.tickets = SqlAlchemyTicketRepository(self.session)
         self.ticket_attachments = SqlAlchemyTicketAttachmentRepository(self.session)
         self.ticket_comments = SqlAlchemyTicketCommentRepository(self.session)
+        self.ai_responses = SqlAlchemyAIResponseRepository(self.session)
         return super().__enter__()
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:

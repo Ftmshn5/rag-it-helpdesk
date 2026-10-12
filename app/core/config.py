@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("data/uploads")
     max_upload_size_mb: int = 5
 
+    # İş kuralı 4: AI güven skoru bunun altındaysa talep doğrudan eskale edilir
+    ai_confidence_threshold: float = 0.6
+
     @property
     def max_upload_size_bytes(self) -> int:
         return self.max_upload_size_mb * 1024 * 1024

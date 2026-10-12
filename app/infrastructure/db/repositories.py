@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.application.interfaces.repositories import (
+    AIResponseRepository,
     AssignmentRepository,
     DeviceRepository,
     MaintenanceRecordRepository,
@@ -22,10 +23,11 @@ from app.application.interfaces.repositories import (
 )
 from app.domain.enums import TicketModifier
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
-from app.domain.ticket import Ticket, TicketAttachment, TicketComment
+from app.domain.ticket import AIResponse, Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.models import (
+    AIResponseModel,
     AssignmentModel,
     DeviceModel,
     MaintenanceRecordModel,
@@ -157,3 +159,13 @@ class SqlAlchemyTicketCommentRepository(
 ):
     entity_class = TicketComment
     model_class = TicketCommentModel
+
+
+class SqlAlchemyAIResponseRepository(
+    SqlAlchemyRepository[AIResponse, AIResponseModel], AIResponseRepository
+):
+    entity_class = AIResponse
+    model_class = AIResponseModel
+
+    def get_by_ticket(self, ticket_id: int) -> AIResponse | None:
+        return self._first(select(AIResponseModel).where(AIResponseModel.ticket_id == ticket_id))

@@ -26,6 +26,7 @@ from typing import Self
 
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.repositories import (
+    AIResponseRepository,
     AssignmentRepository,
     DeviceRepository,
     MaintenanceRecordRepository,
@@ -45,6 +46,7 @@ class UnitOfWork(ABC):
     tickets: TicketRepository
     ticket_attachments: TicketAttachmentRepository
     ticket_comments: TicketCommentRepository
+    ai_responses: AIResponseRepository
 
     def __init__(self, event_bus: EventBus) -> None:
         self.event_bus = event_bus

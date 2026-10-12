@@ -11,6 +11,7 @@ from typing import Generic, TypeVar
 from app.application.interfaces.event_bus import EventBus, EventHandler
 from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.repositories import (
+    AIResponseRepository,
     AssignmentRepository,
     DeviceRepository,
     MaintenanceRecordRepository,
@@ -22,6 +23,7 @@ from app.application.interfaces.repositories import (
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.domain.events import DomainEvent
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
+from app.domain.ticket import AIResponse
 
 E = TypeVar("E")
 
@@ -91,6 +93,11 @@ class InMemoryTicketCommentRepository(InMemoryRepository, TicketCommentRepositor
     pass
 
 
+class InMemoryAIResponseRepository(InMemoryRepository[AIResponse], AIResponseRepository):
+    def get_by_ticket(self, ticket_id: int) -> AIResponse | None:
+        return self._first(lambda response: response.ticket_id == ticket_id)
+
+
 class InMemoryFileStorage(FileStorage):
     """Dosyaları sözlükte tutar; testler `files` üzerinden kontrol eder."""
 
@@ -133,6 +140,7 @@ class FakeUnitOfWork(UnitOfWork):
         self.tickets = InMemoryTicketRepository()
         self.ticket_attachments = InMemoryTicketAttachmentRepository()
         self.ticket_comments = InMemoryTicketCommentRepository()
+        self.ai_responses = InMemoryAIResponseRepository()
         self.committed = False
 
     def _commit(self) -> None:

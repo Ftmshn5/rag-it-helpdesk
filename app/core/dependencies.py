@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
+from app.application.commands.ai_answers import AutoAnswerTicketHandler
 from app.application.commands.attachments import AttachScreenshotHandler
 from app.application.commands.assignments import AssignDeviceHandler, ReturnDeviceHandler
 from app.application.commands.devices import (
@@ -33,21 +34,35 @@ from app.application.commands.ticket_workflow import (
 )
 from app.application.commands.tickets import CreateTicketHandler, SetTicketUrgencyHandler
 from app.application.errors import AuthenticationError
+from app.application.interfaces.ai_support import AiSupportFacade
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.core.config import get_settings
 from app.core.event_subscriptions import register_subscribers
+from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.db.session import check_database_connection, get_session
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
 from app.infrastructure.storage.local_file_storage import LocalFileStorage
 
 
+def get_ai_support() -> AiSupportFacade:
+    # Gerçek RAG hazır olduğunda (11. adım) yalnızca bu satır değişir.
+    return FakeAiSupport()
+
+
 def create_event_bus() -> EventBus:
     """Uygulama açılışında bir kez çağrılır; dinleyiciler burada kaydedilir."""
     event_bus = InMemoryEventBus()
-    register_subscribers(event_bus)
+    register_subscribers(
+        event_bus,
+        make_auto_answer_handler=lambda: AutoAnswerTicketHandler(
+            SqlAlchemyUnitOfWork(event_bus),
+            get_ai_support(),
+            get_settings().ai_confidence_threshold,
+        ),
+    )
     return event_bus
 
 
