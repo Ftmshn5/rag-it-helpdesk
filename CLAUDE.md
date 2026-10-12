@@ -237,6 +237,11 @@ erDiagram
 3. Ticket yalnızca `TECHNICIAN` rolündeki kullanıcıya atanabilir.
 4. AI güven skoru `AI_CONFIDENCE_THRESHOLD` (varsayılan 0.6) altındaysa ticket doğrudan `ESCALATED` olur.
 5. Ekran görüntüsü yalnızca png/jpg ve belirli boyut sınırı altında kabul edilir.
+6. Cihaz durumu doğrudan güncellenemez; yalnızca iş akışlarıyla değişir (zimmet/iade, bakım aç/kapat, hurdaya ayır).
+7. Yalnızca depodaki (`IN_STOCK`) cihaz zimmetlenebilir veya hurdaya ayrılabilir.
+8. Bir cihazın aynı anda yalnızca bir açık bakım kaydı olabilir; hurdaya ayrılmış cihaza bakım açılamaz.
+9. Bakımdaki cihaz iade alınamaz (bakım bitince `ASSIGNED`'a dönüp zimmetsiz kalmasın diye).
+10. Yetki (basit rol kontrolü, `X-User-Id`): cihaz/zimmet işlemleri `ADMIN`, bakım işlemleri `TECHNICIAN`.
 
 ### Ana akış
 1. Kullanıcı arıza kaydı açar (UC-01), isteğe bağlı ekran görüntüsü ekler (UC-15).
@@ -252,7 +257,7 @@ erDiagram
 - [x] **1. Ortam ve iskelet:** Docker Compose ile PostgreSQL + pgvector, sanal ortam, klasör yapısı, config, DB bağlantısı, `/health` endpoint (DB bağlantısını da kontrol etsin), `.gitignore`, git init
 - [x] **2. Domain ve veritabanı:** enum'lar, domain varlıkları, SQLAlchemy modelleri (`write` şeması), Alembic ilk migration, seed data scripti
 - [x] **3. Altyapı iskeleti:** repository arayüzleri ve implementasyonları, event bus, bağımlılık enjeksiyonu
-- [ ] **4. Envanter (Command):** cihaz ekleme, zimmetleme/iade, bakım kaydı + iş kuralları + testler
+- [x] **4. Envanter (Command):** cihaz ekleme, zimmetleme/iade, bakım kaydı + iş kuralları + testler
 - [ ] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
 - [ ] **6. State:** ticket durum geçişleri + testler
 - [ ] **7. AI Facade:** `AiSupportFacade` arayüzü + `FakeAiSupport`, ticket akışına bağlama, eskalasyon

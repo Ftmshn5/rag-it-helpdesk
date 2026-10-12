@@ -18,6 +18,10 @@ from app.application.commands.devices import (
     RetireDeviceHandler,
     UpdateDeviceDetailsHandler,
 )
+from app.application.commands.maintenance import (
+    CompleteMaintenanceHandler,
+    StartMaintenanceHandler,
+)
 from app.application.errors import AuthenticationError
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.unit_of_work import UnitOfWork
@@ -76,6 +80,14 @@ def get_assign_device_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
 
 def get_return_device_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
     return ReturnDeviceHandler(uow)
+
+
+def get_start_maintenance_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return StartMaintenanceHandler(uow)
+
+
+def get_complete_maintenance_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return CompleteMaintenanceHandler(uow)
 
 
 # --- Okuma tarafı / altyapı ---

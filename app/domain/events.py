@@ -49,3 +49,16 @@ class DeviceReturned(DomainEvent):
     device_id: int
     user_id: int
     assignment_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class MaintenanceStarted(DomainEvent):
+    maintenance_record_id: int
+    device_id: int
+    technician_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class MaintenanceCompleted(DomainEvent):
+    maintenance_record_id: int
+    device_id: int

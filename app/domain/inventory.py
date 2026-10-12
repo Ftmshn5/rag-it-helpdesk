@@ -82,6 +82,25 @@ class Device:
             )
         self.status = DeviceStatus.RETIRED
 
+    def start_maintenance(self) -> DeviceStatus:
+        """Cihazı bakıma alır ve bakım öncesi durumunu döndürür.
+
+        Doğrudan değil, MaintenanceRecord.open() üzerinden çağrılır; böylece
+        önceki durum mutlaka bakım kaydına yazılır.
+        """
+        if self.status == DeviceStatus.RETIRED:
+            raise BusinessRuleViolation("Hurdaya ayrılmış cihaza bakım kaydı açılamaz.")
+        if self.status == DeviceStatus.IN_REPAIR:
+            raise BusinessRuleViolation("Cihazın zaten açık bir bakım kaydı var.")
+        previous_status = self.status
+        self.status = DeviceStatus.IN_REPAIR
+        return previous_status
+
+    def finish_maintenance(self, restore_to: DeviceStatus) -> None:
+        if self.status != DeviceStatus.IN_REPAIR:
+            raise BusinessRuleViolation("Cihaz bakımda değil.")
+        self.status = restore_to
+
 
 @dataclass(kw_only=True)
 class Assignment:
@@ -126,3 +145,36 @@ class MaintenanceRecord:
     @property
     def is_open(self) -> bool:
         return self.completed_at is None
+
+    @classmethod
+    def open(
+        cls,
+        *,
+        device: Device,
+        technician_id: int,
+        type: MaintenanceType,
+        description: str,
+        ticket_id: int | None = None,
+    ) -> "MaintenanceRecord":
+        """İş kuralı 2'nin ilk yarısı: cihaz IN_REPAIR olur, önceki durumu kayda yazılır.
+
+        Kaydı oluşturmanın tek yolu budur; önceki durumu ayrıca hatırlamaya gerek kalmaz.
+        """
+        previous_status = device.start_maintenance()
+        return cls(
+            device_id=device.id,
+            technician_id=technician_id,
+            ticket_id=ticket_id,
+            type=type,
+            description=description,
+            previous_device_status=previous_status,
+        )
+
+    def complete(self, device: Device) -> None:
+        """İş kuralı 2'nin ikinci yarısı: cihaz bakım öncesi durumuna döner."""
+        if not self.is_open:
+            raise BusinessRuleViolation("Bu bakım kaydı zaten tamamlanmış.")
+        if device.id != self.device_id:
+            raise ValueError("Bakım kaydı bu cihaza ait değil.")
+        device.finish_maintenance(restore_to=self.previous_device_status)
+        self.completed_at = utc_now()

@@ -10,6 +10,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 
+from app.api.schemas import CreatedResponse
 from app.application.commands.assignments import (
     AssignDevice,
     AssignDeviceHandler,
@@ -56,10 +57,6 @@ class UpdateDeviceDetailsRequest(BaseModel):
 
 class AssignDeviceRequest(BaseModel):
     user_id: int
-
-
-class CreatedResponse(BaseModel):
-    id: int
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=CreatedResponse)
