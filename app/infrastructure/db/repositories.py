@@ -16,12 +16,13 @@ from app.application.interfaces.repositories import (
     DeviceRepository,
     MaintenanceRecordRepository,
     TicketAttachmentRepository,
+    TicketCommentRepository,
     TicketRepository,
     UserRepository,
 )
 from app.domain.enums import TicketModifier
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
-from app.domain.ticket import Ticket, TicketAttachment
+from app.domain.ticket import Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.models import (
@@ -29,6 +30,7 @@ from app.infrastructure.db.models import (
     DeviceModel,
     MaintenanceRecordModel,
     TicketAttachmentModel,
+    TicketCommentModel,
     TicketModel,
     UserModel,
 )
@@ -148,3 +150,10 @@ class SqlAlchemyTicketAttachmentRepository(
 ):
     entity_class = TicketAttachment
     model_class = TicketAttachmentModel
+
+
+class SqlAlchemyTicketCommentRepository(
+    SqlAlchemyRepository[TicketComment, TicketCommentModel], TicketCommentRepository
+):
+    entity_class = TicketComment
+    model_class = TicketCommentModel

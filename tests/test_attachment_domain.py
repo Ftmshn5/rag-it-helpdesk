@@ -76,11 +76,11 @@ def make_ticket() -> Ticket:
     ],
 )
 def test_who_can_attach(user, allowed):
-    assert make_ticket().can_receive_attachment_from(user) is allowed
+    assert make_ticket().is_participant(user) is allowed
 
 
-def test_closed_ticket_does_not_accept_attachments():
+def test_closed_ticket_does_not_accept_contributions():
     ticket = make_ticket()
     ticket.status = TicketStatus.CLOSED
     with pytest.raises(BusinessRuleViolation, match="Kapanmış talebe"):
-        ticket.ensure_accepts_attachments()
+        ticket.ensure_open_for_contributions()

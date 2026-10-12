@@ -248,7 +248,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 7. Yalnızca depodaki (`IN_STOCK`) cihaz zimmetlenebilir veya hurdaya ayrılabilir.
 8. Bir cihazın aynı anda yalnızca bir açık bakım kaydı olabilir; hurdaya ayrılmış cihaza bakım açılamaz.
 9. Bakımdaki cihaz iade alınamaz (bakım bitince `ASSIGNED`'a dönüp zimmetsiz kalmasın diye).
-10. Yetki (basit rol kontrolü, `X-User-Id`): cihaz/zimmet işlemleri `ADMIN`, bakım işlemleri `TECHNICIAN`, talep açma her rol, aciliyeti değiştirme `ADMIN`.
+10. Yetki (basit rol kontrolü, `X-User-Id`): cihaz/zimmet işlemleri `ADMIN`, bakım işlemleri `TECHNICIAN`, talep açma her rol, aciliyeti değiştirme ve teknisyen atama `ADMIN`, çalışmaya başlama/çözme yalnızca atanan teknisyen, kapatma talep sahibi veya `ADMIN`, yeniden açma yalnızca talep sahibi; ek ve not ekleme talebin tarafları (talep sahibi, atanan teknisyen, `ADMIN`).
 11. Ticket modifier'ları istemciden alınmaz: VIP talep sahibinin `is_vip` alanından, URGENT `is_urgent` isteğinden gelir. Decorator'larda SLA üst sınırdır (VIP en geç 24, Acil en geç 4 saat), öncelik puanı katmanlarca eklenir.
 
 ### Ana akış
@@ -267,7 +267,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [x] **3. Altyapı iskeleti:** repository arayüzleri ve implementasyonları, event bus, bağımlılık enjeksiyonu
 - [x] **4. Envanter (Command):** cihaz ekleme, zimmetleme/iade, bakım kaydı + iş kuralları + testler
 - [x] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
-- [ ] **6. State:** ticket durum geçişleri + testler
+- [x] **6. State:** ticket durum geçişleri + testler
 - [ ] **7. AI Facade:** `AiSupportFacade` arayüzü + `FakeAiSupport`, ticket akışına bağlama, eskalasyon
 - [ ] **8. Query tarafı:** `read` şeması, read model'ler + event bus ile güncelleme, kullanıcı/teknisyen listeleri, bakım geçmişi, envanter raporu
 - [ ] **9. Frontend kurulumu:** Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, API client, CORS, rol seçici ve sayfa iskeleti

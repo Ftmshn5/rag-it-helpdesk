@@ -5,6 +5,20 @@ from pydantic import BaseModel, Field
 
 from app.api.schemas import CreatedResponse
 from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
+from app.application.commands.ticket_workflow import (
+    AddComment,
+    AddCommentHandler,
+    AssignTicket,
+    AssignTicketHandler,
+    CloseTicket,
+    CloseTicketHandler,
+    ReopenTicket,
+    ReopenTicketHandler,
+    ResolveTicket,
+    ResolveTicketHandler,
+    StartWork,
+    StartWorkHandler,
+)
 from app.application.commands.tickets import (
     CreateTicket,
     CreateTicketHandler,
@@ -13,10 +27,16 @@ from app.application.commands.tickets import (
 )
 from app.core.config import get_settings
 from app.core.dependencies import (
+    get_add_comment_handler,
+    get_assign_ticket_handler,
     get_attach_screenshot_handler,
+    get_close_ticket_handler,
     get_create_ticket_handler,
     get_current_user_id,
+    get_reopen_ticket_handler,
+    get_resolve_ticket_handler,
     get_set_ticket_urgency_handler,
+    get_start_work_handler,
 )
 from app.domain.enums import TicketCategory
 
@@ -33,6 +53,14 @@ class CreateTicketRequest(BaseModel):
 
 class SetTicketUrgencyRequest(BaseModel):
     is_urgent: bool
+
+
+class AssignTicketRequest(BaseModel):
+    technician_id: int
+
+
+class AddCommentRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=CreatedResponse)
@@ -75,3 +103,74 @@ def attach_screenshot(
         AttachScreenshot(actor_id=actor_id, ticket_id=ticket_id, content=content)
     )
     return CreatedResponse(id=attachment_id)
+
+
+# --- Durum geçişleri (State) ---
+
+
+@router.post("/{ticket_id}/assign", status_code=status.HTTP_204_NO_CONTENT)
+def assign_ticket(
+    ticket_id: int,
+    body: AssignTicketRequest,
+    actor_id: int = Depends(get_current_user_id),
+    handler: AssignTicketHandler = Depends(get_assign_ticket_handler),
+) -> None:
+    handler.handle(
+        AssignTicket(actor_id=actor_id, ticket_id=ticket_id, technician_id=body.technician_id)
+    )
+
+
+@router.post("/{ticket_id}/start", status_code=status.HTTP_204_NO_CONTENT)
+def start_work(
+    ticket_id: int,
+    actor_id: int = Depends(get_current_user_id),
+    handler: StartWorkHandler = Depends(get_start_work_handler),
+) -> None:
+    handler.handle(StartWork(actor_id=actor_id, ticket_id=ticket_id))
+
+
+@router.post("/{ticket_id}/resolve", status_code=status.HTTP_204_NO_CONTENT)
+def resolve_ticket(
+    ticket_id: int,
+    actor_id: int = Depends(get_current_user_id),
+    handler: ResolveTicketHandler = Depends(get_resolve_ticket_handler),
+) -> None:
+    handler.handle(ResolveTicket(actor_id=actor_id, ticket_id=ticket_id))
+
+
+@router.post("/{ticket_id}/close", status_code=status.HTTP_204_NO_CONTENT)
+def close_ticket(
+    ticket_id: int,
+    actor_id: int = Depends(get_current_user_id),
+    handler: CloseTicketHandler = Depends(get_close_ticket_handler),
+) -> None:
+    handler.handle(CloseTicket(actor_id=actor_id, ticket_id=ticket_id))
+
+
+@router.post("/{ticket_id}/reopen", status_code=status.HTTP_204_NO_CONTENT)
+def reopen_ticket(
+    ticket_id: int,
+    actor_id: int = Depends(get_current_user_id),
+    handler: ReopenTicketHandler = Depends(get_reopen_ticket_handler),
+) -> None:
+    handler.handle(ReopenTicket(actor_id=actor_id, ticket_id=ticket_id))
+
+
+# --- Not ---
+
+
+@router.post(
+    "/{ticket_id}/comments",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CreatedResponse,
+)
+def add_comment(
+    ticket_id: int,
+    body: AddCommentRequest,
+    actor_id: int = Depends(get_current_user_id),
+    handler: AddCommentHandler = Depends(get_add_comment_handler),
+) -> CreatedResponse:
+    comment_id = handler.handle(
+        AddComment(actor_id=actor_id, ticket_id=ticket_id, content=body.content)
+    )
+    return CreatedResponse(id=comment_id)

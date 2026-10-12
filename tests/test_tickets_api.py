@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.dependencies import get_file_storage, get_unit_of_work
-from app.domain.enums import TicketModifier, UserRole
+from app.domain.enums import TicketModifier, TicketStatus, UserRole
 from app.domain.user import User
 from app.main import create_app
 from tests.fakes import FakeUnitOfWork, InMemoryFileStorage
@@ -116,3 +116,45 @@ def test_other_user_cannot_upload_to_someones_ticket(client):
     )
 
     assert response.status_code == 403
+
+
+# --- Durum geçişleri ---
+
+
+def test_lifecycle_endpoints(client, uow):
+    technician = uow.users.add(User(full_name="Ali", email="ali@x.edu", role=UserRole.TECHNICIAN))
+    tech = {"X-User-Id": str(technician.id)}
+    ticket_id = client.post("/tickets", json=BODY, headers=USER).json()["id"]
+
+    # AI adımı henüz yok: atama OPEN durumunda reddedilir (State)
+    early = client.post(
+        f"/tickets/{ticket_id}/assign", json={"technician_id": technician.id}, headers=ADMIN
+    )
+    assert early.status_code == 409
+    assert early.json()["detail"] == "'Açık' durumundaki talep için teknisyen ataması yapılamaz."
+
+    ticket = uow.tickets.get(ticket_id)
+    ticket.escalate()
+    uow.tickets.update(ticket)
+
+    steps = [
+        ("assign", ADMIN, {"technician_id": technician.id}),
+        ("start", tech, None),
+        ("resolve", tech, None),
+        ("close", USER, None),
+    ]
+    for action, headers, body in steps:
+        response = client.post(f"/tickets/{ticket_id}/{action}", json=body, headers=headers)
+        assert response.status_code == 204, (action, response.json())
+
+    assert uow.tickets.get(ticket_id).status == TicketStatus.CLOSED
+
+
+def test_add_comment_returns_201(client):
+    ticket_id = client.post("/tickets", json=BODY, headers=USER).json()["id"]
+
+    response = client.post(
+        f"/tickets/{ticket_id}/comments", json={"content": "Yeniden başlattım."}, headers=USER
+    )
+
+    assert response.status_code == 201

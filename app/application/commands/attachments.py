@@ -36,9 +36,9 @@ class AttachScreenshotHandler:
         with self.uow:
             actor = require_role(self.uow, command.actor_id, *ALL_ROLES)
             ticket = get_ticket_or_raise(self.uow, command.ticket_id)
-            if not ticket.can_receive_attachment_from(actor):
+            if not ticket.is_participant(actor):
                 raise PermissionDeniedError("Bu talebe ek yükleme yetkiniz yok.")
-            ticket.ensure_accepts_attachments()
+            ticket.ensure_open_for_contributions()
             image_type = validate_screenshot(command.content, self.max_size_bytes)
 
             file_path = self.storage.save(

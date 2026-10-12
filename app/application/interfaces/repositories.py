@@ -6,14 +6,14 @@ infrastructure/db içindedir, testlerde ise in-memory sahteleri kullanılır.
 
 Burada yalnızca yazma tarafının (command handler'ların) ihtiyaç duyduğu
 işlemler var. Listeler ve raporlar CQRS okuma tarafının (queries/) işidir.
-Yorum ve AI yanıtı repository'leri ilgili adımlarda eklenecek.
+AI yanıtı repository'si ilgili adımda eklenecek.
 """
 
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
-from app.domain.ticket import Ticket, TicketAttachment
+from app.domain.ticket import Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 
 E = TypeVar("E")
@@ -62,4 +62,8 @@ class TicketRepository(Repository[Ticket], ABC):
 
 
 class TicketAttachmentRepository(Repository[TicketAttachment], ABC):
+    pass
+
+
+class TicketCommentRepository(Repository[TicketComment], ABC):
     pass

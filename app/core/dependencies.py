@@ -23,6 +23,14 @@ from app.application.commands.maintenance import (
     CompleteMaintenanceHandler,
     StartMaintenanceHandler,
 )
+from app.application.commands.ticket_workflow import (
+    AddCommentHandler,
+    AssignTicketHandler,
+    CloseTicketHandler,
+    ReopenTicketHandler,
+    ResolveTicketHandler,
+    StartWorkHandler,
+)
 from app.application.commands.tickets import CreateTicketHandler, SetTicketUrgencyHandler
 from app.application.errors import AuthenticationError
 from app.application.interfaces.event_bus import EventBus
@@ -112,6 +120,30 @@ def get_attach_screenshot_handler(
     storage: FileStorage = Depends(get_file_storage),
 ):
     return AttachScreenshotHandler(uow, storage, get_settings().max_upload_size_bytes)
+
+
+def get_assign_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return AssignTicketHandler(uow)
+
+
+def get_start_work_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return StartWorkHandler(uow)
+
+
+def get_resolve_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return ResolveTicketHandler(uow)
+
+
+def get_close_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return CloseTicketHandler(uow)
+
+
+def get_reopen_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return ReopenTicketHandler(uow)
+
+
+def get_add_comment_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return AddCommentHandler(uow)
 
 
 # --- Okuma tarafı / altyapı ---

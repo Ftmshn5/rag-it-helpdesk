@@ -44,7 +44,7 @@ STATUS_LABELS = {
 
 class TicketState(ABC):
     status: TicketStatus
-    accepts_attachments = True
+    accepts_contributions = True
     allows_urgency_change = True
 
     def _not_allowed(self, action: str) -> BusinessRuleViolation:
@@ -159,7 +159,7 @@ class ResolvedState(TicketState):
 
 class ClosedState(TicketState):
     status = TicketStatus.CLOSED
-    accepts_attachments = False
+    accepts_contributions = False
     allows_urgency_change = False
 
 

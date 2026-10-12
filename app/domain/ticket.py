@@ -99,13 +99,16 @@ class Ticket:
 
     # --- Durumdan etkilenen diğer kurallar ---
 
-    def can_receive_attachment_from(self, user: User) -> bool:
-        """Talep sahibi, atanan teknisyen ve yönetici ek yükleyebilir."""
+    def is_participant(self, user: User) -> bool:
+        """Talebin tarafları: talep sahibi, atanan teknisyen ve yönetici.
+
+        Ek (ekran görüntüsü) yükleyebilir ve not ekleyebilirler.
+        """
         return user.id in (self.requester_id, self.assignee_id) or user.role == UserRole.ADMIN
 
-    def ensure_accepts_attachments(self) -> None:
-        if not self.state.accepts_attachments:
-            raise BusinessRuleViolation("Kapanmış talebe ek eklenemez.")
+    def ensure_open_for_contributions(self) -> None:
+        if not self.state.accepts_contributions:
+            raise BusinessRuleViolation("Kapanmış talebe ek veya not eklenemez.")
 
     def set_urgent(self, is_urgent: bool) -> None:
         """Acil işaretini değiştirir (yönetici). VIP işaretine dokunmaz."""

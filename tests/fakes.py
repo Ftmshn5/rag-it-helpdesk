@@ -15,6 +15,7 @@ from app.application.interfaces.repositories import (
     DeviceRepository,
     MaintenanceRecordRepository,
     TicketAttachmentRepository,
+    TicketCommentRepository,
     TicketRepository,
     UserRepository,
 )
@@ -86,6 +87,10 @@ class InMemoryTicketAttachmentRepository(InMemoryRepository, TicketAttachmentRep
     pass
 
 
+class InMemoryTicketCommentRepository(InMemoryRepository, TicketCommentRepository):
+    pass
+
+
 class InMemoryFileStorage(FileStorage):
     """Dosyaları sözlükte tutar; testler `files` üzerinden kontrol eder."""
 
@@ -127,6 +132,7 @@ class FakeUnitOfWork(UnitOfWork):
         self.maintenance_records = InMemoryMaintenanceRecordRepository()
         self.tickets = InMemoryTicketRepository()
         self.ticket_attachments = InMemoryTicketAttachmentRepository()
+        self.ticket_comments = InMemoryTicketCommentRepository()
         self.committed = False
 
     def _commit(self) -> None:

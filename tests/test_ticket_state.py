@@ -156,7 +156,7 @@ def test_error_message_names_the_current_status_in_turkish():
 
 
 @pytest.mark.parametrize(
-    "status, accepts_attachments, allows_urgency_change",
+    "status, accepts_contributions, allows_urgency_change",
     [
         (S.OPEN, True, True),
         (S.IN_PROGRESS, True, True),
@@ -164,7 +164,7 @@ def test_error_message_names_the_current_status_in_turkish():
         (S.CLOSED, False, False),
     ],
 )
-def test_state_flags(status, accepts_attachments, allows_urgency_change):
+def test_state_flags(status, accepts_contributions, allows_urgency_change):
     state = make_ticket(status).state
-    assert state.accepts_attachments is accepts_attachments
+    assert state.accepts_contributions is accepts_contributions
     assert state.allows_urgency_change is allows_urgency_change

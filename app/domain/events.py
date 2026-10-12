@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.domain.clock import utc_now
+from app.domain.enums import TicketStatus
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -82,6 +83,28 @@ class ScreenshotAttached(DomainEvent):
     ticket_id: int
     attachment_id: int
     uploaded_by: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class TicketStatusChanged(DomainEvent):
+    """Her durum geçişinde yayınlanır (atama, başlama, çözme, kapatma, yeniden açma...).
+
+    Tek ve ortak bir olay olması, read model ve bildirim dinleyicilerinin
+    her geçiş için ayrı olaya abone olmasını gereksiz kılar.
+    """
+
+    ticket_id: int
+    old_status: TicketStatus
+    new_status: TicketStatus
+    actor_id: int
+    assignee_id: int | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class TicketCommentAdded(DomainEvent):
+    ticket_id: int
+    comment_id: int
+    author_id: int
 
 
 @dataclass(frozen=True, kw_only=True)

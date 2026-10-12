@@ -5,13 +5,27 @@ decorator'lı nesneyi yeniden kurar. Bu test o döngüyü uçtan uca doğrular.
 """
 
 from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
+from app.application.commands.ticket_workflow import (
+    AddComment,
+    AddCommentHandler,
+    AssignTicket,
+    AssignTicketHandler,
+    CloseTicket,
+    CloseTicketHandler,
+    ReopenTicket,
+    ReopenTicketHandler,
+    ResolveTicket,
+    ResolveTicketHandler,
+    StartWork,
+    StartWorkHandler,
+)
 from app.application.commands.tickets import (
     CreateTicket,
     CreateTicketHandler,
     SetTicketUrgency,
     SetTicketUrgencyHandler,
 )
-from app.domain.enums import TicketCategory, TicketModifier, UserRole
+from app.domain.enums import TicketCategory, TicketModifier, TicketStatus, UserRole
 from app.domain.ticket_behavior import TicketBehaviorFactory, UrgentTicket
 from app.domain.user import User
 from app.infrastructure.storage.local_file_storage import LocalFileStorage
@@ -46,6 +60,58 @@ def test_modifiers_round_trip_and_factory_rebuilds_behavior(sqlalchemy_uow):
     assert ticket.modifiers == [TicketModifier.VIP, TicketModifier.URGENT]
     assert isinstance(behavior, UrgentTicket)
     assert (behavior.sla_hours(), behavior.priority_score()) == (4, 80)
+
+
+def test_full_lifecycle_with_reopen_on_real_database(sqlalchemy_uow):
+    """Teknisyen çözer → kullanıcı yeniden açar → başka teknisyene atanır → kapanır."""
+    uow = sqlalchemy_uow
+    with uow:
+        user = uow.users.add(User(full_name="A", email="it.req@test.edu"))
+        admin = uow.users.add(User(full_name="Y", email="it.adm2@test.edu", role=UserRole.ADMIN))
+        ali = uow.users.add(User(full_name="T1", email="it.t1@test.edu", role=UserRole.TECHNICIAN))
+        elif_ = uow.users.add(User(full_name="T2", email="it.t2@test.edu", role=UserRole.TECHNICIAN))
+        uow.commit()
+    ticket_id = CreateTicketHandler(uow).handle(
+        CreateTicket(actor_id=user.id, title="VPN", description="d", category=TicketCategory.NETWORK)
+    )
+    with uow:  # AI adımı 7. adımda; şimdilik eskalasyonu doğrudan domain ile yapıyoruz
+        ticket = uow.tickets.get(ticket_id)
+        ticket.escalate()
+        uow.tickets.update(ticket)
+        uow.commit()
+
+    AssignTicketHandler(uow).handle(
+        AssignTicket(actor_id=admin.id, ticket_id=ticket_id, technician_id=ali.id)
+    )
+    StartWorkHandler(uow).handle(StartWork(actor_id=ali.id, ticket_id=ticket_id))
+    AddCommentHandler(uow).handle(
+        AddComment(actor_id=ali.id, ticket_id=ticket_id, content="Sertifika yenilendi.")
+    )
+    ResolveTicketHandler(uow).handle(ResolveTicket(actor_id=ali.id, ticket_id=ticket_id))
+    ReopenTicketHandler(uow).handle(ReopenTicket(actor_id=user.id, ticket_id=ticket_id))
+    AssignTicketHandler(uow).handle(
+        AssignTicket(actor_id=admin.id, ticket_id=ticket_id, technician_id=elif_.id)
+    )
+    StartWorkHandler(uow).handle(StartWork(actor_id=elif_.id, ticket_id=ticket_id))
+    ResolveTicketHandler(uow).handle(ResolveTicket(actor_id=elif_.id, ticket_id=ticket_id))
+    CloseTicketHandler(uow).handle(CloseTicket(actor_id=user.id, ticket_id=ticket_id))
+
+    with uow:
+        ticket = uow.tickets.get(ticket_id)
+    assert ticket.status == TicketStatus.CLOSED
+    assert ticket.assignee_id == elif_.id
+    assert ticket.resolved_at is not None
+    published = [e.new_status for e in uow.event_bus.published if hasattr(e, "new_status")]
+    assert published == [
+        TicketStatus.ASSIGNED,
+        TicketStatus.IN_PROGRESS,
+        TicketStatus.RESOLVED,
+        TicketStatus.ESCALATED,
+        TicketStatus.ASSIGNED,
+        TicketStatus.IN_PROGRESS,
+        TicketStatus.RESOLVED,
+        TicketStatus.CLOSED,
+    ]
 
 
 def test_screenshot_is_stored_on_disk_and_recorded_in_database(sqlalchemy_uow, tmp_path):
