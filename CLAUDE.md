@@ -231,6 +231,13 @@ erDiagram
 ### Ticket durumları
 `OPEN → AI_ANSWERED → (RESOLVED | ESCALATED) → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`
 
+Ek geçişler (State deseni, `domain/ticket_state.py`):
+- `OPEN → ESCALATED`: AI güveni eşiğin altında (iş kuralı 4).
+- `ASSIGNED / IN_PROGRESS → ASSIGNED`: başka teknisyene devir.
+- `RESOLVED → CLOSED`: talep sahibi veya yönetici çözümü onaylar.
+- `RESOLVED → ESCALATED`: talep sahibi yeniden açar (sorun sürüyor).
+- `CLOSED`: son durum; ek ve aciliyet değişikliği kabul etmez.
+
 ### İş kuralları
 1. Bir cihazın aynı anda yalnızca bir aktif zimmeti olabilir.
 2. Bakım kaydı açılınca cihaz `IN_REPAIR` olur, kapanınca önceki durumuna döner.
