@@ -95,7 +95,9 @@ infrastructure/
 ### Frontend mimarisi
 - Frontend ve backend tamamen ayrı iki uygulamadır; aralarındaki tek bağ REST API'dir.
 - CQRS ön yüzde de yansıtılır: okumalar `src/api/queries/` altında `useQuery` hook'ları, yazmalar `src/api/commands/` altında `useMutation` hook'ları.
-- Bileşenler API'yi doğrudan çağırmaz; yalnızca bu hook'ları kullanır.
+- Bileşenler API'yi doğrudan çağırmaz; yalnızca bu hook'ları kullanır (oxlint kuralı: `src/api` dışında `apiRequest`/`fetch` hata verir).
+- Yazma hook'ları başarılı olunca ilgili sorgu anahtarlarını geçersiz kılar (`invalidateQueries`); güncel veri query tarafından yeniden okunur. Kullanıcıya özel sorgu anahtarları kullanıcı id'sini içerir.
+- Arayüzdeki rol koruması (`RequireRole`) yalnızca kullanıcı deneyimi içindir; yetkinin asıl kontrolü backend'dedir.
 - Sayfalar role göre ayrılır: kullanıcı, teknisyen, yönetici.
 
 ### Repository
@@ -150,10 +152,12 @@ it-support/
 ├── migrations/            # Alembic
 ├── frontend/              # React + TypeScript (Vite)
 │   └── src/
-│       ├── api/           # client, queries/ (okuma), commands/ (yazma)
-│       ├── components/    # ortak bileşenler (shadcn/ui)
-│       ├── pages/         # user/, technician/, admin/
-│       └── types/         # API tipleri
+│       ├── api/           # client, queryKeys, queries/ (okuma), commands/ (yazma)
+│       ├── auth/          # seçili kullanıcı (X-User-Id) context'i
+│       ├── components/    # ui/ (shadcn/ui), layout/ (çerçeve, kullanıcı seçici, rol koruması)
+│       ├── pages/         # user/, technician/, admin/ + ortak sayfalar
+│       ├── types/         # API tipleri
+│       └── navigation.ts  # rollere göre menü ve ana sayfalar
 ├── .github/workflows/     # CI
 ├── data/
 │   ├── knowledge/         # RAG dokümanları
@@ -273,7 +277,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [x] **6. State:** ticket durum geçişleri + testler
 - [x] **7. AI Facade:** `AiSupportFacade` arayüzü + `FakeAiSupport`, ticket akışına bağlama, eskalasyon
 - [x] **8. Query tarafı:** `read` şeması, read model'ler + event bus ile güncelleme, kullanıcı/teknisyen listeleri, bakım geçmişi, envanter raporu
-- [ ] **9. Frontend kurulumu:** Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, API client, CORS, rol seçici ve sayfa iskeleti
+- [x] **9. Frontend kurulumu:** Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, API client, CORS, rol seçici ve sayfa iskeleti
 - [ ] **10. Frontend ekranları:** kullanıcı (talep aç, ekran görüntüsü, AI yanıtını değerlendir, taleplerim), teknisyen (atanan talepler, durum güncelle, bakım kaydı), yönetici (cihazlar, zimmet, atama, envanter raporu)
 - [ ] **11. Gerçek RAG:** Ollama kurulumu, embedding + pgvector, bilgi bankası dokümanları, Facade arkasına bağlama
 - [ ] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler
