@@ -38,10 +38,19 @@ from app.application.interfaces.ai_support import AiSupportFacade
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.unit_of_work import UnitOfWork
+from app.application.queries.tickets import (
+    GetTicketDetailHandler,
+    ListAllTicketsHandler,
+    ListAssignedTicketsHandler,
+    ListMyTicketsHandler,
+    TicketQueries,
+)
+from app.application.queries.users import ListUsersHandler, UserQueries
 from app.core.config import get_settings
 from app.core.event_subscriptions import register_subscribers
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.db.projections import TicketSummaryProjector
+from app.infrastructure.db.queries import SqlTicketQueries, SqlUserQueries
 from app.infrastructure.db.session import check_database_connection, get_session
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
@@ -177,3 +186,46 @@ def get_db_session() -> Iterator[Session]:
 
 def get_database_status() -> bool:
     return check_database_connection()
+
+
+# --- Okuma tarafı (queries): Unit of Work yok, düz salt-okunur oturum ---
+
+
+def get_ticket_queries(session: Session = Depends(get_db_session)) -> TicketQueries:
+    return SqlTicketQueries(session)
+
+
+def get_user_queries(session: Session = Depends(get_db_session)) -> UserQueries:
+    return SqlUserQueries(session)
+
+
+def get_list_users_handler(users: UserQueries = Depends(get_user_queries)):
+    return ListUsersHandler(users)
+
+
+def get_list_my_tickets_handler(
+    tickets: TicketQueries = Depends(get_ticket_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return ListMyTicketsHandler(tickets, users)
+
+
+def get_list_assigned_tickets_handler(
+    tickets: TicketQueries = Depends(get_ticket_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return ListAssignedTicketsHandler(tickets, users)
+
+
+def get_list_all_tickets_handler(
+    tickets: TicketQueries = Depends(get_ticket_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return ListAllTicketsHandler(tickets, users)
+
+
+def get_ticket_detail_handler(
+    tickets: TicketQueries = Depends(get_ticket_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return GetTicketDetailHandler(tickets, users, get_settings().ai_confidence_threshold)
