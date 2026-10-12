@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ortam değişkenleri (gizli bilgiler) — örnek için .env.example
+.env
+
+# Kullanıcı yüklemeleri
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Editör / işletim sistemi
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
