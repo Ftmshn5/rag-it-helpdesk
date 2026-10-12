@@ -201,7 +201,7 @@ it-support/
 - **User:** id, full_name, email, role (USER / TECHNICIAN / ADMIN), department, is_vip
 - **Device:** id, asset_tag, type, brand, model, serial_number, status (IN_STOCK / ASSIGNED / IN_REPAIR / RETIRED), location, purchase_date
 - **Assignment:** id, device_id, user_id, assigned_by, assigned_at, returned_at (boşsa aktif)
-- **MaintenanceRecord:** id, device_id, technician_id, ticket_id (opsiyonel), type (REPAIR / PERIODIC / PART_REPLACEMENT), description, performed_at
+- **MaintenanceRecord:** id, device_id, technician_id, ticket_id (opsiyonel), type (REPAIR / PERIODIC / PART_REPLACEMENT), description, previous_device_status, performed_at (başlangıç), completed_at (boşsa bakım sürüyor)
 - **Ticket:** id, title, description, category (HARDWARE / SOFTWARE / NETWORK / ACCOUNT), status, requester_id, assignee_id, device_id (opsiyonel), modifiers (liste), created_at, resolved_at
 - **TicketAttachment:** id, ticket_id, file_path, mime_type, uploaded_at
 - **AIResponse:** id, ticket_id, answer, confidence, sources, user_feedback (HELPFUL / NOT_HELPFUL / boş)
