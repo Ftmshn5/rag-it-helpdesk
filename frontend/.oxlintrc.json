@@ -3,6 +3,39 @@
   "plugins": ["react", "typescript", "oxc"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+
+    // Mimari kural (CLAUDE.md): bileşenler API'yi doğrudan çağırmaz, yalnızca
+    // api/queries (useQuery) ve api/commands (useMutation) hook'larını kullanır.
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@/api/client",
+            "importNames": ["apiRequest"],
+            "message": "Bileşenler API'yi doğrudan çağırmaz; api/queries veya api/commands altındaki hook'ları kullanın."
+          }
+        ]
+      }
+    ],
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "fetch",
+        "message": "Ağ istekleri yalnızca src/api/client.ts üzerinden yapılır."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/api/**"],
+      "rules": { "no-restricted-imports": "off", "no-restricted-globals": "off" }
+    },
+    {
+      // shadcn/ui bileşenleri stil varyantlarını da dışa aktarır (bilinçli tasarım)
+      "files": ["src/components/ui/**"],
+      "rules": { "react/only-export-components": "off" }
+    }
+  ]
 }

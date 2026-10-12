@@ -1,38 +1,39 @@
-import { useEffect, useState } from 'react'
+import { useUsers } from '@/api/queries/users'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-// Geçici sayfa (9a): frontend'in backend'e CORS üzerinden ulaşabildiğini doğrular.
-// 9b'de API istemcisi ve TanStack Query, 9c'de rol seçici ve sayfalar gelecek.
+// Geçici sayfa (9b): API istemcisi + TanStack Query + shadcn/ui zincirinin
+// çalıştığını gösterir. 9c'de rol seçici, yönlendirme ve sayfa iskeleti gelecek.
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
-
-type Health = { status: string; database: string }
+const ROLE_LABELS = { USER: 'Kullanıcı', TECHNICIAN: 'Teknisyen', ADMIN: 'Yönetici' } as const
 
 export default function App() {
-  const [health, setHealth] = useState<Health | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch(`${API_URL}/health`)
-      .then((response) => response.json())
-      .then(setHealth)
-      .catch(() => setError('Backend’e ulaşılamadı.'))
-  }, [])
+  const users = useUsers()
 
   return (
     <main className="mx-auto max-w-xl p-8">
-      <h1 className="text-2xl font-semibold text-slate-900">BT Destek ve Envanter</h1>
-      <p className="mt-4 text-slate-600">
-        Backend durumu:{' '}
-        {error ? (
-          <span className="font-medium text-red-600">{error}</span>
-        ) : health ? (
-          <span className="font-medium text-emerald-600">
-            {health.status} (veritabanı: {health.database})
-          </span>
-        ) : (
-          'kontrol ediliyor…'
-        )}
-      </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>BT Destek ve Envanter</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {users.isPending && <p className="text-muted-foreground">Kullanıcılar yükleniyor…</p>}
+          {users.isError && <p className="text-destructive">{users.error.message}</p>}
+          {users.data && (
+            <ul className="space-y-2">
+              {users.data.map((user) => (
+                <li key={user.id} className="flex items-center justify-between">
+                  <span>{user.full_name}</span>
+                  <span className="flex gap-1">
+                    {user.is_vip && <Badge>VIP</Badge>}
+                    <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </main>
   )
 }
