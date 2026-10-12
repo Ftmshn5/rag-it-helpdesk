@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import devices, health, maintenance, queries, tickets
 from app.api.errors import register_exception_handlers
@@ -18,6 +19,13 @@ def create_app() -> FastAPI:
     )
 
     app = FastAPI(title=settings.app_name, debug=settings.debug)
+    # Frontend ayrı bir adreste çalışır; tarayıcının isteklere izin vermesi için CORS gerekir
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],  # X-User-Id dahil
+    )
     # Uygulama başına tek event bus; dinleyiciler oluşturulurken kaydedilir
     app.state.event_bus = create_event_bus()
     register_exception_handlers(app)

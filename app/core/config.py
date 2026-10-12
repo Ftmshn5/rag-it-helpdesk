@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # İş kuralı 4: AI güven skoru bunun altındaysa talep doğrudan eskale edilir
     ai_confidence_threshold: float = 0.6
 
+    # Frontend'in (Vite geliştirme sunucusu) API'ye tarayıcıdan erişebileceği adresler
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
     @property
     def max_upload_size_bytes(self) -> int:
         return self.max_upload_size_mb * 1024 * 1024
