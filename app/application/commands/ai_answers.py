@@ -1,20 +1,29 @@
-"""AI command'ları (UC-14: yeni talebe otomatik yanıt üret).
+"""AI command'ları.
 
-Aktör kullanıcı değil, AI asistandır: bu command bir HTTP isteğiyle değil,
-TicketCreated olayını dinleyen bir Observer tarafından çağrılır (bkz.
-app/core/event_subscriptions.py). Talep bu noktada zaten kaydedilmiştir;
-AI ne yaparsa yapsın talep kaybolmaz.
+UC-14 (yeni talebe otomatik yanıt üret): aktör kullanıcı değil, AI asistandır.
+Bu command bir HTTP isteğiyle değil, TicketCreated olayını dinleyen bir
+Observer tarafından çağrılır (bkz. app/core/event_subscriptions.py). Talep bu
+noktada zaten kaydedilmiştir; AI ne yaparsa yapsın talep kaybolmaz.
+
+UC-02 (AI önerisini değerlendir): talep sahibi "çözüldü / çözülmedi" der.
 """
 
 import logging
 from dataclasses import dataclass
 
 from app.application.commands.common import get_ticket_or_raise
+from app.application.commands.ticket_workflow import (
+    TicketCommand,
+    TicketTransitionHandler,
+    require_requester,
+)
+from app.application.errors import NotFoundError
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.domain.enums import TicketStatus
-from app.domain.events import AiAnswerRecorded, TicketStatusChanged
-from app.domain.ticket import AIResponse
+from app.domain.events import AiAnswerRecorded, AiFeedbackGiven, TicketStatusChanged
+from app.domain.ticket import AIResponse, Ticket
+from app.domain.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -84,3 +93,34 @@ class AutoAnswerTicketHandler:
         except Exception:
             logger.exception("AI yanıtı üretilemedi (talep %s); talep eskale edilecek", ticket.id)
             return None
+
+
+# --- UC-02: kullanıcı AI önerisini değerlendirir ---
+
+
+@dataclass(frozen=True, kw_only=True)
+class EvaluateAiAnswer(TicketCommand):
+    is_helpful: bool
+
+
+class EvaluateAiAnswerHandler(TicketTransitionHandler):
+    """Durum geçişidir; ortak akışı (kaydet → TicketStatusChanged → commit)
+    TicketTransitionHandler'dan alır, yalnızca yetki ve geçişi tanımlar."""
+
+    def authorize(self, actor: User, ticket: Ticket) -> None:
+        require_requester(actor, ticket)
+
+    def apply(self, ticket: Ticket, command: EvaluateAiAnswer) -> None:
+        response = self.uow.ai_responses.get_by_ticket(ticket.id)
+        if response is None:
+            raise NotFoundError("Bu talep için AI yanıtı bulunamadı.")
+
+        ticket.apply_ai_feedback(command.is_helpful)  # State: yalnızca AI_ANSWERED'da
+        response.record_feedback(command.is_helpful)
+
+        self.uow.ai_responses.update(response)
+        self.uow.add_event(
+            AiFeedbackGiven(
+                ticket_id=ticket.id, ai_response_id=response.id, is_helpful=command.is_helpful
+            )
+        )

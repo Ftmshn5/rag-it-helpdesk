@@ -254,8 +254,8 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 ### Ana akış
 1. Kullanıcı arıza kaydı açar (UC-01), isteğe bağlı ekran görüntüsü ekler (UC-15).
 2. Factory, modifier'lara göre ticket'ı decorator'larla sarar.
-3. AiSupportFacade yanıt üretir (UC-14).
-4. Kullanıcı "çözüldü" derse kapanır; "çözülmedi" ya da düşük güven skoru → eskalasyon ve teknisyen ataması.
+3. AiSupportFacade yanıt üretir (UC-14). `TicketCreated` olayını dinleyen bir Observer `AutoAnswerTicketHandler`'ı çağırır; talep açma kodu AI'dan habersizdir. AI hata verirse talep eskale edilir. Düşük güvenli yanıt da istatistik için saklanır ama kullanıcıya gösterilmez.
+4. Kullanıcı "çözüldü" derse kapanır (`AI_ANSWERED → RESOLVED → CLOSED`, ayrıca onay istenmez); "çözülmedi" ya da düşük güven skoru → eskalasyon ve teknisyen ataması.
 5. Her yazma işleminden sonra event bus olay yayınlar, read model'ler güncellenir.
 
 ---
@@ -268,7 +268,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [x] **4. Envanter (Command):** cihaz ekleme, zimmetleme/iade, bakım kaydı + iş kuralları + testler
 - [x] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
 - [x] **6. State:** ticket durum geçişleri + testler
-- [ ] **7. AI Facade:** `AiSupportFacade` arayüzü + `FakeAiSupport`, ticket akışına bağlama, eskalasyon
+- [x] **7. AI Facade:** `AiSupportFacade` arayüzü + `FakeAiSupport`, ticket akışına bağlama, eskalasyon
 - [ ] **8. Query tarafı:** `read` şeması, read model'ler + event bus ile güncelleme, kullanıcı/teknisyen listeleri, bakım geçmişi, envanter raporu
 - [ ] **9. Frontend kurulumu:** Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, API client, CORS, rol seçici ve sayfa iskeleti
 - [ ] **10. Frontend ekranları:** kullanıcı (talep aç, ekran görüntüsü, AI yanıtını değerlendir, taleplerim), teknisyen (atanan talepler, durum güncelle, bakım kaydı), yönetici (cihazlar, zimmet, atama, envanter raporu)

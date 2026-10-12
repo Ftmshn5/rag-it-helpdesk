@@ -82,6 +82,20 @@ class Ticket:
         self.escalate()
         return False
 
+    def apply_ai_feedback(self, is_helpful: bool) -> None:
+        """UC-02: kullanıcı AI yanıtını değerlendirir.
+
+        - Çözüldü: kullanıcının onayı aynı zamanda çözümün onayıdır →
+          AI_ANSWERED → RESOLVED → CLOSED (ayrıca "kapat" istenmez).
+        - Çözülmedi: AI_ANSWERED → ESCALATED (teknisyen ataması beklenir).
+        Her iki geçiş de State üzerinden yapılır; AI_ANSWERED dışında reddedilir.
+        """
+        if is_helpful:
+            self.accept_ai_answer()
+            self.close()
+        else:
+            self.escalate()
+
     # --- Durum geçişleri: kararı mevcut durum nesnesi verir ---
 
     def record_ai_answer(self) -> None:
@@ -160,3 +174,8 @@ class AIResponse:
     confidence: float
     sources: list[str] = field(default_factory=list)
     user_feedback: AiFeedback | None = None
+
+    def record_feedback(self, is_helpful: bool) -> None:
+        if self.user_feedback is not None:
+            raise BusinessRuleViolation("Bu AI yanıtı zaten değerlendirilmiş.")
+        self.user_feedback = AiFeedback.HELPFUL if is_helpful else AiFeedback.NOT_HELPFUL

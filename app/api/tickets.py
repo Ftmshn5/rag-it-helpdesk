@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.api.schemas import CreatedResponse
+from app.application.commands.ai_answers import EvaluateAiAnswer, EvaluateAiAnswerHandler
 from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
 from app.application.commands.ticket_workflow import (
     AddComment,
@@ -33,6 +34,7 @@ from app.core.dependencies import (
     get_close_ticket_handler,
     get_create_ticket_handler,
     get_current_user_id,
+    get_evaluate_ai_answer_handler,
     get_reopen_ticket_handler,
     get_resolve_ticket_handler,
     get_set_ticket_urgency_handler,
@@ -57,6 +59,10 @@ class SetTicketUrgencyRequest(BaseModel):
 
 class AssignTicketRequest(BaseModel):
     technician_id: int
+
+
+class EvaluateAiAnswerRequest(BaseModel):
+    is_helpful: bool
 
 
 class AddCommentRequest(BaseModel):
@@ -174,3 +180,18 @@ def add_comment(
         AddComment(actor_id=actor_id, ticket_id=ticket_id, content=body.content)
     )
     return CreatedResponse(id=comment_id)
+
+
+# --- UC-02: AI önerisini değerlendir ---
+
+
+@router.post("/{ticket_id}/ai-feedback", status_code=status.HTTP_204_NO_CONTENT)
+def evaluate_ai_answer(
+    ticket_id: int,
+    body: EvaluateAiAnswerRequest,
+    actor_id: int = Depends(get_current_user_id),
+    handler: EvaluateAiAnswerHandler = Depends(get_evaluate_ai_answer_handler),
+) -> None:
+    handler.handle(
+        EvaluateAiAnswer(actor_id=actor_id, ticket_id=ticket_id, is_helpful=body.is_helpful)
+    )

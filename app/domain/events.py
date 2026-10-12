@@ -101,6 +101,13 @@ class TicketStatusChanged(DomainEvent):
 
 
 @dataclass(frozen=True, kw_only=True)
+class AiFeedbackGiven(DomainEvent):
+    ticket_id: int
+    ai_response_id: int
+    is_helpful: bool
+
+
+@dataclass(frozen=True, kw_only=True)
 class AiAnswerRecorded(DomainEvent):
     ticket_id: int
     ai_response_id: int | None  # AI hiç yanıt üretemediyse None

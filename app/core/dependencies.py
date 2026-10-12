@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
-from app.application.commands.ai_answers import AutoAnswerTicketHandler
+from app.application.commands.ai_answers import AutoAnswerTicketHandler, EvaluateAiAnswerHandler
 from app.application.commands.attachments import AttachScreenshotHandler
 from app.application.commands.assignments import AssignDeviceHandler, ReturnDeviceHandler
 from app.application.commands.devices import (
@@ -159,6 +159,10 @@ def get_reopen_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
 
 def get_add_comment_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
     return AddCommentHandler(uow)
+
+
+def get_evaluate_ai_answer_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return EvaluateAiAnswerHandler(uow)
 
 
 # --- Okuma tarafı / altyapı ---
