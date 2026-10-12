@@ -6,6 +6,7 @@ Kodun içinde sabit bağlantı adresi veya şifre bulunmaz.
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,6 +29,14 @@ class Settings(BaseSettings):
 
     # İş kuralı 4: AI güven skoru bunun altındaysa talep doğrudan eskale edilir
     ai_confidence_threshold: float = 0.6
+
+    # AI sağlayıcısı: "fake" (anahtar kelimeli sahte AI) veya "rag" (Ollama + pgvector)
+    ai_provider: Literal["fake", "rag"] = "fake"
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    embedding_model: str = "bge-m3"
+    llm_model: str = "qwen2.5:3b"
+    # CPU'da çalışan model yavaş olabilir; aşılırsa AI hatası sayılır ve talep eskale edilir
+    ollama_timeout_seconds: float = 120.0
 
     # Frontend'in (Vite geliştirme sunucusu) API'ye tarayıcıdan erişebileceği adresler
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]

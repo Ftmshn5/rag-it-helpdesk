@@ -36,8 +36,10 @@ from app.domain.enums import (
 )
 from app.infrastructure.db.base import Base
 
-# nomic-embed-text (Ollama) modelinin vektör boyutu; model değişirse migration gerekir
-EMBEDDING_DIMENSION = 768
+# bge-m3 (Ollama) embedding modelinin vektör boyutu; model değişirse migration gerekir.
+# Uygulama açılışında embedding sağlayıcısına da bu değer verilir: model farklı
+# boyutta vektör döndürürse veritabanına yazmadan önce hata verilir.
+EMBEDDING_DIMENSION = 1024
 
 
 def enum_column(enum_class: type, name: str) -> Enum:
@@ -215,3 +217,13 @@ class KnowledgeChunkModel(Base):
     )
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSION))
+
+    __table_args__ = (
+        # Kosinüs uzaklığıyla (<=>) en yakın parçaları bulmak için yaklaşık komşu indeksi
+        Index(
+            "ix_knowledge_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
