@@ -12,14 +12,21 @@ from app.application.interfaces.event_bus import EventBus
 from app.domain.events import (
     AiAnswerRecorded,
     AiFeedbackGiven,
+    DeviceAssigned,
+    DeviceDetailsUpdated,
+    DeviceRegistered,
+    DeviceRetired,
+    DeviceReturned,
     DomainEvent,
+    MaintenanceCompleted,
+    MaintenanceStarted,
     ScreenshotAttached,
     TicketCommentAdded,
     TicketCreated,
     TicketStatusChanged,
     TicketUrgencyChanged,
 )
-from app.infrastructure.db.projections import TicketSummaryProjector
+from app.infrastructure.db.projections import DeviceInventoryProjector, TicketSummaryProjector
 
 logger = logging.getLogger("app.events")
 
@@ -35,6 +42,18 @@ TICKET_SUMMARY_EVENTS = (
 )
 
 
+# device_inventory satırını etkileyen olaylar; hepsi device_id taşır
+DEVICE_INVENTORY_EVENTS = (
+    DeviceRegistered,
+    DeviceDetailsUpdated,
+    DeviceRetired,
+    DeviceAssigned,
+    DeviceReturned,
+    MaintenanceStarted,
+    MaintenanceCompleted,
+)
+
+
 def log_event(event: DomainEvent) -> None:
     logger.info("Olay: %s", event)
 
@@ -44,12 +63,13 @@ def register_subscribers(
     *,
     make_auto_answer_handler: Callable[[], AutoAnswerTicketHandler],
     ticket_summary_projector: TicketSummaryProjector | None = None,
+    device_inventory_projector: DeviceInventoryProjector | None = None,
 ) -> None:
     """Dinleyicileri kaydeder.
 
     Handler'lar her olayda yeniden oluşturulur (fabrika fonksiyonu ile): her
     çalışma kendi Unit of Work'ünü, dolayısıyla kendi transaction'ını alır.
-    Projektör verilmezse (veritabanısız testler) read model güncellenmez.
+    Projektörler verilmezse (veritabanısız testler) read model'ler güncellenmez.
     """
     # DomainEvent taban sınıfına abonelik → tüm olaylar loglanır
     event_bus.subscribe(DomainEvent, log_event)
@@ -67,4 +87,10 @@ def register_subscribers(
         for event_type in TICKET_SUMMARY_EVENTS:
             event_bus.subscribe(
                 event_type, lambda event: ticket_summary_projector.refresh(event.ticket_id)
+            )
+
+    if device_inventory_projector is not None:
+        for event_type in DEVICE_INVENTORY_EVENTS:
+            event_bus.subscribe(
+                event_type, lambda event: device_inventory_projector.refresh(event.device_id)
             )

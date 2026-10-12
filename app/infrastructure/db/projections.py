@@ -12,10 +12,13 @@ Neden olayın taşıdığı veriyle parça parça güncellemiyoruz?
   (`rebuild`). Seed verisi gibi olay üretmeden eklenen kayıtlar için de gerekli.
 Bedeli her olayda birkaç küçük sorgu çalışmasıdır; bu ölçekte önemsizdir.
 
+refresh/rebuild akışı her projektörde aynıdır (Template Method: Projector);
+alt sınıflar yalnızca hangi kayıtların ve satırın nasıl hesaplanacağını tanımlar.
+
 Elle yeniden kurma:  python -m app.infrastructure.db.projections
 """
 
-import logging
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
@@ -27,54 +30,75 @@ from sqlalchemy.orm import Session
 from app.domain.clock import utc_now
 from app.domain.enums import TicketModifier
 from app.domain.ticket_behavior import TicketBehaviorFactory
+from app.infrastructure.db.base import Base
 from app.infrastructure.db.models import (
     AIResponseModel,
+    AssignmentModel,
     DeviceModel,
+    MaintenanceRecordModel,
     TicketAttachmentModel,
     TicketCommentModel,
     TicketModel,
     UserModel,
 )
-from app.infrastructure.db.read_models import TicketSummaryModel
+from app.infrastructure.db.read_models import DeviceInventoryModel, TicketSummaryModel
 from app.infrastructure.db.repositories import SqlAlchemyTicketRepository
 from app.infrastructure.db.session import SessionLocal
 
-logger = logging.getLogger(__name__)
 
+class Projector(ABC):
+    read_model: type[Base]
+    key_column: str  # read model'in birincil anahtarı (örn. "ticket_id")
 
-class TicketSummaryProjector:
     def __init__(self, session_factory: Callable[[], Session] = SessionLocal) -> None:
         self.session_factory = session_factory
 
-    def refresh(self, ticket_id: int) -> None:
-        """Tek bir talebin özet satırını kaynaktan yeniden hesaplar."""
+    def refresh(self, key: int) -> None:
+        """Tek bir kaydın satırını kaynaktan yeniden hesaplar (upsert ya da silme)."""
         with self.session_factory() as session:
-            row = self._build_row(session, ticket_id)
-            if row is None:
+            row = self.build_row(session, key)
+            if row is None:  # kaynak kayıt silinmiş
                 session.execute(
-                    delete(TicketSummaryModel).where(TicketSummaryModel.ticket_id == ticket_id)
+                    delete(self.read_model).where(getattr(self.read_model, self.key_column) == key)
                 )
             else:
-                statement = insert(TicketSummaryModel).values(**row)
+                statement = insert(self.read_model).values(**row)
                 session.execute(
-                    statement.on_conflict_do_update(
-                        index_elements=[TicketSummaryModel.ticket_id], set_=row
-                    )
+                    statement.on_conflict_do_update(index_elements=[self.key_column], set_=row)
                 )
             session.commit()
 
     def rebuild(self) -> int:
-        """Tabloyu tamamen siler ve tüm talepler için yeniden üretir."""
+        """Tabloyu tamamen siler ve tüm kayıtlar için yeniden üretir."""
         with self.session_factory() as session:
-            session.execute(delete(TicketSummaryModel))
-            ticket_ids = session.scalars(select(TicketModel.id)).all()
-            for ticket_id in ticket_ids:
-                session.add(TicketSummaryModel(**self._build_row(session, ticket_id)))
+            session.execute(delete(self.read_model))
+            keys = self.all_keys(session)
+            for key in keys:
+                session.add(self.read_model(**self.build_row(session, key)))
             session.commit()
-            return len(ticket_ids)
+            return len(keys)
 
-    def _build_row(self, session: Session, ticket_id: int) -> dict[str, Any] | None:
-        ticket = SqlAlchemyTicketRepository(session).get(ticket_id)
+    @abstractmethod
+    def all_keys(self, session: Session) -> list[int]: ...
+
+    @abstractmethod
+    def build_row(self, session: Session, key: int) -> dict[str, Any] | None: ...
+
+
+def count_where(session: Session, model, **filters) -> int:
+    statement = select(func.count()).select_from(model).filter_by(**filters)
+    return session.scalar(statement)
+
+
+class TicketSummaryProjector(Projector):
+    read_model = TicketSummaryModel
+    key_column = "ticket_id"
+
+    def all_keys(self, session: Session) -> list[int]:
+        return list(session.scalars(select(TicketModel.id)))
+
+    def build_row(self, session: Session, key: int) -> dict[str, Any] | None:
+        ticket = SqlAlchemyTicketRepository(session).get(key)
         if ticket is None:
             return None
 
@@ -83,9 +107,7 @@ class TicketSummaryProjector:
         requester = session.get(UserModel, ticket.requester_id)
         assignee = session.get(UserModel, ticket.assignee_id) if ticket.assignee_id else None
         device = session.get(DeviceModel, ticket.device_id) if ticket.device_id else None
-        ai_response = session.scalar(
-            select(AIResponseModel).where(AIResponseModel.ticket_id == ticket_id)
-        )
+        ai_response = session.scalar(select(AIResponseModel).where(AIResponseModel.ticket_id == key))
 
         return {
             "ticket_id": ticket.id,
@@ -107,23 +129,66 @@ class TicketSummaryProjector:
             "ai_feedback": ai_response.user_feedback.value
             if ai_response and ai_response.user_feedback
             else None,
-            "comment_count": self._count(session, TicketCommentModel, ticket_id),
-            "attachment_count": self._count(session, TicketAttachmentModel, ticket_id),
+            "comment_count": count_where(session, TicketCommentModel, ticket_id=key),
+            "attachment_count": count_where(session, TicketAttachmentModel, ticket_id=key),
             "created_at": ticket.created_at,
             "resolved_at": ticket.resolved_at,
             "refreshed_at": utc_now(),
         }
 
-    @staticmethod
-    def _count(session: Session, model, ticket_id: int) -> int:
-        return session.scalar(
-            select(func.count()).select_from(model).where(model.ticket_id == ticket_id)
+
+class DeviceInventoryProjector(Projector):
+    read_model = DeviceInventoryModel
+    key_column = "device_id"
+
+    def all_keys(self, session: Session) -> list[int]:
+        return list(session.scalars(select(DeviceModel.id)))
+
+    def build_row(self, session: Session, key: int) -> dict[str, Any] | None:
+        device = session.get(DeviceModel, key)
+        if device is None:
+            return None
+
+        active = session.scalar(
+            select(AssignmentModel).where(
+                AssignmentModel.device_id == key, AssignmentModel.returned_at.is_(None)
+            )
         )
+        holder = session.get(UserModel, active.user_id) if active else None
+        last_maintenance_at = session.scalar(
+            select(func.max(MaintenanceRecordModel.performed_at)).where(
+                MaintenanceRecordModel.device_id == key
+            )
+        )
+
+        return {
+            "device_id": device.id,
+            "asset_tag": device.asset_tag,
+            "type": device.type,
+            "brand": device.brand,
+            "model": device.model,
+            "serial_number": device.serial_number,
+            "status": device.status.value,
+            "location": device.location,
+            "purchase_date": device.purchase_date,
+            "holder_id": holder.id if holder else None,
+            "holder_name": holder.full_name if holder else None,
+            "holder_department": holder.department if holder else None,
+            "assigned_at": active.assigned_at if active else None,
+            "has_open_maintenance": count_where(
+                session, MaintenanceRecordModel, device_id=key, completed_at=None
+            )
+            > 0,
+            "maintenance_count": count_where(session, MaintenanceRecordModel, device_id=key),
+            "last_maintenance_at": last_maintenance_at,
+            "refreshed_at": utc_now(),
+        }
 
 
 def rebuild_all(session_factory: Callable[[], Session] = SessionLocal) -> None:
-    count = TicketSummaryProjector(session_factory).rebuild()
-    print(f"ticket_summary: {count} satır yeniden üretildi.")
+    for projector_class in (TicketSummaryProjector, DeviceInventoryProjector):
+        count = projector_class(session_factory).rebuild()
+        print(f"{projector_class.read_model.__tablename__}: {count} satır yeniden üretildi.")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """Okuma arayüzlerinin SQL implementasyonları.
 
-Listeler yalnızca read.ticket_summary tablosunu okur (JOIN yok). Talep detayı,
+Listeler yalnızca read şemasındaki tabloları okur (JOIN yok). Talep detayı,
 özet satırına ek olarak tek tablodan gelen bilgileri (açıklama, notlar, ekler,
 AI yanıtı) doğrudan write tablolarından salt okunur sorgularla alır.
 """
@@ -8,6 +8,11 @@ AI yanıtı) doğrudan write tablolarından salt okunur sorgularla alır.
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.application.queries.inventory import (
+    DeviceInventoryView,
+    InventoryQueries,
+    MaintenanceRecordView,
+)
 from app.application.queries.tickets import (
     AiAnswerView,
     AttachmentView,
@@ -18,15 +23,17 @@ from app.application.queries.tickets import (
 )
 from app.application.queries.users import UserQueries, UserView
 from app.domain.clock import utc_now
-from app.domain.enums import AiFeedback, TicketCategory, TicketStatus
+from app.domain.enums import AiFeedback, DeviceStatus, TicketCategory, TicketStatus
 from app.infrastructure.db.models import (
     AIResponseModel,
+    DeviceModel,
+    MaintenanceRecordModel,
     TicketAttachmentModel,
     TicketCommentModel,
     TicketModel,
     UserModel,
 )
-from app.infrastructure.db.read_models import TicketSummaryModel
+from app.infrastructure.db.read_models import DeviceInventoryModel, TicketSummaryModel
 
 FINISHED = {TicketStatus.RESOLVED.value, TicketStatus.CLOSED.value}
 
@@ -161,3 +168,70 @@ class SqlUserQueries(UserQueries):
             department=user.department,
             is_vip=user.is_vip,
         )
+
+
+def to_inventory_view(row: DeviceInventoryModel) -> DeviceInventoryView:
+    return DeviceInventoryView(
+        device_id=row.device_id,
+        asset_tag=row.asset_tag,
+        type=row.type,
+        brand=row.brand,
+        model=row.model,
+        serial_number=row.serial_number,
+        status=DeviceStatus(row.status),
+        location=row.location,
+        purchase_date=row.purchase_date,
+        holder_id=row.holder_id,
+        holder_name=row.holder_name,
+        holder_department=row.holder_department,
+        assigned_at=row.assigned_at,
+        has_open_maintenance=row.has_open_maintenance,
+        maintenance_count=row.maintenance_count,
+        last_maintenance_at=row.last_maintenance_at,
+    )
+
+
+class SqlInventoryQueries(InventoryQueries):
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def list_devices(self, status=None, device_type=None):
+        statement = select(DeviceInventoryModel).order_by(DeviceInventoryModel.asset_tag)
+        if status is not None:
+            statement = statement.where(DeviceInventoryModel.status == status.value)
+        if device_type is not None:
+            statement = statement.where(DeviceInventoryModel.type == device_type)
+        return [to_inventory_view(row) for row in self.session.scalars(statement)]
+
+    def list_held_by(self, user_id):
+        statement = (
+            select(DeviceInventoryModel)
+            .where(DeviceInventoryModel.holder_id == user_id)
+            .order_by(DeviceInventoryModel.asset_tag)
+        )
+        return [to_inventory_view(row) for row in self.session.scalars(statement)]
+
+    def device_exists(self, device_id):
+        return self.session.get(DeviceModel, device_id) is not None
+
+    def maintenance_history(self, device_id):
+        rows = self.session.execute(
+            select(MaintenanceRecordModel, UserModel.full_name)
+            .join(UserModel, UserModel.id == MaintenanceRecordModel.technician_id)
+            .where(MaintenanceRecordModel.device_id == device_id)
+            .order_by(MaintenanceRecordModel.performed_at.desc())
+        )
+        return [
+            MaintenanceRecordView(
+                id=record.id,
+                type=record.type,
+                description=record.description,
+                technician_id=record.technician_id,
+                technician_name=technician_name,
+                ticket_id=record.ticket_id,
+                performed_at=record.performed_at,
+                completed_at=record.completed_at,
+                is_open=record.completed_at is None,
+            )
+            for record, technician_name in rows
+        ]

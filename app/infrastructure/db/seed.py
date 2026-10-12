@@ -25,6 +25,7 @@ from app.infrastructure.db.models import (
     MaintenanceRecordModel,
     UserModel,
 )
+from app.infrastructure.db.projections import rebuild_all
 from app.infrastructure.db.session import SessionLocal
 
 EMAIL_DOMAIN = "ornekfakulte.edu.tr"
@@ -135,6 +136,8 @@ def main() -> None:
             print("Örnek veriler eklendi.")
         else:
             print("Veritabanında zaten kullanıcı var; seed atlandı.")
+    # Seed doğrudan tablolara yazar, olay üretmez; read model'ler elle kurulur
+    rebuild_all()
 
 
 if __name__ == "__main__":

@@ -38,6 +38,12 @@ from app.application.interfaces.ai_support import AiSupportFacade
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.unit_of_work import UnitOfWork
+from app.application.queries.inventory import (
+    GetInventoryReportHandler,
+    GetMaintenanceHistoryHandler,
+    InventoryQueries,
+    ListMyDevicesHandler,
+)
 from app.application.queries.tickets import (
     GetTicketDetailHandler,
     ListAllTicketsHandler,
@@ -49,8 +55,8 @@ from app.application.queries.users import ListUsersHandler, UserQueries
 from app.core.config import get_settings
 from app.core.event_subscriptions import register_subscribers
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
-from app.infrastructure.db.projections import TicketSummaryProjector
-from app.infrastructure.db.queries import SqlTicketQueries, SqlUserQueries
+from app.infrastructure.db.projections import DeviceInventoryProjector, TicketSummaryProjector
+from app.infrastructure.db.queries import SqlInventoryQueries, SqlTicketQueries, SqlUserQueries
 from app.infrastructure.db.session import check_database_connection, get_session
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
@@ -73,6 +79,7 @@ def create_event_bus() -> EventBus:
             get_settings().ai_confidence_threshold,
         ),
         ticket_summary_projector=TicketSummaryProjector(),
+        device_inventory_projector=DeviceInventoryProjector(),
     )
     return event_bus
 
@@ -229,3 +236,28 @@ def get_ticket_detail_handler(
     users: UserQueries = Depends(get_user_queries),
 ):
     return GetTicketDetailHandler(tickets, users, get_settings().ai_confidence_threshold)
+
+
+def get_inventory_queries(session: Session = Depends(get_db_session)) -> InventoryQueries:
+    return SqlInventoryQueries(session)
+
+
+def get_inventory_report_handler(
+    inventory: InventoryQueries = Depends(get_inventory_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return GetInventoryReportHandler(inventory, users)
+
+
+def get_list_my_devices_handler(
+    inventory: InventoryQueries = Depends(get_inventory_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return ListMyDevicesHandler(inventory, users)
+
+
+def get_maintenance_history_handler(
+    inventory: InventoryQueries = Depends(get_inventory_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return GetMaintenanceHistoryHandler(inventory, users)

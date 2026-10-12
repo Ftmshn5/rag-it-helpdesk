@@ -86,6 +86,9 @@ infrastructure/
   - `write` şeması: normalize tablolar, iş kuralları burada uygulanır.
   - `read` şeması: raporlar için denormalize read model tabloları (örn. `ticket_summary`, `inventory_report`, `failure_stats`).
 - Read model'ler, yazma işleminden sonra **uygulama içi event bus** (Observer) ile aynı istekte güncellenir. Mesaj kuyruğu (RabbitMQ vb.) kullanılmayacak.
+- Uygulanan read model'ler: `read.ticket_summary` (talep listeleri), `read.device_inventory` (envanter raporu, zimmetli cihazlarım).
+- Projektörler (`infrastructure/db/projections.py`) olay geldiğinde ilgili satırı **write tablolarından yeniden hesaplar** (idempotent, sıradan bağımsız). Olay üretmeden yapılan değişikliklerden sonra (seed, elle SQL) yeniden kurma: `python -m app.infrastructure.db.projections` (seed scripti bunu kendisi çağırır).
+- Okuma tarafı karma: çok tabloyu birleştiren listeler read model'den; tek tablodan gelen veriler (bakım geçmişi, talep notları/ekleri) write tablolarından salt okunur sorguyla. Query handler'lar domain nesnesi/repository kullanmaz, DTO döner.
 - **Event Sourcing kullanılmayacak.**
 - Gerekçe: okuma (rapor/istatistik) ve yazma (iş kuralı/doğrulama) farklı veri şekillerine ihtiyaç duyuyor. "Yüksek performans" iddiası abartılmayacak.
 
@@ -269,7 +272,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [x] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
 - [x] **6. State:** ticket durum geçişleri + testler
 - [x] **7. AI Facade:** `AiSupportFacade` arayüzü + `FakeAiSupport`, ticket akışına bağlama, eskalasyon
-- [ ] **8. Query tarafı:** `read` şeması, read model'ler + event bus ile güncelleme, kullanıcı/teknisyen listeleri, bakım geçmişi, envanter raporu
+- [x] **8. Query tarafı:** `read` şeması, read model'ler + event bus ile güncelleme, kullanıcı/teknisyen listeleri, bakım geçmişi, envanter raporu
 - [ ] **9. Frontend kurulumu:** Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, API client, CORS, rol seçici ve sayfa iskeleti
 - [ ] **10. Frontend ekranları:** kullanıcı (talep aç, ekran görüntüsü, AI yanıtını değerlendir, taleplerim), teknisyen (atanan talepler, durum güncelle, bakım kaydı), yönetici (cihazlar, zimmet, atama, envanter raporu)
 - [ ] **11. Gerçek RAG:** Ollama kurulumu, embedding + pgvector, bilgi bankası dokümanları, Facade arkasına bağlama

@@ -8,9 +8,9 @@ Yazma tablolarından farklı olarak:
   tablolarıdır, bu tablolar onlardan türetilir ve her an yeniden kurulabilir.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base
@@ -50,4 +50,38 @@ class TicketSummaryModel(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refreshed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class DeviceInventoryModel(Base):
+    """Envanter raporunun (UC-11) ve "zimmetli cihazlarım"ın (UC-04) kaynağı.
+
+    Bir cihazın kimde olduğu (zimmet tablosu) ve bakım özeti (bakım tablosu)
+    satırın içine kopyalanır; rapor tek tablodan, JOIN'siz okunur.
+    """
+
+    __tablename__ = "device_inventory"
+    __table_args__ = {"schema": READ_SCHEMA}
+
+    device_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    asset_tag: Mapped[str] = mapped_column(String(50))
+    type: Mapped[str] = mapped_column(String(50), index=True)
+    brand: Mapped[str] = mapped_column(String(80))
+    model: Mapped[str] = mapped_column(String(120))
+    serial_number: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    location: Mapped[str | None] = mapped_column(String(120))
+    purchase_date: Mapped[date | None] = mapped_column(Date)
+
+    # Aktif zimmet (zimmet tablosundan)
+    holder_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    holder_name: Mapped[str | None] = mapped_column(String(120))
+    holder_department: Mapped[str | None] = mapped_column(String(120))
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Bakım özeti (bakım tablosundan)
+    has_open_maintenance: Mapped[bool] = mapped_column(Boolean)
+    maintenance_count: Mapped[int] = mapped_column(Integer)
+    last_maintenance_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     refreshed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
