@@ -7,8 +7,8 @@ bu modülün yanına eklenecek.
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from app.domain.clock import utc_now
 from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus
-from app.domain.inventory import utc_now
 
 
 @dataclass(kw_only=True)

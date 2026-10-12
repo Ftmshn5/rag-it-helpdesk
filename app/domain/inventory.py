@@ -1,13 +1,10 @@
 """Envanter modülünün varlıkları: cihaz, zimmet ve bakım kaydı."""
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 
+from app.domain.clock import utc_now
 from app.domain.enums import DeviceStatus, MaintenanceType
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 @dataclass(kw_only=True)

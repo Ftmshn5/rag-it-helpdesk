@@ -8,6 +8,7 @@ onlara görünmez — Repository deseninin test edilebilirlik faydası budur.
 from copy import deepcopy
 from typing import Generic, TypeVar
 
+from app.application.interfaces.event_bus import EventBus, EventHandler
 from app.application.interfaces.repositories import (
     AssignmentRepository,
     DeviceRepository,
@@ -16,6 +17,7 @@ from app.application.interfaces.repositories import (
     UserRepository,
 )
 from app.application.interfaces.unit_of_work import UnitOfWork
+from app.domain.events import DomainEvent
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
 
 E = TypeVar("E")
@@ -75,10 +77,24 @@ class InMemoryTicketRepository(InMemoryRepository, TicketRepository):
     pass
 
 
+class FakeEventBus(EventBus):
+    """Yayınlanan olayları listede biriktirir; testler `published` üzerinden kontrol eder."""
+
+    def __init__(self) -> None:
+        self.published: list[DomainEvent] = []
+
+    def subscribe(self, event_type, handler: EventHandler) -> None:
+        pass
+
+    def publish(self, event: DomainEvent) -> None:
+        self.published.append(event)
+
+
 class FakeUnitOfWork(UnitOfWork):
     """Gerçek transaction yok; testler `committed` bayrağıyla commit edilip edilmediğini denetler."""
 
-    def __init__(self) -> None:
+    def __init__(self, event_bus: EventBus | None = None) -> None:
+        super().__init__(event_bus or FakeEventBus())
         self.users = InMemoryUserRepository()
         self.devices = InMemoryDeviceRepository()
         self.assignments = InMemoryAssignmentRepository()
@@ -86,8 +102,8 @@ class FakeUnitOfWork(UnitOfWork):
         self.tickets = InMemoryTicketRepository()
         self.committed = False
 
-    def commit(self) -> None:
+    def _commit(self) -> None:
         self.committed = True
 
-    def rollback(self) -> None:
+    def _rollback(self) -> None:
         pass

@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.infrastructure.db.session import check_database_connection, engine
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
-from tests.fakes import FakeUnitOfWork
+from tests.fakes import FakeEventBus, FakeUnitOfWork
 
 
 @pytest.fixture
@@ -23,18 +23,23 @@ def db_connection():
 
 
 @pytest.fixture
-def sqlalchemy_uow(db_connection) -> SqlAlchemyUnitOfWork:
+def event_bus() -> FakeEventBus:
+    return FakeEventBus()
+
+
+@pytest.fixture
+def sqlalchemy_uow(db_connection, event_bus) -> SqlAlchemyUnitOfWork:
     session_factory = sessionmaker(
         bind=db_connection,
         join_transaction_mode="create_savepoint",
         expire_on_commit=False,
     )
-    return SqlAlchemyUnitOfWork(session_factory)
+    return SqlAlchemyUnitOfWork(event_bus, session_factory)
 
 
 @pytest.fixture(params=["in_memory", "sqlalchemy"])
-def uow(request):
+def uow(request, event_bus):
     """Aynı testi hem sahte hem gerçek Unit of Work ile çalıştırır."""
     if request.param == "in_memory":
-        return FakeUnitOfWork()
+        return FakeUnitOfWork(event_bus)
     return request.getfixturevalue("sqlalchemy_uow")

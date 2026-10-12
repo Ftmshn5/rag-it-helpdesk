@@ -9,6 +9,7 @@ from typing import Self
 
 from sqlalchemy.orm import Session
 
+from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.infrastructure.db.repositories import (
     SqlAlchemyAssignmentRepository,
@@ -21,7 +22,12 @@ from app.infrastructure.db.session import SessionLocal
 
 
 class SqlAlchemyUnitOfWork(UnitOfWork):
-    def __init__(self, session_factory: Callable[[], Session] = SessionLocal) -> None:
+    def __init__(
+        self,
+        event_bus: EventBus,
+        session_factory: Callable[[], Session] = SessionLocal,
+    ) -> None:
+        super().__init__(event_bus)
         self.session_factory = session_factory
 
     def __enter__(self) -> Self:
@@ -37,8 +43,8 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         super().__exit__(exc_type, exc_value, traceback)
         self.session.close()
 
-    def commit(self) -> None:
+    def _commit(self) -> None:
         self.session.commit()
 
-    def rollback(self) -> None:
+    def _rollback(self) -> None:
         self.session.rollback()
