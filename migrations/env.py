@@ -10,8 +10,9 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from app.core.config import get_settings
-from app.infrastructure.db import models  # noqa: F401  (modelleri metadata'ya kaydeder)
+from app.infrastructure.db import models, read_models  # noqa: F401  (modelleri metadata'ya kaydeder)
 from app.infrastructure.db.base import WRITE_SCHEMA, Base
+from app.infrastructure.db.read_models import READ_SCHEMA
 
 config = context.config
 
@@ -22,7 +23,7 @@ target_metadata = Base.metadata
 database_url = get_settings().database_url
 
 # Alembic'in yöneteceği şemalar; public gibi diğer şemalara dokunmaz
-MANAGED_SCHEMAS = {WRITE_SCHEMA}
+MANAGED_SCHEMAS = {WRITE_SCHEMA, READ_SCHEMA}
 
 
 def include_name(name, type_, parent_names) -> bool:

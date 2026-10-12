@@ -41,6 +41,7 @@ from app.application.interfaces.unit_of_work import UnitOfWork
 from app.core.config import get_settings
 from app.core.event_subscriptions import register_subscribers
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
+from app.infrastructure.db.projections import TicketSummaryProjector
 from app.infrastructure.db.session import check_database_connection, get_session
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
@@ -62,6 +63,7 @@ def create_event_bus() -> EventBus:
             get_ai_support(),
             get_settings().ai_confidence_threshold,
         ),
+        ticket_summary_projector=TicketSummaryProjector(),
     )
     return event_bus
 
