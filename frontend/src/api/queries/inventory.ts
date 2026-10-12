@@ -44,3 +44,16 @@ export function useMaintenanceHistory(deviceId: number) {
     enabled: userId !== null,
   })
 }
+
+/** Cihaz listesi (teknisyen: bakım kaydı; yönetici: zimmet işlemleri). */
+export function useDevices(status?: DeviceStatus) {
+  const { userId } = useCurrentUserId()
+  return useQuery({
+    queryKey: queryKeys.inventory.devices(status),
+    queryFn: () =>
+      apiRequest<DeviceInventory[]>(status ? `/devices?status=${status}` : '/devices', {
+        userId: userId!,
+      }),
+    enabled: userId !== null,
+  })
+}

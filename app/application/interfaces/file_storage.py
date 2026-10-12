@@ -17,4 +17,8 @@ class FileStorage(ABC):
         """
 
     @abstractmethod
+    def read(self, path: str) -> bytes:
+        """Kaydedilmiş dosyanın içeriği; dosya yoksa FileNotFoundError."""
+
+    @abstractmethod
     def delete(self, path: str) -> None: ...

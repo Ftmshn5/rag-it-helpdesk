@@ -42,9 +42,11 @@ from app.application.queries.inventory import (
     GetInventoryReportHandler,
     GetMaintenanceHistoryHandler,
     InventoryQueries,
+    ListDevicesHandler,
     ListMyDevicesHandler,
 )
 from app.application.queries.tickets import (
+    GetAttachmentFileHandler,
     GetTicketDetailHandler,
     ListAllTicketsHandler,
     ListAssignedTicketsHandler,
@@ -261,3 +263,18 @@ def get_maintenance_history_handler(
     users: UserQueries = Depends(get_user_queries),
 ):
     return GetMaintenanceHistoryHandler(inventory, users)
+
+
+def get_list_devices_handler(
+    inventory: InventoryQueries = Depends(get_inventory_queries),
+    users: UserQueries = Depends(get_user_queries),
+):
+    return ListDevicesHandler(inventory, users)
+
+
+def get_attachment_file_handler(
+    tickets: TicketQueries = Depends(get_ticket_queries),
+    users: UserQueries = Depends(get_user_queries),
+    storage: FileStorage = Depends(get_file_storage),
+):
+    return GetAttachmentFileHandler(tickets, users, storage)

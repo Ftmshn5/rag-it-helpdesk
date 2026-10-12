@@ -14,6 +14,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from app.application.errors import NotFoundError, PermissionDeniedError
+from app.application.interfaces.file_storage import FileStorage
 from app.application.queries.users import UserQueries, require_viewer
 from app.domain.enums import AiFeedback, TicketCategory, TicketStatus, UserRole
 
@@ -101,6 +102,18 @@ class TicketQueries(ABC):
     @abstractmethod
     def get_detail(self, ticket_id: int) -> TicketDetailView | None: ...
 
+    @abstractmethod
+    def get_attachment(self, ticket_id: int, attachment_id: int) -> "AttachmentFileView | None":
+        """Ekin depolama yolu ve talebin tarafları; ek bu talebe ait değilse None."""
+
+
+@dataclass(frozen=True)
+class AttachmentFileView:
+    file_path: str
+    mime_type: str
+    requester_id: int
+    assignee_id: int | None
+
 
 # --- Sorgu handler'ları ---
 
@@ -160,3 +173,28 @@ class GetTicketDetailHandler:
         if answer and answer.confidence < self.ai_threshold and not is_staff:
             detail = replace(detail, ai_answer=None)
         return detail
+
+
+class GetAttachmentFileHandler:
+    """Ekran görüntüsünün kendisi (UC-15'in görüntüleme tarafı).
+
+    Ek yükleme kuralıyla aynı: yalnızca talebin tarafları (talep sahibi,
+    atanan teknisyen, yönetici) görebilir.
+    """
+
+    def __init__(self, tickets: TicketQueries, users: UserQueries, storage: FileStorage) -> None:
+        self.tickets, self.users, self.storage = tickets, users, storage
+
+    def handle(self, actor_id: int, ticket_id: int, attachment_id: int) -> tuple[bytes, str]:
+        actor = require_viewer(self.users, actor_id)
+        attachment = self.tickets.get_attachment(ticket_id, attachment_id)
+        if attachment is None:
+            raise NotFoundError("Ek bulunamadı.")
+        is_participant = actor.id in (attachment.requester_id, attachment.assignee_id)
+        if not is_participant and actor.role != UserRole.ADMIN:
+            raise PermissionDeniedError("Bu eki görüntüleme yetkiniz yok.")
+        try:
+            content = self.storage.read(attachment.file_path)
+        except FileNotFoundError:
+            raise NotFoundError("Ek dosyası depolamada bulunamadı.") from None
+        return content, attachment.mime_type

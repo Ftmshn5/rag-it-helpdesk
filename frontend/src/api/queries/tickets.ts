@@ -1,6 +1,7 @@
 // Talep okumaları (backend: GET /tickets/...). Hepsi useQuery; hiçbiri veri değiştirmez.
 
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo } from 'react'
 
 import { apiRequest } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
@@ -49,4 +50,34 @@ export function useTicketDetail(ticketId: number) {
     queryFn: () => apiRequest<TicketDetail>(`/tickets/${ticketId}`, { userId: userId! }),
     enabled: userId !== null,
   })
+}
+
+/**
+ * Ekran görüntüsünü gösterilebilir bir adrese çevirir.
+ * <img src> istek başlığı (X-User-Id) gönderemediği için dosya API istemcisiyle
+ * Blob olarak indirilir ve tarayıcı içinde geçici bir "blob:" adresi oluşturulur.
+ */
+export function useAttachmentImage(ticketId: number, attachmentId: number) {
+  const { userId } = useCurrentUserId()
+  const query = useQuery({
+    queryKey: queryKeys.tickets.attachment(ticketId, attachmentId, userId ?? 0),
+    queryFn: () =>
+      apiRequest<Blob>(`/tickets/${ticketId}/attachments/${attachmentId}`, {
+        userId: userId!,
+        responseType: 'blob',
+      }),
+    enabled: userId !== null,
+    staleTime: Infinity, // yüklenen dosya değişmez
+  })
+
+  // Adres render sırasında türetilir; effect yalnızca temizlik içindir:
+  // bileşen kaldırılınca veya dosya değişince eski adres serbest bırakılır.
+  const url = useMemo(() => (query.data ? URL.createObjectURL(query.data) : null), [query.data])
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [url])
+
+  return { url, isPending: query.isPending, error: query.error }
 }

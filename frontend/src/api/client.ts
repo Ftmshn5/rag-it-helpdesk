@@ -20,10 +20,12 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH'
   /** JSON gövde ya da dosya yüklemesi için FormData */
   body?: unknown
+  /** 'blob': dosya (örn. ekran görüntüsü) indirmek için */
+  responseType?: 'json' | 'blob'
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { userId, method = 'GET', body } = options
+  const { userId, method = 'GET', body, responseType = 'json' } = options
   const headers: Record<string, string> = {}
   if (userId !== undefined) headers['X-User-Id'] = String(userId)
 
@@ -46,6 +48,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError(response.status, await readErrorMessage(response))
   }
   if (response.status === 204) return undefined as T // command'ların "içerik yok" yanıtı
+  if (responseType === 'blob') return (await response.blob()) as T
   return (await response.json()) as T
 }
 

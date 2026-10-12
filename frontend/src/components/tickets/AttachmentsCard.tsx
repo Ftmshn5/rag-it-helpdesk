@@ -1,14 +1,15 @@
-// Talebin ekran görüntüleri (UC-15): liste ve yeni yükleme.
+// Talebin ekran görüntüleri (UC-15): küçük resimler ve yeni yükleme.
 
 import { useState, type ChangeEvent } from 'react'
 
 import { useAttachScreenshot } from '@/api/commands/tickets'
+import { useAttachmentImage } from '@/api/queries/tickets'
 import { ErrorText } from '@/components/layout/QueryState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ACCEPTED_SCREENSHOT_TYPES, MAX_SCREENSHOT_MB, screenshotProblem } from '@/lib/files'
 import { formatDateTime } from '@/lib/format'
-import type { TicketDetail } from '@/types/api'
+import type { TicketAttachment, TicketDetail } from '@/types/api'
 
 export function AttachmentsCard({
   ticket,
@@ -19,6 +20,7 @@ export function AttachmentsCard({
 }) {
   const attach = useAttachScreenshot()
   const [problem, setProblem] = useState<string | null>(null)
+  const ticketId = ticket.summary.ticket_id
 
   function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -26,7 +28,7 @@ export function AttachmentsCard({
     if (!file) return
     const issue = screenshotProblem(file)
     setProblem(issue)
-    if (!issue) attach.mutate({ ticketId: ticket.summary.ticket_id, file })
+    if (!issue) attach.mutate({ ticketId, file })
   }
 
   return (
@@ -38,14 +40,11 @@ export function AttachmentsCard({
         {ticket.attachments.length === 0 ? (
           <p className="text-sm text-muted-foreground">Ekran görüntüsü eklenmemiş.</p>
         ) : (
-          <ul className="space-y-1 text-sm">
-            {ticket.attachments.map((attachment, index) => (
-              <li key={attachment.id}>
-                Görüntü {index + 1} ({attachment.mime_type === 'image/png' ? 'PNG' : 'JPG'}) ·{' '}
-                {formatDateTime(attachment.uploaded_at)}
-              </li>
+          <div className="grid grid-cols-2 gap-2">
+            {ticket.attachments.map((attachment) => (
+              <AttachmentThumbnail key={attachment.id} ticketId={ticketId} attachment={attachment} />
             ))}
-          </ul>
+          </div>
         )}
 
         {canContribute && (
@@ -66,5 +65,22 @@ export function AttachmentsCard({
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function AttachmentThumbnail({ ticketId, attachment }: { ticketId: number; attachment: TicketAttachment }) {
+  const image = useAttachmentImage(ticketId, attachment.id)
+  const uploaded = formatDateTime(attachment.uploaded_at)
+
+  if (image.error) return <p className="text-xs text-destructive">{image.error.message}</p>
+  if (!image.url) return <div className="aspect-video animate-pulse rounded-md bg-muted" />
+  return (
+    <a href={image.url} target="_blank" rel="noreferrer" title={`Yüklenme: ${uploaded} — büyütmek için tıklayın`}>
+      <img
+        src={image.url}
+        alt={`Ekran görüntüsü (${uploaded})`}
+        className="aspect-video w-full rounded-md border object-cover"
+      />
+    </a>
   )
 }

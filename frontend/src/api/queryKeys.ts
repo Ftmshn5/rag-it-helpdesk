@@ -20,11 +20,16 @@ export const queryKeys = {
       ['tickets', 'assigned', userId, status] as const,
     queue: (status?: TicketStatus) => ['tickets', 'queue', status] as const,
     detail: (ticketId: number) => ['tickets', 'detail', ticketId] as const,
+    // 'tickets' önekinin dışında: dosya değişmez, talep yenilenince tekrar indirilmez.
+    // Yetki kişiye bağlı olduğu için kullanıcı id'si anahtarda.
+    attachment: (ticketId: number, attachmentId: number, userId: number) =>
+      ['attachments', ticketId, attachmentId, userId] as const,
   },
 
   inventory: {
     all: ['inventory'] as const,
     report: (status?: DeviceStatus, type?: string) => ['inventory', 'report', status, type] as const,
+    devices: (status?: DeviceStatus) => ['inventory', 'devices', status] as const,
     mine: (userId: number) => ['inventory', 'mine', userId] as const,
     maintenance: (deviceId: number) => ['inventory', 'maintenance', deviceId] as const,
   },

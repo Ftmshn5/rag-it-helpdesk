@@ -102,6 +102,22 @@ class GetInventoryReportHandler:
         )
 
 
+class ListDevicesHandler:
+    """Cihaz listesi: teknisyen bakım kaydı açmak, yönetici zimmet işlemleri için kullanır.
+
+    Envanter raporundan (yalnızca yönetici) farkı: sayımlar yok, yalnızca liste.
+    """
+
+    def __init__(self, inventory: InventoryQueries, users: UserQueries) -> None:
+        self.inventory, self.users = inventory, users
+
+    def handle(
+        self, actor_id: int, status: DeviceStatus | None = None, device_type: str | None = None
+    ) -> list[DeviceInventoryView]:
+        require_viewer(self.users, actor_id, UserRole.TECHNICIAN, UserRole.ADMIN)
+        return self.inventory.list_devices(status, device_type)
+
+
 class ListMyDevicesHandler:
     """UC-04: kullanıcı kendisine zimmetli cihazları görür."""
 

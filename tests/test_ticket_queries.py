@@ -98,6 +98,9 @@ class FakeTicketQueries(TicketQueries):
     def get_detail(self, ticket_id):
         return self.detail
 
+    def get_attachment(self, ticket_id, attachment_id):
+        return None
+
 
 def test_my_tickets_are_filtered_by_actor_not_by_parameter():
     queries = FakeTicketQueries()

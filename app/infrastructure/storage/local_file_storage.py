@@ -19,6 +19,9 @@ class LocalFileStorage(FileStorage):
         target.write_bytes(content)
         return relative_path.as_posix()
 
+    def read(self, path: str) -> bytes:
+        return self._resolve(Path(path)).read_bytes()
+
     def delete(self, path: str) -> None:
         self._resolve(Path(path)).unlink(missing_ok=True)
 

@@ -5,17 +5,19 @@ Sabit yollar (/tickets/mine) değişkenli yoldan (/tickets/{ticket_id}) önce
 tanımlanır; aksi halde "mine" bir talep numarası sanılırdı.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 
 from app.application.queries.inventory import (
     DeviceInventoryView,
     GetInventoryReportHandler,
     GetMaintenanceHistoryHandler,
     InventoryReportView,
+    ListDevicesHandler,
     ListMyDevicesHandler,
     MaintenanceRecordView,
 )
 from app.application.queries.tickets import (
+    GetAttachmentFileHandler,
     GetTicketDetailHandler,
     ListAllTicketsHandler,
     ListAssignedTicketsHandler,
@@ -25,7 +27,9 @@ from app.application.queries.tickets import (
 )
 from app.application.queries.users import ListUsersHandler, UserView
 from app.core.dependencies import (
+    get_attachment_file_handler,
     get_current_user_id,
+    get_list_devices_handler,
     get_inventory_report_handler,
     get_list_my_devices_handler,
     get_maintenance_history_handler,
@@ -73,6 +77,26 @@ def list_all_tickets(
     return handler.handle(actor_id, status)
 
 
+@router.get("/tickets/{ticket_id}/attachments/{attachment_id}")
+def get_attachment_file(
+    ticket_id: int,
+    attachment_id: int,
+    actor_id: int = Depends(get_current_user_id),
+    handler: GetAttachmentFileHandler = Depends(get_attachment_file_handler),
+) -> Response:
+    content, mime_type = handler.handle(actor_id, ticket_id, attachment_id)
+    return Response(
+        content=content,
+        media_type=mime_type,
+        headers={
+            # Tarayıcı türü tahmin etmeye çalışmasın: yalnızca bildirilen png/jpg
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline",
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
 @router.get("/tickets/{ticket_id}", response_model=TicketDetailView)
 def get_ticket_detail(
     ticket_id: int,
@@ -91,6 +115,16 @@ def get_inventory_report(
     type: str | None = None,
     actor_id: int = Depends(get_current_user_id),
     handler: GetInventoryReportHandler = Depends(get_inventory_report_handler),
+):
+    return handler.handle(actor_id, status, type)
+
+
+@router.get("/devices", response_model=list[DeviceInventoryView])
+def list_devices(
+    status: DeviceStatus | None = None,
+    type: str | None = None,
+    actor_id: int = Depends(get_current_user_id),
+    handler: ListDevicesHandler = Depends(get_list_devices_handler),
 ):
     return handler.handle(actor_id, status, type)
 

@@ -3,13 +3,12 @@
 import { Link } from 'react-router'
 
 import { useMyDevices } from '@/api/queries/inventory'
+import { DeviceStatusBadge } from '@/components/inventory/DeviceStatusBadge'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { QueryState } from '@/components/layout/QueryState'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate } from '@/lib/format'
-import { DEVICE_STATUS_LABELS } from '@/lib/labels'
 
 export function MyDevicesPage() {
   const devices = useMyDevices()
@@ -28,9 +27,7 @@ export function MyDevicesPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between gap-2">
                       {device.asset_tag}
-                      <Badge variant={device.status === 'IN_REPAIR' ? 'destructive' : 'secondary'}>
-                        {DEVICE_STATUS_LABELS[device.status]}
-                      </Badge>
+                      <DeviceStatusBadge status={device.status} />
                     </CardTitle>
                     <CardDescription>
                       {device.type} · {device.brand} {device.model}

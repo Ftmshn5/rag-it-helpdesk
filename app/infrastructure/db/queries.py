@@ -15,6 +15,7 @@ from app.application.queries.inventory import (
 )
 from app.application.queries.tickets import (
     AiAnswerView,
+    AttachmentFileView,
     AttachmentView,
     CommentView,
     TicketDetailView,
@@ -144,6 +145,23 @@ class SqlTicketQueries(TicketQueries):
                 for a in attachments
             ],
         )
+
+    def get_attachment(self, ticket_id: int, attachment_id: int) -> AttachmentFileView | None:
+        row = self.session.execute(
+            select(
+                TicketAttachmentModel.file_path,
+                TicketAttachmentModel.mime_type,
+                TicketModel.requester_id,
+                TicketModel.assignee_id,
+            )
+            .join(TicketModel, TicketModel.id == TicketAttachmentModel.ticket_id)
+            .where(
+                TicketAttachmentModel.id == attachment_id,
+                # Ek gerçekten bu talebe mi ait? Başka talebin eki bu adresle açılamaz.
+                TicketAttachmentModel.ticket_id == ticket_id,
+            )
+        ).first()
+        return AttachmentFileView(*row) if row else None
 
 
 class SqlUserQueries(UserQueries):

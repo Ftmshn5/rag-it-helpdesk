@@ -111,6 +111,11 @@ class InMemoryFileStorage(FileStorage):
         self.files[path] = content
         return path
 
+    def read(self, path: str) -> bytes:
+        if path not in self.files:
+            raise FileNotFoundError(path)
+        return self.files[path]
+
     def delete(self, path: str) -> None:
         self.files.pop(path, None)
 
