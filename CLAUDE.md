@@ -236,12 +236,13 @@ erDiagram
 2. Bakım kaydı açılınca cihaz `IN_REPAIR` olur, kapanınca önceki durumuna döner.
 3. Ticket yalnızca `TECHNICIAN` rolündeki kullanıcıya atanabilir.
 4. AI güven skoru `AI_CONFIDENCE_THRESHOLD` (varsayılan 0.6) altındaysa ticket doğrudan `ESCALATED` olur.
-5. Ekran görüntüsü yalnızca png/jpg ve belirli boyut sınırı altında kabul edilir.
+5. Ekran görüntüsü yalnızca png/jpg ve belirli boyut sınırı (`MAX_UPLOAD_SIZE_MB`, varsayılan 5) altında kabul edilir. Tür, dosya adına değil içeriğin ilk baytlarına (magic bytes) bakılarak belirlenir. Ek yalnızca talep sahibi, atanan teknisyen ve yönetici tarafından yüklenebilir; kapanmış talebe ek eklenemez.
 6. Cihaz durumu doğrudan güncellenemez; yalnızca iş akışlarıyla değişir (zimmet/iade, bakım aç/kapat, hurdaya ayır).
 7. Yalnızca depodaki (`IN_STOCK`) cihaz zimmetlenebilir veya hurdaya ayrılabilir.
 8. Bir cihazın aynı anda yalnızca bir açık bakım kaydı olabilir; hurdaya ayrılmış cihaza bakım açılamaz.
 9. Bakımdaki cihaz iade alınamaz (bakım bitince `ASSIGNED`'a dönüp zimmetsiz kalmasın diye).
-10. Yetki (basit rol kontrolü, `X-User-Id`): cihaz/zimmet işlemleri `ADMIN`, bakım işlemleri `TECHNICIAN`.
+10. Yetki (basit rol kontrolü, `X-User-Id`): cihaz/zimmet işlemleri `ADMIN`, bakım işlemleri `TECHNICIAN`, talep açma her rol, aciliyeti değiştirme `ADMIN`.
+11. Ticket modifier'ları istemciden alınmaz: VIP talep sahibinin `is_vip` alanından, URGENT `is_urgent` isteğinden gelir. Decorator'larda SLA üst sınırdır (VIP en geç 24, Acil en geç 4 saat), öncelik puanı katmanlarca eklenir.
 
 ### Ana akış
 1. Kullanıcı arıza kaydı açar (UC-01), isteğe bağlı ekran görüntüsü ekler (UC-15).
@@ -258,7 +259,7 @@ erDiagram
 - [x] **2. Domain ve veritabanı:** enum'lar, domain varlıkları, SQLAlchemy modelleri (`write` şeması), Alembic ilk migration, seed data scripti
 - [x] **3. Altyapı iskeleti:** repository arayüzleri ve implementasyonları, event bus, bağımlılık enjeksiyonu
 - [x] **4. Envanter (Command):** cihaz ekleme, zimmetleme/iade, bakım kaydı + iş kuralları + testler
-- [ ] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
+- [x] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
 - [ ] **6. State:** ticket durum geçişleri + testler
 - [ ] **7. AI Facade:** `AiSupportFacade` arayüzü + `FakeAiSupport`, ticket akışına bağlama, eskalasyon
 - [ ] **8. Query tarafı:** `read` şeması, read model'ler + event bus ile güncelleme, kullanıcı/teknisyen listeleri, bakım geçmişi, envanter raporu

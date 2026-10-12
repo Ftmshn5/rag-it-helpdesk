@@ -9,10 +9,12 @@ from copy import deepcopy
 from typing import Generic, TypeVar
 
 from app.application.interfaces.event_bus import EventBus, EventHandler
+from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.repositories import (
     AssignmentRepository,
     DeviceRepository,
     MaintenanceRecordRepository,
+    TicketAttachmentRepository,
     TicketRepository,
     UserRepository,
 )
@@ -80,6 +82,27 @@ class InMemoryTicketRepository(InMemoryRepository, TicketRepository):
     pass
 
 
+class InMemoryTicketAttachmentRepository(InMemoryRepository, TicketAttachmentRepository):
+    pass
+
+
+class InMemoryFileStorage(FileStorage):
+    """Dosyaları sözlükte tutar; testler `files` üzerinden kontrol eder."""
+
+    def __init__(self) -> None:
+        self.files: dict[str, bytes] = {}
+        self._counter = 0
+
+    def save(self, content: bytes, *, folder: str, extension: str) -> str:
+        self._counter += 1
+        path = f"{folder}/file{self._counter}.{extension}"
+        self.files[path] = content
+        return path
+
+    def delete(self, path: str) -> None:
+        self.files.pop(path, None)
+
+
 class FakeEventBus(EventBus):
     """Yayınlanan olayları listede biriktirir; testler `published` üzerinden kontrol eder."""
 
@@ -103,6 +126,7 @@ class FakeUnitOfWork(UnitOfWork):
         self.assignments = InMemoryAssignmentRepository()
         self.maintenance_records = InMemoryMaintenanceRecordRepository()
         self.tickets = InMemoryTicketRepository()
+        self.ticket_attachments = InMemoryTicketAttachmentRepository()
         self.committed = False
 
     def _commit(self) -> None:

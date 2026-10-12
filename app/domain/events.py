@@ -78,6 +78,13 @@ class TicketCreated(DomainEvent):
 
 
 @dataclass(frozen=True, kw_only=True)
+class ScreenshotAttached(DomainEvent):
+    ticket_id: int
+    attachment_id: int
+    uploaded_by: int
+
+
+@dataclass(frozen=True, kw_only=True)
 class TicketUrgencyChanged(DomainEvent):
     ticket_id: int
     is_urgent: bool

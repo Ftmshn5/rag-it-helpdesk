@@ -15,18 +15,20 @@ from app.application.interfaces.repositories import (
     AssignmentRepository,
     DeviceRepository,
     MaintenanceRecordRepository,
+    TicketAttachmentRepository,
     TicketRepository,
     UserRepository,
 )
 from app.domain.enums import TicketModifier
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
-from app.domain.ticket import Ticket
+from app.domain.ticket import Ticket, TicketAttachment
 from app.domain.user import User
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.models import (
     AssignmentModel,
     DeviceModel,
     MaintenanceRecordModel,
+    TicketAttachmentModel,
     TicketModel,
     UserModel,
 )
@@ -139,3 +141,10 @@ class SqlAlchemyTicketRepository(SqlAlchemyRepository[Ticket, TicketModel], Tick
         # Veritabanında düz metin dizisi; domain'de enum listesi
         ticket.modifiers = [TicketModifier(value) for value in model.modifiers]
         return ticket
+
+
+class SqlAlchemyTicketAttachmentRepository(
+    SqlAlchemyRepository[TicketAttachment, TicketAttachmentModel], TicketAttachmentRepository
+):
+    entity_class = TicketAttachment
+    model_class = TicketAttachmentModel

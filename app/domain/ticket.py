@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.domain.clock import utc_now
-from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus
+from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus, UserRole
 from app.domain.errors import BusinessRuleViolation
 from app.domain.user import User
 
@@ -63,6 +63,14 @@ class Ticket:
     @property
     def is_urgent(self) -> bool:
         return TicketModifier.URGENT in self.modifiers
+
+    def can_receive_attachment_from(self, user: User) -> bool:
+        """Talep sahibi, atanan teknisyen ve yönetici ek yükleyebilir."""
+        return user.id in (self.requester_id, self.assignee_id) or user.role == UserRole.ADMIN
+
+    def ensure_accepts_attachments(self) -> None:
+        if self.status == TicketStatus.CLOSED:
+            raise BusinessRuleViolation("Kapanmış talebe ek eklenemez.")
 
     def set_urgent(self, is_urgent: bool) -> None:
         """Acil işaretini değiştirir (yönetici). VIP işaretine dokunmaz."""

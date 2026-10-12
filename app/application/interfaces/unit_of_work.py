@@ -29,6 +29,7 @@ from app.application.interfaces.repositories import (
     AssignmentRepository,
     DeviceRepository,
     MaintenanceRecordRepository,
+    TicketAttachmentRepository,
     TicketRepository,
     UserRepository,
 )
@@ -41,6 +42,7 @@ class UnitOfWork(ABC):
     assignments: AssignmentRepository
     maintenance_records: MaintenanceRecordRepository
     tickets: TicketRepository
+    ticket_attachments: TicketAttachmentRepository
 
     def __init__(self, event_bus: EventBus) -> None:
         self.event_bus = event_bus

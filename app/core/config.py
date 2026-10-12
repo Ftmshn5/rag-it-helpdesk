@@ -5,6 +5,7 @@ Kodun içinde sabit bağlantı adresi veya şifre bulunmaz.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,6 +21,14 @@ class Settings(BaseSettings):
     app_name: str = "IT Destek ve Envanter Otomasyonu"
     debug: bool = False
     database_url: str
+
+    # Ekran görüntüsü yükleme (iş kuralı 5)
+    upload_dir: Path = Path("data/uploads")
+    max_upload_size_mb: int = 5
+
+    @property
+    def max_upload_size_bytes(self) -> int:
+        return self.max_upload_size_mb * 1024 * 1024
 
 
 @lru_cache

@@ -15,6 +15,7 @@ from app.infrastructure.db.repositories import (
     SqlAlchemyAssignmentRepository,
     SqlAlchemyDeviceRepository,
     SqlAlchemyMaintenanceRecordRepository,
+    SqlAlchemyTicketAttachmentRepository,
     SqlAlchemyTicketRepository,
     SqlAlchemyUserRepository,
 )
@@ -37,6 +38,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.assignments = SqlAlchemyAssignmentRepository(self.session)
         self.maintenance_records = SqlAlchemyMaintenanceRecordRepository(self.session)
         self.tickets = SqlAlchemyTicketRepository(self.session)
+        self.ticket_attachments = SqlAlchemyTicketAttachmentRepository(self.session)
         return super().__enter__()
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:

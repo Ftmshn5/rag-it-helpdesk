@@ -1,16 +1,19 @@
 """Ticket endpoint'leri (yazma tarafı)."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.api.schemas import CreatedResponse
+from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
 from app.application.commands.tickets import (
     CreateTicket,
     CreateTicketHandler,
     SetTicketUrgency,
     SetTicketUrgencyHandler,
 )
+from app.core.config import get_settings
 from app.core.dependencies import (
+    get_attach_screenshot_handler,
     get_create_ticket_handler,
     get_current_user_id,
     get_set_ticket_urgency_handler,
@@ -52,3 +55,23 @@ def set_ticket_urgency(
     handler.handle(
         SetTicketUrgency(actor_id=actor_id, ticket_id=ticket_id, is_urgent=body.is_urgent)
     )
+
+
+@router.post(
+    "/{ticket_id}/attachments",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CreatedResponse,
+)
+def attach_screenshot(
+    ticket_id: int,
+    file: UploadFile = File(description="PNG veya JPG ekran görüntüsü"),
+    actor_id: int = Depends(get_current_user_id),
+    handler: AttachScreenshotHandler = Depends(get_attach_screenshot_handler),
+) -> CreatedResponse:
+    # Sınırın 1 bayt fazlası okunur: dosya ne kadar büyük olursa olsun belleğe
+    # en fazla bu kadarı alınır; sınırı aştığını domain kuralı yakalar.
+    content = file.file.read(get_settings().max_upload_size_bytes + 1)
+    attachment_id = handler.handle(
+        AttachScreenshot(actor_id=actor_id, ticket_id=ticket_id, content=content)
+    )
+    return CreatedResponse(id=attachment_id)

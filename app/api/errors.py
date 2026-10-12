@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.application.errors import AuthenticationError, NotFoundError, PermissionDeniedError
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import BusinessRuleViolation, InvalidFileError
 
 ERROR_STATUS_CODES: dict[type[Exception], int] = {
     AuthenticationError: status.HTTP_401_UNAUTHORIZED,
@@ -17,6 +17,9 @@ ERROR_STATUS_CODES: dict[type[Exception], int] = {
     NotFoundError: status.HTTP_404_NOT_FOUND,
     # 409 Conflict: istek geçerli ama kaynağın mevcut durumuyla çelişiyor
     BusinessRuleViolation: status.HTTP_409_CONFLICT,
+    # Alt sınıf: geçersiz dosya bir durum çatışması değil, geçersiz veridir.
+    # Starlette en özel (alt) sınıfın handler'ını seçer.
+    InvalidFileError: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
 

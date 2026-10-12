@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
+from app.application.commands.attachments import AttachScreenshotHandler
 from app.application.commands.assignments import AssignDeviceHandler, ReturnDeviceHandler
 from app.application.commands.devices import (
     RegisterDeviceHandler,
@@ -25,11 +26,14 @@ from app.application.commands.maintenance import (
 from app.application.commands.tickets import CreateTicketHandler, SetTicketUrgencyHandler
 from app.application.errors import AuthenticationError
 from app.application.interfaces.event_bus import EventBus
+from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.unit_of_work import UnitOfWork
+from app.core.config import get_settings
 from app.core.event_subscriptions import register_subscribers
 from app.infrastructure.db.session import check_database_connection, get_session
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
+from app.infrastructure.storage.local_file_storage import LocalFileStorage
 
 
 def create_event_bus() -> EventBus:
@@ -47,6 +51,10 @@ def get_event_bus(request: Request) -> EventBus:
 def get_unit_of_work(event_bus: EventBus = Depends(get_event_bus)) -> UnitOfWork:
     # Her istek kendi Unit of Work'ünü (dolayısıyla kendi transaction'ını) alır
     return SqlAlchemyUnitOfWork(event_bus)
+
+
+def get_file_storage() -> FileStorage:
+    return LocalFileStorage(get_settings().upload_dir)
 
 
 def get_current_user_id(x_user_id: int | None = Header(default=None)) -> int:
@@ -97,6 +105,13 @@ def get_create_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
 
 def get_set_ticket_urgency_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
     return SetTicketUrgencyHandler(uow)
+
+
+def get_attach_screenshot_handler(
+    uow: UnitOfWork = Depends(get_unit_of_work),
+    storage: FileStorage = Depends(get_file_storage),
+):
+    return AttachScreenshotHandler(uow, storage, get_settings().max_upload_size_bytes)
 
 
 # --- Okuma tarafı / altyapı ---
