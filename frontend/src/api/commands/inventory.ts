@@ -1,7 +1,6 @@
 // Envanter yazmaları (backend: cihaz, zimmet ve bakım command'ları). Hepsi useMutation.
-// Başarılı olunca tüm envanter sorguları (cihaz listesi, rapor, bakım geçmişi) yenilenir.
-//
-// Yönetici command'ları (cihaz ekle/güncelle/hurdaya ayır, zimmetle/iade) 10c'de eklenecek.
+// Başarılı olunca tüm envanter sorguları (cihaz listesi, rapor, bakım geçmişi,
+// kullanıcının zimmetli cihazları) yenilenir.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -47,4 +46,57 @@ export function useCompleteMaintenance() {
   return useInventoryCommand<number>((recordId) => ({
     path: `/maintenance-records/${recordId}/complete`,
   }))
+}
+
+// --- Yönetici ---
+
+export interface DeviceDetailsInput {
+  type: string
+  brand: string
+  model: string
+  location?: string | null
+  purchase_date?: string | null // YYYY-MM-DD
+}
+
+export interface RegisterDeviceInput extends DeviceDetailsInput {
+  asset_tag: string
+  serial_number: string
+}
+
+/** UC-08: cihaz ekle (depoya, IN_STOCK olarak girer). */
+export function useRegisterDevice() {
+  return useInventoryCommand<RegisterDeviceInput, Created>((input) => ({
+    path: '/devices',
+    body: input,
+  }))
+}
+
+/**
+ * UC-08: cihaz bilgilerini güncelle. Demirbaş ve seri no kimliktir, güncellenmez;
+ * durum da burada yok (iş kuralı 6). null gönderilen alan değişmez.
+ */
+export function useUpdateDevice() {
+  return useInventoryCommand<{ deviceId: number; details: Partial<DeviceDetailsInput> }>(
+    ({ deviceId, details }) => ({ path: `/devices/${deviceId}`, method: 'PATCH', body: details }),
+  )
+}
+
+/** UC-09: cihazı kullanıcıya zimmetle (yalnızca depodaki cihaz; iş kuralı 1, 7). */
+export function useAssignDevice() {
+  return useInventoryCommand<{ deviceId: number; userId: number }, Created>(
+    ({ deviceId, userId }) => ({
+      path: `/devices/${deviceId}/assignments`,
+      body: { user_id: userId },
+    }),
+  )
+}
+
+/** UC-09: cihazı iade al (bakımdaki cihaz iade alınamaz; iş kuralı 9). */
+export function useReturnDevice() {
+  return useInventoryCommand<number>((deviceId) => ({ path: `/devices/${deviceId}/return` }))
+}
+
+/** Cihazı hurdaya ayır (yalnızca depodaki cihaz; iş kuralı 7). */
+export function useRetireDevice() {
+  return useInventoryCommand<number>((deviceId) => ({ path: `/devices/${deviceId}/retire` }))
 }

@@ -9,6 +9,7 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageMessage } from '@/components/layout/PageMessage'
 import { QueryState } from '@/components/layout/QueryState'
+import { AdminTicketCard } from '@/components/tickets/AdminTicketCard'
 import { AiAnswerCard } from '@/components/tickets/AiAnswerCard'
 import { AttachmentsCard } from '@/components/tickets/AttachmentsCard'
 import { TicketFlags, TicketStatusBadge } from '@/components/tickets/TicketBadges'
@@ -64,6 +65,7 @@ export function TicketDetailPage() {
               </div>
               <div className="space-y-4">
                 <TicketActions ticket={ticket.summary} viewer={viewer} />
+                {viewer.isAdmin && <AdminTicketCard ticket={ticket.summary} />}
                 <AttachmentsCard ticket={ticket} canContribute={canContribute} />
               </div>
             </div>

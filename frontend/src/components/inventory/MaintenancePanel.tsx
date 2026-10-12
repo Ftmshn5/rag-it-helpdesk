@@ -27,77 +27,98 @@ import { MAINTENANCE_TYPE_LABELS } from '@/lib/labels'
 import type { DeviceInventory, MaintenanceType } from '@/types/api'
 
 export function MaintenancePanel({ device }: { device: DeviceInventory }) {
-  const history = useMaintenanceHistory(device.device_id)
-  const complete = useCompleteMaintenance()
   // Hurdaya ayrılmış veya zaten bakımda olan cihaza yeni bakım açılamaz (iş kuralı 8)
   const canStart = device.status === 'IN_STOCK' || device.status === 'ASSIGNED'
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-2">
-            {device.asset_tag}
-            <DeviceStatusBadge status={device.status} />
-          </CardTitle>
-          <CardDescription>
-            {device.type} · {device.brand} {device.model} · {device.location ?? 'konum yok'}
-            {device.holder_name && ` · Zimmet: ${device.holder_name}`}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-
+      <DeviceHeaderCard device={device} />
       {canStart && <StartMaintenanceForm deviceId={device.device_id} />}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Bakım geçmişi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <QueryState query={history}>
-            {(records) =>
-              records.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Bu cihaz için bakım kaydı yok.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {records.map((record) => (
-                    <li key={record.id} className="rounded-md border p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{MAINTENANCE_TYPE_LABELS[record.type]}</span>
-                        {record.is_open ? (
-                          <Badge variant="destructive">Devam ediyor</Badge>
-                        ) : (
-                          <Badge variant="outline">Tamamlandı</Badge>
-                        )}
-                        {record.ticket_id && (
-                          <span className="text-sm text-muted-foreground">Talep #{record.ticket_id}</span>
-                        )}
-                      </div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm">{record.description}</p>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {record.technician_name} · başlangıç {formatDateTime(record.performed_at)}
-                        {record.completed_at && ` · bitiş ${formatDateTime(record.completed_at)}`}
-                      </div>
-                      {record.is_open && (
-                        <Button
-                          size="sm"
-                          className="mt-2"
-                          disabled={complete.isPending}
-                          onClick={() => complete.mutate(record.id)}
-                        >
-                          Bakımı tamamla
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )
-            }
-          </QueryState>
-          <ErrorText error={complete.error} />
-        </CardContent>
-      </Card>
+      <MaintenanceHistoryCard deviceId={device.device_id} canComplete />
     </div>
+  )
+}
+
+export function DeviceHeaderCard({ device }: { device: DeviceInventory }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2">
+          {device.asset_tag}
+          <DeviceStatusBadge status={device.status} />
+        </CardTitle>
+        <CardDescription>
+          {device.type} · {device.brand} {device.model} · {device.location ?? 'konum yok'}
+          {device.holder_name && ` · Zimmet: ${device.holder_name}`}
+        </CardDescription>
+      </CardHeader>
+    </Card>
+  )
+}
+
+/**
+ * Bakım geçmişi (UC-17). Teknisyen açık bakımı buradan tamamlar; yönetici
+ * yalnızca görüntüler (bakım işlemleri teknisyenin işidir, iş kuralı 10).
+ */
+export function MaintenanceHistoryCard({
+  deviceId,
+  canComplete = false,
+}: {
+  deviceId: number
+  canComplete?: boolean
+}) {
+  const history = useMaintenanceHistory(deviceId)
+  const complete = useCompleteMaintenance()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Bakım geçmişi</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <QueryState query={history}>
+          {(records) =>
+            records.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Bu cihaz için bakım kaydı yok.</p>
+            ) : (
+              <ul className="space-y-3">
+                {records.map((record) => (
+                  <li key={record.id} className="rounded-md border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{MAINTENANCE_TYPE_LABELS[record.type]}</span>
+                      {record.is_open ? (
+                        <Badge variant="destructive">Devam ediyor</Badge>
+                      ) : (
+                        <Badge variant="outline">Tamamlandı</Badge>
+                      )}
+                      {record.ticket_id && (
+                        <span className="text-sm text-muted-foreground">Talep #{record.ticket_id}</span>
+                      )}
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap text-sm">{record.description}</p>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {record.technician_name} · başlangıç {formatDateTime(record.performed_at)}
+                      {record.completed_at && ` · bitiş ${formatDateTime(record.completed_at)}`}
+                    </div>
+                    {record.is_open && canComplete && (
+                      <Button
+                        size="sm"
+                        className="mt-2"
+                        disabled={complete.isPending}
+                        onClick={() => complete.mutate(record.id)}
+                      >
+                        Bakımı tamamla
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </QueryState>
+        <ErrorText error={complete.error} />
+      </CardContent>
+    </Card>
   )
 }
 
