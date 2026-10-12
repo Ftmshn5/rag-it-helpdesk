@@ -1,5 +1,7 @@
 // AI asistanın önerisi ve kullanıcının değerlendirmesi (UC-02).
 
+import { Loader2Icon } from 'lucide-react'
+
 import { useEvaluateAiAnswer } from '@/api/commands/tickets'
 import { ErrorText } from '@/components/layout/QueryState'
 import { Button } from '@/components/ui/button'
@@ -10,6 +12,24 @@ import type { TicketDetail } from '@/types/api'
 export function AiAnswerCard({ ticket, isRequester }: { ticket: TicketDetail; isRequester: boolean }) {
   const evaluate = useEvaluateAiAnswer()
   const { summary, ai_answer: answer } = ticket
+
+  // AI yanıtı arka planda üretiliyor; sayfa yanıt gelene kadar kendini yeniler
+  if (summary.status === 'OPEN') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Loader2Icon className="size-4 animate-spin" aria-hidden />
+            AI asistan yanıt hazırlıyor…
+          </CardTitle>
+          <CardDescription>
+            Bilgi bankasında talebinize uygun çözüm aranıyor. Bu birkaç saniye sürebilir; sayfayı
+            kapatabilirsiniz, yanıt talebinize kaydedilir.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
 
   // İş kuralı 4: güven düşükse yanıt talep sahibine gösterilmez (backend gizler)
   if (!answer) {

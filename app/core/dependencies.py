@@ -56,7 +56,8 @@ from app.application.queries.tickets import (
 )
 from app.application.queries.users import ListUsersHandler, UserQueries
 from app.core.config import get_settings
-from app.core.event_subscriptions import register_subscribers
+from app.core.event_subscriptions import register_subscribers, submit_auto_answer
+from app.domain.enums import TicketStatus
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.ai.ollama import OllamaChatModel, OllamaEmbeddingProvider
 from app.infrastructure.ai.rag_ai_support import RagAiSupport, SimilarityConfidence
@@ -67,6 +68,7 @@ from app.infrastructure.db.queries import SqlInventoryQueries, SqlTicketQueries,
 from app.infrastructure.db.session import SessionLocal, check_database_connection, get_session
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
+from app.infrastructure.events.task_runner import TaskRunner
 from app.infrastructure.storage.local_file_storage import LocalFileStorage
 
 
@@ -103,20 +105,37 @@ def get_ai_support() -> AiSupportFacade:
     )
 
 
-def create_event_bus() -> EventBus:
+def make_auto_answer_handler(event_bus: EventBus) -> AutoAnswerTicketHandler:
+    return AutoAnswerTicketHandler(
+        SqlAlchemyUnitOfWork(event_bus), get_ai_support(), get_settings().ai_confidence_threshold
+    )
+
+
+def create_event_bus(task_runner: TaskRunner | None = None) -> EventBus:
     """Uygulama açılışında bir kez çağrılır; dinleyiciler burada kaydedilir."""
     event_bus = InMemoryEventBus()
     register_subscribers(
         event_bus,
-        make_auto_answer_handler=lambda: AutoAnswerTicketHandler(
-            SqlAlchemyUnitOfWork(event_bus),
-            get_ai_support(),
-            get_settings().ai_confidence_threshold,
-        ),
+        make_auto_answer_handler=lambda: make_auto_answer_handler(event_bus),
         ticket_summary_projector=TicketSummaryProjector(),
         device_inventory_projector=DeviceInventoryProjector(),
+        task_runner=task_runner,
     )
     return event_bus
+
+
+def resume_pending_auto_answers(event_bus: EventBus, task_runner: TaskRunner) -> int:
+    """Açılışta, AI yanıtı bekleyen (OPEN) talepleri yeniden kuyruğa alır.
+
+    Arka plan kuyruğu bellekte tutulur; uygulama yeniden başlarsa (örn.
+    --reload ile) bekleyen işler kaybolur ve talep OPEN'da kalırdı. Handler
+    idempotent olduğu için bir talebin iki kez kuyruğa girmesi zararsızdır.
+    """
+    with SessionLocal() as session:
+        pending = SqlTicketQueries(session).list_all(TicketStatus.OPEN)
+    for ticket in pending:
+        submit_auto_answer(task_runner, lambda: make_auto_answer_handler(event_bus), ticket.ticket_id)
+    return len(pending)
 
 
 def get_event_bus(request: Request) -> EventBus:

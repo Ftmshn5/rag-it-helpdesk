@@ -27,6 +27,7 @@ from app.domain.events import (
     TicketUrgencyChanged,
 )
 from app.infrastructure.db.projections import DeviceInventoryProjector, TicketSummaryProjector
+from app.infrastructure.events.task_runner import InlineTaskRunner, TaskRunner
 
 logger = logging.getLogger("app.events")
 
@@ -58,28 +59,43 @@ def log_event(event: DomainEvent) -> None:
     logger.info("Olay: %s", event)
 
 
+def submit_auto_answer(
+    runner: TaskRunner,
+    make_auto_answer_handler: Callable[[], AutoAnswerTicketHandler],
+    ticket_id: int,
+) -> None:
+    """AI yanıt işini kuyruğa verir (olay dinleyicisi ve açılıştaki kurtarma kullanır)."""
+    runner.submit(
+        lambda: make_auto_answer_handler().handle(AutoAnswerTicket(ticket_id=ticket_id)),
+        f"AI yanıtı (talep {ticket_id})",
+    )
+
+
 def register_subscribers(
     event_bus: EventBus,
     *,
     make_auto_answer_handler: Callable[[], AutoAnswerTicketHandler],
     ticket_summary_projector: TicketSummaryProjector | None = None,
     device_inventory_projector: DeviceInventoryProjector | None = None,
+    task_runner: TaskRunner | None = None,
 ) -> None:
     """Dinleyicileri kaydeder.
 
     Handler'lar her olayda yeniden oluşturulur (fabrika fonksiyonu ile): her
     çalışma kendi Unit of Work'ünü, dolayısıyla kendi transaction'ını alır.
     Projektörler verilmezse (veritabanısız testler) read model'ler güncellenmez.
+    task_runner verilmezse yavaş işler de hemen (aynı thread'de) çalışır.
     """
+    runner = task_runner or InlineTaskRunner()
+
     # DomainEvent taban sınıfına abonelik → tüm olaylar loglanır
     event_bus.subscribe(DomainEvent, log_event)
 
-    # UC-14: yeni talep → AI asistan otomatik yanıt üretir
+    # UC-14: yeni talep → AI asistan otomatik yanıt üretir. Gerçek LLM yavaş
+    # olduğu için iş yürütücüye verilir: talep açma isteği AI'ı beklemez.
     event_bus.subscribe(
         TicketCreated,
-        lambda event: make_auto_answer_handler().handle(
-            AutoAnswerTicket(ticket_id=event.ticket_id)
-        ),
+        lambda event: submit_auto_answer(runner, make_auto_answer_handler, event.ticket_id),
     )
 
     # CQRS: yazma tarafındaki her talep değişikliği okuma modelini günceller

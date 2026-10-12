@@ -113,6 +113,58 @@ def test_already_processed_ticket_is_skipped(uow):
     assert len(uow.ai_responses.items) == 1
 
 
+class TrackingAiSupport(AiSupportFacade):
+    """AI çağrılırken transaction açık mı, kaydeder; isteğe bağlı olarak talebi değiştirir."""
+
+    def __init__(self, uow: FakeUnitOfWork, change_ticket_to: TicketStatus | None = None) -> None:
+        self.uow = uow
+        self.change_ticket_to = change_ticket_to
+        self.uow_was_open: bool | None = None
+
+    def try_auto_resolve(self, ticket: Ticket) -> AutoAnswer:
+        self.uow_was_open = self.uow.is_open
+        if self.change_ticket_to:
+            # AI düşünürken başka bir istek talebi değiştirdi
+            changed = self.uow.tickets.get(ticket.id)
+            changed.status = self.change_ticket_to
+            self.uow.tickets.update(changed)
+        return AutoAnswer(answer="Yeniden başlatın.", confidence=0.9, sources=[])
+
+
+class TransactionTrackingUow(FakeUnitOfWork):
+    is_open = False
+
+    def __enter__(self):
+        self.is_open = True
+        return super().__enter__()
+
+    def __exit__(self, *exc_info) -> None:
+        super().__exit__(*exc_info)
+        self.is_open = False
+
+
+def test_ai_is_called_outside_of_any_transaction():
+    uow = TransactionTrackingUow()
+    uow.tickets.add(make_ticket())
+    ai = TrackingAiSupport(uow)
+
+    run(uow, ai)
+
+    assert ai.uow_was_open is False
+    assert uow.tickets.get(1).status == TicketStatus.AI_ANSWERED
+
+
+def test_answer_is_discarded_if_ticket_changed_while_ai_was_thinking():
+    uow = TransactionTrackingUow()
+    uow.tickets.add(make_ticket())
+
+    run(uow, TrackingAiSupport(uow, change_ticket_to=TicketStatus.ESCALATED))
+
+    assert uow.tickets.get(1).status == TicketStatus.ESCALATED
+    assert uow.ai_responses.get_by_ticket(1) is None
+    assert uow.event_bus.published == []
+
+
 # --- Observer bağlantısı: TicketCreated → AI ---
 
 

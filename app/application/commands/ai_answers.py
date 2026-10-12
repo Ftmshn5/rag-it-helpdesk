@@ -40,13 +40,22 @@ class AutoAnswerTicketHandler:
         self.threshold = threshold
 
     def handle(self, command: AutoAnswerTicket) -> None:
+        # AI çağrısı (gerçek LLM'de saniyeler sürer) hiçbir transaction açıkken
+        # yapılmaz: önce kısa bir okuma, sonra AI, sonra kısa bir yazma transaction'ı.
+        # Böylece yavaş model veritabanı bağlantısını ve satır kilitlerini tutmaz.
         with self.uow:
             ticket = get_ticket_or_raise(self.uow, command.ticket_id)
             if ticket.status != TicketStatus.OPEN:
                 # Aynı olay iki kez işlenirse ikinci kez yanıt üretme (idempotent)
                 return
 
-            answer = self._ask_ai(ticket)
+        answer = self._ask_ai(ticket)
+
+        with self.uow:
+            # AI düşünürken talep değişmiş olabilir; güncel hali üzerinden karar verilir
+            ticket = get_ticket_or_raise(self.uow, command.ticket_id)
+            if ticket.status != TicketStatus.OPEN:
+                return
 
             old_status = ticket.status
             shown_to_user = ticket.receive_ai_answer(  # iş kuralı 4 domain'de

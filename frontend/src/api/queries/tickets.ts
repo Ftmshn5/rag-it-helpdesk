@@ -12,6 +12,14 @@ function withStatus(path: string, status?: TicketStatus) {
   return status ? `${path}?status=${status}` : path
 }
 
+/**
+ * AI yanıtı backend'de arka planda üretilir (gerçek LLM saniyeler sürer).
+ * Talep OPEN olduğu sürece ekran birkaç saniyede bir yeniden okur; yanıt gelince
+ * (AI_ANSWERED / ESCALATED) yenileme kendiliğinden durur. Basit yoklama (polling)
+ * yeterli: tek kullanıcılı demo için WebSocket/SSE gereksiz karmaşıklık olurdu.
+ */
+const AI_POLL_INTERVAL_MS = 3000
+
 /** UC-03: kullanıcının kendi talepleri (en yeni önce). */
 export function useMyTickets(status?: TicketStatus) {
   const { userId } = useCurrentUserId()
@@ -19,6 +27,8 @@ export function useMyTickets(status?: TicketStatus) {
     queryKey: queryKeys.tickets.mine(userId ?? 0, status),
     queryFn: () => apiRequest<TicketSummary[]>(withStatus('/tickets/mine', status), { userId: userId! }),
     enabled: userId !== null,
+    refetchInterval: (query) =>
+      query.state.data?.some((ticket) => ticket.status === 'OPEN') ? AI_POLL_INTERVAL_MS : false,
   })
 }
 
@@ -49,6 +59,8 @@ export function useTicketDetail(ticketId: number) {
     queryKey: [...queryKeys.tickets.detail(ticketId), userId],
     queryFn: () => apiRequest<TicketDetail>(`/tickets/${ticketId}`, { userId: userId! }),
     enabled: userId !== null,
+    refetchInterval: (query) =>
+      query.state.data?.summary.status === 'OPEN' ? AI_POLL_INTERVAL_MS : false,
   })
 }
 

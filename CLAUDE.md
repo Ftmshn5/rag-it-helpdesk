@@ -264,6 +264,10 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 1. Kullanıcı arıza kaydı açar (UC-01), isteğe bağlı ekran görüntüsü ekler (UC-15).
 2. Factory, modifier'lara göre ticket'ı decorator'larla sarar.
 3. AiSupportFacade yanıt üretir (UC-14). `TicketCreated` olayını dinleyen bir Observer `AutoAnswerTicketHandler`'ı çağırır; talep açma kodu AI'dan habersizdir. AI hata verirse talep eskale edilir. Düşük güvenli yanıt da istatistik için saklanır ama kullanıcıya gösterilmez.
+   - AI yanıtı **arka planda** üretilir (`infrastructure/events/task_runner.py`, tek işçili kuyruk): talep açma isteği LLM'i beklemez; talep yanıt gelene kadar `OPEN` kalır, frontend bu sürede yoklama (polling) yapar. Testlerde aynı işler `InlineTaskRunner` ile hemen çalışır.
+   - AI çağrısı açık bir transaction içinde yapılmaz (okuma → AI → kısa yazma transaction'ı).
+   - Kuyruk bellektedir; açılışta `OPEN` talepler yeniden kuyruğa alınır.
+   - RAG güven skoru: en iyi parçanın kosinüs benzerliğinin `[RAG_SIMILARITY_FLOOR, RAG_SIMILARITY_CEILING]` aralığına izdüşümü; LLM `BILGI_YOK` derse skor düşürülür.
 4. Kullanıcı "çözüldü" derse kapanır (`AI_ANSWERED → RESOLVED → CLOSED`, ayrıca onay istenmez); "çözülmedi" ya da düşük güven skoru → eskalasyon ve teknisyen ataması.
 5. Her yazma işleminden sonra event bus olay yayınlar, read model'ler güncellenir.
 
