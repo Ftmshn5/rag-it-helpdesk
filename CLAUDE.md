@@ -247,7 +247,7 @@ erDiagram
 ## Uygulama planı
 
 - [x] **1. Ortam ve iskelet:** Docker Compose ile PostgreSQL + pgvector, sanal ortam, klasör yapısı, config, DB bağlantısı, `/health` endpoint (DB bağlantısını da kontrol etsin), `.gitignore`, git init
-- [ ] **2. Domain ve veritabanı:** enum'lar, domain varlıkları, SQLAlchemy modelleri (`write` şeması), Alembic ilk migration, seed data scripti
+- [x] **2. Domain ve veritabanı:** enum'lar, domain varlıkları, SQLAlchemy modelleri (`write` şeması), Alembic ilk migration, seed data scripti
 - [ ] **3. Altyapı iskeleti:** repository arayüzleri ve implementasyonları, event bus, bağımlılık enjeksiyonu
 - [ ] **4. Envanter (Command):** cihaz ekleme, zimmetleme/iade, bakım kaydı + iş kuralları + testler
 - [ ] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
