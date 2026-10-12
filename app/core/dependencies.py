@@ -8,6 +8,7 @@ sahteleriyle değiştirilebilir.
 """
 
 from collections.abc import Iterator
+from functools import lru_cache
 
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
@@ -57,17 +58,49 @@ from app.application.queries.users import ListUsersHandler, UserQueries
 from app.core.config import get_settings
 from app.core.event_subscriptions import register_subscribers
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
+from app.infrastructure.ai.ollama import OllamaChatModel, OllamaEmbeddingProvider
+from app.infrastructure.ai.rag_ai_support import RagAiSupport, SimilarityConfidence
+from app.infrastructure.ai.retriever import PgVectorRetriever
+from app.infrastructure.db.models import EMBEDDING_DIMENSION
 from app.infrastructure.db.projections import DeviceInventoryProjector, TicketSummaryProjector
 from app.infrastructure.db.queries import SqlInventoryQueries, SqlTicketQueries, SqlUserQueries
-from app.infrastructure.db.session import check_database_connection, get_session
+from app.infrastructure.db.session import SessionLocal, check_database_connection, get_session
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
 from app.infrastructure.storage.local_file_storage import LocalFileStorage
 
 
+@lru_cache
 def get_ai_support() -> AiSupportFacade:
-    # Gerçek RAG hazır olduğunda (11. adım) yalnızca bu satır değişir.
-    return FakeAiSupport()
+    """AI implementasyonunu seçen tek yer (AI_PROVIDER ayarı).
+
+    Facade'ın faydası burada görünür: sahte AI'dan gerçek RAG'e geçmek için
+    application ve domain katmanında hiçbir şey değişmez, yalnızca bu fonksiyon.
+    Strategy'ler (Ollama embedding / chat) de burada seçilir. Nesneler durum
+    tutmadığı için bir kez kurulup paylaşılır (HTTP bağlantı havuzu yeniden kullanılır).
+    """
+    settings = get_settings()
+    if settings.ai_provider == "fake":
+        return FakeAiSupport()
+
+    return RagAiSupport(
+        embedder=OllamaEmbeddingProvider(
+            settings.ollama_base_url,
+            settings.embedding_model,
+            dimension=EMBEDDING_DIMENSION,
+            timeout_seconds=settings.ollama_timeout_seconds,
+        ),
+        retriever=PgVectorRetriever(SessionLocal),
+        chat_model=OllamaChatModel(
+            settings.ollama_base_url,
+            settings.llm_model,
+            timeout_seconds=settings.ollama_timeout_seconds,
+        ),
+        confidence=SimilarityConfidence(
+            floor=settings.rag_similarity_floor, ceiling=settings.rag_similarity_ceiling
+        ),
+        top_k=settings.rag_top_k,
+    )
 
 
 def create_event_bus() -> EventBus:
