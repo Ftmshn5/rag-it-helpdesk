@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     # AI sağlayıcısı: "fake" (anahtar kelimeli sahte AI) veya "rag" (Ollama + pgvector)
     ai_provider: Literal["fake", "rag"] = "fake"
+    # RAG bilgi bankası dokümanları (Markdown); indeksleme komutu bu klasörü okur
+    knowledge_dir: Path = Path("data/knowledge")
     ollama_base_url: str = "http://127.0.0.1:11434"
     embedding_model: str = "bge-m3"
     llm_model: str = "qwen2.5:3b"

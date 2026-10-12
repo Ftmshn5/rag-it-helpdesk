@@ -50,6 +50,8 @@ Bir fakültenin BT departmanı için: cihaz envanteri ve zimmet takibi, bakım g
 - Frontend: `frontend/` klasöründe `npm run dev` → `http://localhost:5173`
 - Backend'de frontend adresi için CORS izni tanımlanır.
 - Gerçek RAG hazır olana kadar AI tarafı sahte (fake) implementasyonla çalışır.
+- Ollama modelleri: `ollama pull bge-m3` (embedding, 1024 boyut), `ollama pull qwen2.5:3b` (yanıt).
+- Bilgi bankası (`data/knowledge/*.md`) indeksleme: `python -m app.infrastructure.ai.indexing` (Ollama açık olmalı; tekrar çalıştırılabilir).
 
 ---
 
