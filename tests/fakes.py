@@ -60,6 +60,9 @@ class InMemoryDeviceRepository(InMemoryRepository[Device], DeviceRepository):
     def get_by_asset_tag(self, asset_tag: str) -> Device | None:
         return self._first(lambda device: device.asset_tag == asset_tag)
 
+    def get_by_serial_number(self, serial_number: str) -> Device | None:
+        return self._first(lambda device: device.serial_number == serial_number)
+
 
 class InMemoryAssignmentRepository(InMemoryRepository[Assignment], AssignmentRepository):
     def get_active_for_device(self, device_id: int) -> Assignment | None:

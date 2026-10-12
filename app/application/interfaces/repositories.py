@@ -41,6 +41,9 @@ class DeviceRepository(Repository[Device], ABC):
     @abstractmethod
     def get_by_asset_tag(self, asset_tag: str) -> Device | None: ...
 
+    @abstractmethod
+    def get_by_serial_number(self, serial_number: str) -> Device | None: ...
+
 
 class AssignmentRepository(Repository[Assignment], ABC):
     @abstractmethod

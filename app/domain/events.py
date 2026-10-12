@@ -16,3 +16,22 @@ from app.domain.clock import utc_now
 @dataclass(frozen=True, kw_only=True)
 class DomainEvent:
     occurred_at: datetime = field(default_factory=utc_now)
+
+
+# --- Envanter ---
+
+
+@dataclass(frozen=True, kw_only=True)
+class DeviceRegistered(DomainEvent):
+    device_id: int
+    asset_tag: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class DeviceDetailsUpdated(DomainEvent):
+    device_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class DeviceRetired(DomainEvent):
+    device_id: int

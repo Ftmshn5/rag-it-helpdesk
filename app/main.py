@@ -4,7 +4,8 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api import health
+from app.api import devices, health
+from app.api.errors import register_exception_handlers
 from app.core.config import get_settings
 from app.core.dependencies import create_event_bus
 
@@ -19,7 +20,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, debug=settings.debug)
     # Uygulama başına tek event bus; dinleyiciler oluşturulurken kaydedilir
     app.state.event_bus = create_event_bus()
+    register_exception_handlers(app)
     app.include_router(health.router)
+    app.include_router(devices.router)
     return app
 
 

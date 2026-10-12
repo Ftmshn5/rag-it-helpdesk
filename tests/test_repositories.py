@@ -49,6 +49,8 @@ def test_device_can_be_found_by_asset_tag(uow):
     with uow:
         assert uow.devices.get_by_asset_tag("TEST-0042").asset_tag == "TEST-0042"
         assert uow.devices.get_by_asset_tag("YOK-0000") is None
+        assert uow.devices.get_by_serial_number("SN-TEST-0042").asset_tag == "TEST-0042"
+        assert uow.devices.get_by_serial_number("YOK") is None
 
 
 def test_changes_are_not_persisted_without_update(uow):

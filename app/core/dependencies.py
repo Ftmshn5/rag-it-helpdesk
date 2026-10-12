@@ -9,9 +9,15 @@ sahteleriyle değiştirilebilir.
 
 from collections.abc import Iterator
 
-from fastapi import Depends, Request
+from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
+from app.application.commands.devices import (
+    RegisterDeviceHandler,
+    RetireDeviceHandler,
+    UpdateDeviceDetailsHandler,
+)
+from app.application.errors import AuthenticationError
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.core.event_subscriptions import register_subscribers
@@ -35,6 +41,35 @@ def get_event_bus(request: Request) -> EventBus:
 def get_unit_of_work(event_bus: EventBus = Depends(get_event_bus)) -> UnitOfWork:
     # Her istek kendi Unit of Work'ünü (dolayısıyla kendi transaction'ını) alır
     return SqlAlchemyUnitOfWork(event_bus)
+
+
+def get_current_user_id(x_user_id: int | None = Header(default=None)) -> int:
+    """İşlemi yapan kullanıcıyı X-User-Id başlığından alır.
+
+    Gerçek kimlik doğrulama (şifre/token) kapsam dışı; kullanıcının var olup
+    olmadığı ve rolü handler'larda kontrol edilir.
+    """
+    if x_user_id is None:
+        raise AuthenticationError("X-User-Id başlığı gerekli.")
+    return x_user_id
+
+
+# --- Command handler'lar ---
+
+
+def get_register_device_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return RegisterDeviceHandler(uow)
+
+
+def get_update_device_details_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return UpdateDeviceDetailsHandler(uow)
+
+
+def get_retire_device_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return RetireDeviceHandler(uow)
+
+
+# --- Okuma tarafı / altyapı ---
 
 
 def get_db_session() -> Iterator[Session]:

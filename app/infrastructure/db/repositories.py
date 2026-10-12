@@ -96,6 +96,9 @@ class SqlAlchemyDeviceRepository(SqlAlchemyRepository[Device, DeviceModel], Devi
     def get_by_asset_tag(self, asset_tag: str) -> Device | None:
         return self._first(select(DeviceModel).where(DeviceModel.asset_tag == asset_tag))
 
+    def get_by_serial_number(self, serial_number: str) -> Device | None:
+        return self._first(select(DeviceModel).where(DeviceModel.serial_number == serial_number))
+
 
 class SqlAlchemyAssignmentRepository(
     SqlAlchemyRepository[Assignment, AssignmentModel], AssignmentRepository
