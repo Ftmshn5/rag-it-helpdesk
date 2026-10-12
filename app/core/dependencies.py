@@ -22,6 +22,7 @@ from app.application.commands.maintenance import (
     CompleteMaintenanceHandler,
     StartMaintenanceHandler,
 )
+from app.application.commands.tickets import CreateTicketHandler, SetTicketUrgencyHandler
 from app.application.errors import AuthenticationError
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.unit_of_work import UnitOfWork
@@ -88,6 +89,14 @@ def get_start_maintenance_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
 
 def get_complete_maintenance_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
     return CompleteMaintenanceHandler(uow)
+
+
+def get_create_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return CreateTicketHandler(uow)
+
+
+def get_set_ticket_urgency_handler(uow: UnitOfWork = Depends(get_unit_of_work)):
+    return SetTicketUrgencyHandler(uow)
 
 
 # --- Okuma tarafı / altyapı ---

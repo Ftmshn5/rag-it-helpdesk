@@ -62,3 +62,24 @@ class MaintenanceStarted(DomainEvent):
 class MaintenanceCompleted(DomainEvent):
     maintenance_record_id: int
     device_id: int
+
+
+# --- Ticket ---
+
+
+@dataclass(frozen=True, kw_only=True)
+class TicketCreated(DomainEvent):
+    ticket_id: int
+    requester_id: int
+    # Decorator'lı nesneden hesaplanan değerler; dinleyiciler (bildirim, read
+    # model) Factory'yi yeniden çalıştırmadan kullanabilir.
+    sla_hours: int
+    priority_score: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class TicketUrgencyChanged(DomainEvent):
+    ticket_id: int
+    is_urgent: bool
+    sla_hours: int
+    priority_score: int
