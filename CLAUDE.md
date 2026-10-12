@@ -70,6 +70,7 @@ domain/          → saf iş mantığı: varlıklar, enum'lar, decorator'lar, st
 infrastructure/
   db/            → SQLAlchemy modelleri, session, repository implementasyonları
   ai/            → RAG alt sistemleri + Facade implementasyonu + FakeAiSupport
+  events/        → event bus implementasyonu (uygulama içi, senkron)
   storage/       → ekran görüntüsü dosya depolama
 ```
 
@@ -118,6 +119,7 @@ infrastructure/
 - **State:** Ticket yaşam döngüsü (`domain/`).
 - **Observer:** Event bus; bildirim ve read model güncelleme.
 - **Repository:** Veri erişim soyutlaması.
+- **Unit of Work:** Bir command'ın tüm değişikliklerini tek transaction'da toplar (`with uow: ... uow.commit()`). Domain olayları `uow.add_event()` ile eklenir ve yalnızca başarılı commit'ten sonra event bus'a yayınlanır; rollback'te atılır.
 - **Factory:** Decorator'lı ticket nesnesi üretimi.
 - **Strategy:** LLM sağlayıcısını değiştirilebilir yapmak.
 - **Chain of Responsibility:** AI → teknisyen → üst seviye eskalasyon (opsiyonel).
@@ -140,6 +142,7 @@ it-support/
 │   └── infrastructure/
 │       ├── db/
 │       ├── ai/
+│       ├── events/
 │       └── storage/
 ├── migrations/            # Alembic
 ├── frontend/              # React + TypeScript (Vite)
@@ -248,7 +251,7 @@ erDiagram
 
 - [x] **1. Ortam ve iskelet:** Docker Compose ile PostgreSQL + pgvector, sanal ortam, klasör yapısı, config, DB bağlantısı, `/health` endpoint (DB bağlantısını da kontrol etsin), `.gitignore`, git init
 - [x] **2. Domain ve veritabanı:** enum'lar, domain varlıkları, SQLAlchemy modelleri (`write` şeması), Alembic ilk migration, seed data scripti
-- [ ] **3. Altyapı iskeleti:** repository arayüzleri ve implementasyonları, event bus, bağımlılık enjeksiyonu
+- [x] **3. Altyapı iskeleti:** repository arayüzleri ve implementasyonları, event bus, bağımlılık enjeksiyonu
 - [ ] **4. Envanter (Command):** cihaz ekleme, zimmetleme/iade, bakım kaydı + iş kuralları + testler
 - [ ] **5. Ticket (Command):** oluşturma, ekran görüntüsü yükleme, Decorator + Factory + testler
 - [ ] **6. State:** ticket durum geçişleri + testler
