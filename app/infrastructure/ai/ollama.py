@@ -13,13 +13,13 @@ from typing import Any
 
 import httpx
 
-from app.infrastructure.ai.providers import AiProviderError, LlmProvider, EmbeddingProvider
+from app.infrastructure.ai.providers import AiProviderError, EmbeddingProvider, LlmProvider
 
 
 class _OllamaClient:
     """Ortak HTTP kısmı. Testlerde sahte taşıyıcılı bir httpx.Client verilebilir."""
 
-    def __init__(self, base_url: str, model: str, timeout_seconds: float, client: httpx.Client | None):
+    def __init__(self, base_url: str, model: str, timeout_seconds: float, client: httpx.Client | None) -> None:
         self.model = model
         self._client = client or httpx.Client(base_url=base_url, timeout=timeout_seconds)
 
@@ -49,6 +49,8 @@ class _OllamaClient:
 
 
 class OllamaEmbeddingProvider(_OllamaClient, EmbeddingProvider):
+    """Strategy deseni — Concrete Strategy: yerel Ollama sunucusundaki embedding modeli (/api/embed)."""
+
     def __init__(
         self,
         base_url: str,
@@ -79,6 +81,8 @@ class OllamaEmbeddingProvider(_OllamaClient, EmbeddingProvider):
 
 
 class OllamaLlmProvider(_OllamaClient, LlmProvider):
+    """Strategy deseni — Concrete Strategy: yerel Ollama sunucusundaki dil modeli (/api/chat)."""
+
     def __init__(
         self,
         base_url: str,

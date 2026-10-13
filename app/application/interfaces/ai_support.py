@@ -28,6 +28,8 @@ class AutoAnswer:
 
 
 class AiSupportFacade(ABC):
+    """Facade deseni — Facade: RAG alt sistemlerini (embedding, retriever, istem, LLM) tek bir metodun arkasında gizler."""
+
     @abstractmethod
     def try_auto_resolve(self, ticket: Ticket) -> AutoAnswer:
         """Talebe bilgi bankasına dayanarak bir çözüm önerisi üretir."""

@@ -63,6 +63,8 @@ FALLBACK = AutoAnswer(
 
 
 class FakeAiSupport(AiSupportFacade):
+    """Facade deseni — sahte implementasyon: anahtar kelimeyle deterministik yanıt (geliştirme ve testler için)."""
+
     def try_auto_resolve(self, ticket: Ticket) -> AutoAnswer:
         text = self._normalize(f"{ticket.title} {ticket.description}")
         for canned in CANNED_ANSWERS:

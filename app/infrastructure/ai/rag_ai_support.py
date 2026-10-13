@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.domain.ticket import Ticket
 from app.infrastructure.ai.prompting import PromptBuilder
-from app.infrastructure.ai.providers import LlmProvider, EmbeddingProvider
+from app.infrastructure.ai.providers import EmbeddingProvider, LlmProvider
 from app.infrastructure.ai.retriever import KnowledgeRetriever, RetrievedChunk
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,8 @@ class SimilarityConfidence:
 
 
 class RagAiSupport(AiSupportFacade):
+    """Facade deseni — gerçek implementasyon: embedder, retriever, prompt builder ve LLM'i sırayla çalıştırır."""
+
     def __init__(
         self,
         *,

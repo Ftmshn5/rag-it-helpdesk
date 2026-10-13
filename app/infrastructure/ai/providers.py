@@ -21,12 +21,16 @@ class AiProviderError(Exception):
 
 
 class EmbeddingProvider(ABC):
+    """Strategy deseni — Strategy: metni vektöre çeviren model sağlayıcısının arayüzü."""
+
     @abstractmethod
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Her metin için bir vektör döndürür (girdiyle aynı sırada)."""
 
 
 class LlmProvider(ABC):
+    """Strategy deseni — Strategy: bilgi bankası parçalarından yanıt metni üreten dil modeli sağlayıcısının arayüzü."""
+
     @abstractmethod
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Sistem talimatı ve kullanıcı istemiyle yanıt metni üretir."""

@@ -19,7 +19,11 @@ E = TypeVar("E")
 
 
 class Repository(ABC, Generic[E]):
-    """Tüm repository'lerde ortak temel işlemler."""
+    """Repository deseni — Repository: bir varlık türünün koleksiyon benzeri veri erişim arayüzü.
+
+    Handler'lar veritabanını değil bu arayüzü bilir. Tüm repository'lerde ortak temel
+    işlemler burada; varlığa özgü sorgular alt arayüzlerde (I: küçük, amaca özel arayüzler).
+    """
 
     @abstractmethod
     def get(self, entity_id: int) -> E | None: ...

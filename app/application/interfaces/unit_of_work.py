@@ -40,6 +40,13 @@ from app.domain.events import DomainEvent
 
 
 class UnitOfWork(ABC):
+    """Unit of Work deseni: bir command'ın tüm değişikliklerini tek transaction'da toplar;
+    olayları yalnızca başarılı commit'ten sonra yayınlar.
+
+    Template Method deseni — Abstract Class: commit/rollback akışı burada sabittir;
+    veritabanına özgü `_commit` / `_rollback` adımlarını alt sınıflar uygular.
+    """
+
     users: UserRepository
     devices: DeviceRepository
     assignments: AssignmentRepository

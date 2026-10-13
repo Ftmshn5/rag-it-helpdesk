@@ -5,7 +5,7 @@ Listeler yalnızca read şemasındaki tabloları okur (JOIN yok). Talep detayı,
 AI yanıtı) doğrudan write tablolarından salt okunur sorgularla alır.
 """
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.application.queries.inventory import (
@@ -47,9 +47,9 @@ WORK_QUEUE_ORDER = (
 
 class SqlTicketQueries(TicketQueries):
     def __init__(self, session: Session) -> None:
-        self.session = session
+        self._session = session
 
-    def list_by_requester(self, requester_id, status=None):
+    def list_by_requester(self, requester_id: int, status: TicketStatus | None = None) -> list[TicketSummaryView]:
         statement = (
             select(TicketSummaryModel)
             .where(TicketSummaryModel.requester_id == requester_id)
@@ -57,7 +57,7 @@ class SqlTicketQueries(TicketQueries):
         )
         return self._list(statement, status)
 
-    def list_by_assignee(self, assignee_id, status=None):
+    def list_by_assignee(self, assignee_id: int, status: TicketStatus | None = None) -> list[TicketSummaryView]:
         statement = (
             select(TicketSummaryModel)
             .where(TicketSummaryModel.assignee_id == assignee_id)
@@ -65,29 +65,29 @@ class SqlTicketQueries(TicketQueries):
         )
         return self._list(statement, status)
 
-    def list_all(self, status=None):
+    def list_all(self, status: TicketStatus | None = None) -> list[TicketSummaryView]:
         return self._list(select(TicketSummaryModel).order_by(*WORK_QUEUE_ORDER), status)
 
-    def _list(self, statement, status: TicketStatus | None) -> list[TicketSummaryView]:
+    def _list(self, statement: Select[tuple[TicketSummaryModel]], status: TicketStatus | None) -> list[TicketSummaryView]:
         if status is not None:
             statement = statement.where(TicketSummaryModel.status == status.value)
-        return [self._to_summary_view(row) for row in self.session.scalars(statement)]
+        return [self._to_summary_view(row) for row in self._session.scalars(statement)]
 
     def get_detail(self, ticket_id: int) -> TicketDetailView | None:
-        summary = self.session.get(TicketSummaryModel, ticket_id)
+        summary = self._session.get(TicketSummaryModel, ticket_id)
         if summary is None:
             return None
-        description = self.session.scalar(
+        description = self._session.scalar(
             select(TicketModel.description).where(TicketModel.id == ticket_id)
         )
-        ai = self.session.scalar(select(AIResponseModel).where(AIResponseModel.ticket_id == ticket_id))
-        comments = self.session.execute(
+        ai = self._session.scalar(select(AIResponseModel).where(AIResponseModel.ticket_id == ticket_id))
+        comments = self._session.execute(
             select(TicketCommentModel, UserModel.full_name)
             .join(UserModel, UserModel.id == TicketCommentModel.author_id)
             .where(TicketCommentModel.ticket_id == ticket_id)
             .order_by(TicketCommentModel.created_at)
         )
-        attachments = self.session.scalars(
+        attachments = self._session.scalars(
             select(TicketAttachmentModel)
             .where(TicketAttachmentModel.ticket_id == ticket_id)
             .order_by(TicketAttachmentModel.uploaded_at)
@@ -120,7 +120,7 @@ class SqlTicketQueries(TicketQueries):
         )
 
     def get_attachment(self, ticket_id: int, attachment_id: int) -> AttachmentFileView | None:
-        row = self.session.execute(
+        row = self._session.execute(
             select(
                 TicketAttachmentModel.file_path,
                 TicketAttachmentModel.mime_type,
@@ -166,14 +166,14 @@ class SqlTicketQueries(TicketQueries):
 
 class SqlUserQueries(UserQueries):
     def __init__(self, session: Session) -> None:
-        self.session = session
+        self._session = session
 
     def get(self, user_id: int) -> UserView | None:
-        user = self.session.get(UserModel, user_id)
+        user = self._session.get(UserModel, user_id)
         return self._to_view(user) if user else None
 
     def list_all(self) -> list[UserView]:
-        users = self.session.scalars(select(UserModel).order_by(UserModel.role, UserModel.full_name))
+        users = self._session.scalars(select(UserModel).order_by(UserModel.role, UserModel.full_name))
         return [self._to_view(user) for user in users]
 
     @staticmethod
@@ -190,29 +190,31 @@ class SqlUserQueries(UserQueries):
 
 class SqlInventoryQueries(InventoryQueries):
     def __init__(self, session: Session) -> None:
-        self.session = session
+        self._session = session
 
-    def list_devices(self, status=None, device_type=None):
+    def list_devices(
+        self, status: DeviceStatus | None = None, device_type: str | None = None
+    ) -> list[DeviceInventoryView]:
         statement = select(DeviceInventoryModel).order_by(DeviceInventoryModel.asset_tag)
         if status is not None:
             statement = statement.where(DeviceInventoryModel.status == status.value)
         if device_type is not None:
             statement = statement.where(DeviceInventoryModel.type == device_type)
-        return [self._to_inventory_view(row) for row in self.session.scalars(statement)]
+        return [self._to_inventory_view(row) for row in self._session.scalars(statement)]
 
-    def list_held_by(self, user_id):
+    def list_held_by(self, user_id: int) -> list[DeviceInventoryView]:
         statement = (
             select(DeviceInventoryModel)
             .where(DeviceInventoryModel.holder_id == user_id)
             .order_by(DeviceInventoryModel.asset_tag)
         )
-        return [self._to_inventory_view(row) for row in self.session.scalars(statement)]
+        return [self._to_inventory_view(row) for row in self._session.scalars(statement)]
 
-    def device_exists(self, device_id):
-        return self.session.get(DeviceModel, device_id) is not None
+    def device_exists(self, device_id: int) -> bool:
+        return self._session.get(DeviceModel, device_id) is not None
 
-    def maintenance_history(self, device_id):
-        rows = self.session.execute(
+    def maintenance_history(self, device_id: int) -> list[MaintenanceRecordView]:
+        rows = self._session.execute(
             select(MaintenanceRecordModel, UserModel.full_name)
             .join(UserModel, UserModel.id == MaintenanceRecordModel.technician_id)
             .where(MaintenanceRecordModel.device_id == device_id)

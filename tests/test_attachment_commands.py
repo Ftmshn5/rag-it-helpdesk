@@ -2,10 +2,9 @@
 
 import pytest
 
-from app.domain.attachments import ScreenshotValidator
-
 from app.application.commands.attachments import AttachScreenshotCommand, AttachScreenshotHandler
 from app.application.errors import PermissionDeniedError
+from app.domain.attachments import ScreenshotValidator
 from app.domain.enums import TicketCategory, TicketStatus, UserRole
 from app.domain.errors import DomainError, InvalidFileError
 from app.domain.events import ScreenshotAttached

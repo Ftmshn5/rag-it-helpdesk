@@ -2,9 +2,6 @@
 
 import pytest
 
-from app.domain.enums import MaintenanceType
-from app.domain.inventory import MaintenanceRecord
-
 from app.application.commands.assignments import (
     AssignDeviceCommand,
     AssignDeviceHandler,
@@ -12,10 +9,10 @@ from app.application.commands.assignments import (
     ReturnDeviceHandler,
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
-from app.domain.enums import DeviceStatus, UserRole
+from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
 from app.domain.errors import DomainError
 from app.domain.events import DeviceAssigned, DeviceReturned
-from app.domain.inventory import Assignment, Device
+from app.domain.inventory import Assignment, Device, MaintenanceRecord
 from app.domain.user import User
 from tests.fakes import FakeUnitOfWork
 

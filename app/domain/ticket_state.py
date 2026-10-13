@@ -84,7 +84,7 @@ class TicketState(ABC):
 
 
 class OpenState(TicketState):
-    """Concrete State: yeni açılmış talep; AI yanıtı bekleniyor."""
+    """State deseni — Concrete State: yeni açılmış talep; AI yanıtı bekleniyor."""
 
     status = TicketStatus.OPEN
 
@@ -97,7 +97,7 @@ class OpenState(TicketState):
 
 
 class AiAnsweredState(TicketState):
-    """Concrete State: AI önerisi kullanıcının değerlendirmesini bekliyor."""
+    """State deseni — Concrete State: AI önerisi kullanıcının değerlendirmesini bekliyor."""
 
     status = TicketStatus.AI_ANSWERED
 
@@ -109,7 +109,7 @@ class AiAnsweredState(TicketState):
 
 
 class EscalatedState(TicketState):
-    """Concrete State: teknisyen ataması bekleniyor."""
+    """State deseni — Concrete State: teknisyen ataması bekleniyor."""
 
     status = TicketStatus.ESCALATED
 
@@ -118,7 +118,7 @@ class EscalatedState(TicketState):
 
 
 class AssignedState(TicketState):
-    """Concrete State: teknisyene atandı, çalışma başlamadı."""
+    """State deseni — Concrete State: teknisyene atandı, çalışma başlamadı."""
 
     status = TicketStatus.ASSIGNED
 
@@ -130,7 +130,7 @@ class AssignedState(TicketState):
 
 
 class InProgressState(TicketState):
-    """Concrete State: teknisyen üzerinde çalışıyor."""
+    """State deseni — Concrete State: teknisyen üzerinde çalışıyor."""
 
     status = TicketStatus.IN_PROGRESS
 
@@ -142,7 +142,7 @@ class InProgressState(TicketState):
 
 
 class ResolvedState(TicketState):
-    """Concrete State: çözüldü; talep sahibinin onayı bekleniyor."""
+    """State deseni — Concrete State: çözüldü; talep sahibinin onayı bekleniyor."""
 
     status = TicketStatus.RESOLVED
     allows_urgency_change = False
@@ -158,7 +158,7 @@ class ResolvedState(TicketState):
 
 
 class ClosedState(TicketState):
-    """Concrete State: son durum; hiçbir geçiş, ek veya aciliyet değişikliği yok."""
+    """State deseni — Concrete State: son durum; hiçbir geçiş, ek veya aciliyet değişikliği yok."""
 
     status = TicketStatus.CLOSED
     accepts_contributions = False

@@ -5,6 +5,7 @@ import threading
 
 from app.application.commands.ai_answers import AutoAnswerTicketHandler
 from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
+from app.application.interfaces.task_runner import TaskRunner
 from app.core import dependencies
 from app.domain.enums import TicketCategory, TicketStatus
 from app.domain.user import User
@@ -12,7 +13,6 @@ from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.db.projections import TicketSummaryProjector
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
-from app.application.interfaces.task_runner import TaskRunner
 from app.infrastructure.events.task_runner import BackgroundTaskRunner, InlineTaskRunner
 from tests.fakes import FakeEventBus, FakeUnitOfWork, subscribe_all
 

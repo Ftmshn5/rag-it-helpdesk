@@ -147,6 +147,12 @@ Hoca projenin **nesne yönelimli programlamaya (OOP) ve tasarım desenlerine uyg
 - Her tasarım deseninin uygulandığı sınıfın docstring'inde desenin adı ve rolü yazılır (örn. `"""Decorator deseni — Concrete Decorator: VIP taleplerin SLA süresini kısaltır."""`).
 - Global değişken ve modül seviyesinde iş mantığı yok.
 
+### Kuralların otomatik denetimi
+- `ruff check app tests migrations`: pyflakes, import sırası ve **zorunlu tip ipucu** (ANN; `app/` için, testler hariç). Ayarlar `pyproject.toml`.
+- `tests/test_oop_structure.py`: handler'lar `CommandHandler` / `QueryHandler`'dan türer, command/query adları ve değiştirilemezliği, domain varlıklarının kapsüllenmesi (`Entity`, `_` alanlar, setter yok), çerçeve giriş noktaları dışında modül seviyesi fonksiyon yok.
+- `tests/test_pattern_docstrings.py`: desen sınıflarının docstring'i desen adını ve rolünü yazar; tablo aynı zamanda "hangi desen hangi sınıfta" listesidir.
+- `tests/test_architecture.py`: katman bağımlılık kuralı.
+
 ### Mevcut kodun uyumu
 Bu bölüm eklenmeden önce yazılmış kod varsa, bir sonraki adıma geçmeden önce bu kurallara göre gözden geçir ve gerekiyorsa yeniden düzenle (refactor). Neyi neden değiştirdiğini açıkla.
 
@@ -333,12 +339,12 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [x] **9. Frontend kurulumu:** Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, API client, CORS, rol seçici ve sayfa iskeleti
 - [x] **10. Frontend ekranları:** kullanıcı (talep aç, ekran görüntüsü, AI yanıtını değerlendir, taleplerim), teknisyen (atanan talepler, durum güncelle, bakım kaydı), yönetici (cihazlar, zimmet, atama, envanter raporu)
 - [x] **11. Gerçek RAG:** Ollama kurulumu, embedding + pgvector, bilgi bankası dokümanları, Facade arkasına bağlama
-- [ ] **OOP uyumu (hocanın şartı, 12'den önce):** mevcut kodun "Nesne yönelimli programlama kuralları"na göre düzenlenmesi
+- [x] **OOP uyumu (hocanın şartı, 12'den önce):** mevcut kodun "Nesne yönelimli programlama kuralları"na göre düzenlenmesi
   - [x] R1. Domain hata hiyerarşisi: `DomainError` tabanı ve kurala özgü hata sınıfları
   - [x] R2. `CommandHandler` / `QueryHandler` temel sınıfları; command/query nesneleri (`*Command`, `*Query`)
   - [x] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
   - [x] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
-  - [ ] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
+  - [x] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
 - [ ] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler
 - [ ] **13. Kalite ve CV:** GitHub Actions CI, test kapsamı, ekran görüntülü ve mimari diyagramlı README, GitHub'a yükleme
 - [ ] **14. Dokümantasyon:** UML sınıf/sekans diyagramları (`docs/`; sınıf diyagramları `pyreverse` ile koddan otomatik üretilebilir), her desen ve OOP ilkesi için "nerede, neden" tablosu, ders raporu

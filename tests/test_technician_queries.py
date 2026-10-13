@@ -1,13 +1,12 @@
 """GET /devices (teknisyen/yönetici) ve ekran görüntüsünü açma (gerçek PostgreSQL)."""
 
 import pytest
-
-from app.domain.attachments import ScreenshotValidator
 from fastapi.testclient import TestClient
 
 from app.application.commands.attachments import AttachScreenshotCommand, AttachScreenshotHandler
 from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.core.dependencies import get_db_session, get_file_storage
+from app.domain.attachments import ScreenshotValidator
 from app.domain.enums import TicketCategory, UserRole
 from app.domain.user import User
 from app.infrastructure.db.projections import DeviceInventoryProjector

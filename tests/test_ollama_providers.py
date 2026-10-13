@@ -10,7 +10,7 @@ import json
 import httpx
 import pytest
 
-from app.infrastructure.ai.ollama import OllamaLlmProvider, OllamaEmbeddingProvider
+from app.infrastructure.ai.ollama import OllamaEmbeddingProvider, OllamaLlmProvider
 from app.infrastructure.ai.providers import AiProviderError
 
 BASE_URL = "http://ollama.test"

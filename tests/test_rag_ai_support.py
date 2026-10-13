@@ -16,7 +16,7 @@ from app.infrastructure.ai.prompting import (
     SYSTEM_PROMPT,
     PromptBuilder,
 )
-from app.infrastructure.ai.providers import AiProviderError, LlmProvider, EmbeddingProvider
+from app.infrastructure.ai.providers import AiProviderError, EmbeddingProvider, LlmProvider
 from app.infrastructure.ai.rag_ai_support import (
     NO_ANSWER_CONFIDENCE,
     NO_ANSWER_TEXT,

@@ -2,9 +2,8 @@ from datetime import date
 
 import pytest
 
-from app.domain.enums import DeviceStatus
+from app.domain.enums import DeviceStatus, UserRole
 from app.domain.errors import DomainError
-from app.domain.enums import UserRole
 from app.domain.inventory import Assignment, Device
 from app.domain.user import User
 

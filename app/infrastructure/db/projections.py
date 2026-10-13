@@ -130,7 +130,7 @@ class Projector(EventHandler[DomainEvent], ABC):
 
 
 class TicketSummaryProjector(Projector):
-    """Template Method — Concrete Class: read.ticket_summary (talep listeleri)."""
+    """Template Method deseni — Concrete Class: read.ticket_summary (talep listeleri)."""
 
     read_model = TicketSummaryModel
     key_column = "ticket_id"
@@ -191,7 +191,7 @@ class TicketSummaryProjector(Projector):
 
 
 class DeviceInventoryProjector(Projector):
-    """Template Method — Concrete Class: read.device_inventory (envanter raporu, zimmetli cihazlarım)."""
+    """Template Method deseni — Concrete Class: read.device_inventory (envanter raporu, zimmetli cihazlarım)."""
 
     read_model = DeviceInventoryModel
     key_column = "device_id"
