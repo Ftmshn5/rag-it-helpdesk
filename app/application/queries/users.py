@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from app.application.errors import AuthenticationError, PermissionDeniedError
+from app.application.queries.base import Query, QueryHandler
 from app.domain.enums import UserRole
 
 
@@ -25,21 +25,13 @@ class UserQueries(ABC):
     def list_all(self) -> list[UserView]: ...
 
 
-def require_viewer(users: UserQueries, actor_id: int, *allowed_roles: UserRole) -> UserView:
-    """Sorguyu yapan kullanıcıyı getirir; rol verildiyse yetkisini doğrular."""
-    actor = users.get(actor_id)
-    if actor is None:
-        raise AuthenticationError("İşlemi yapan kullanıcı bulunamadı.")
-    if allowed_roles and actor.role not in allowed_roles:
-        raise PermissionDeniedError("Bu bilgiyi görüntüleme yetkiniz yok.")
-    return actor
+@dataclass(frozen=True, kw_only=True)
+class ListUsersQuery(Query):
+    """Kimlik gerektirmez: arayüzdeki kullanıcı seçme kutusu bu listeyle dolar."""
 
 
-class ListUsersHandler:
+class ListUsersHandler(QueryHandler[ListUsersQuery, list[UserView]]):
     """Kullanıcı listesi (arayüzdeki 'kullanıcı seç' kutusu ve atama ekranı için)."""
 
-    def __init__(self, users: UserQueries) -> None:
-        self.users = users
-
-    def handle(self) -> list[UserView]:
-        return self.users.list_all()
+    def handle(self, query: ListUsersQuery) -> list[UserView]:
+        return self._users.list_all()

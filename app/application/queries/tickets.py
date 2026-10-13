@@ -15,7 +15,8 @@ from datetime import datetime
 
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.application.interfaces.file_storage import FileStorage
-from app.application.queries.users import UserQueries, require_viewer
+from app.application.queries.base import ActorQuery, QueryHandler, TQuery, TResult
+from app.application.queries.users import UserQueries
 from app.domain.enums import AiFeedback, TicketCategory, TicketStatus, UserRole
 
 # --- DTO'lar ---
@@ -115,50 +116,86 @@ class AttachmentFileView:
     assignee_id: int | None
 
 
+@dataclass(frozen=True)
+class AttachmentContentView:
+    """Ekran görüntüsünün kendisi ve türü (API bunu dosya yanıtı olarak döner)."""
+
+    content: bytes
+    mime_type: str
+
+
+# --- Sorgular ---
+
+
+@dataclass(frozen=True, kw_only=True)
+class ListMyTicketsQuery(ActorQuery):
+    status: TicketStatus | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ListAssignedTicketsQuery(ActorQuery):
+    status: TicketStatus | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ListAllTicketsQuery(ActorQuery):
+    status: TicketStatus | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class GetTicketDetailQuery(ActorQuery):
+    ticket_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class GetAttachmentFileQuery(ActorQuery):
+    ticket_id: int
+    attachment_id: int
+
+
 # --- Sorgu handler'ları ---
 
 
-class ListMyTicketsHandler:
+class TicketQueryHandler(QueryHandler[TQuery, TResult]):
+    """Talep sorgularının ortak tabanı: talep okuma arayüzünü de alır."""
+
+    def __init__(self, tickets: TicketQueries, users: UserQueries) -> None:
+        super().__init__(users)
+        self._tickets = tickets
+
+
+class ListMyTicketsHandler(TicketQueryHandler[ListMyTicketsQuery, list[TicketSummaryView]]):
     """UC-03: kullanıcı kendi taleplerini listeler."""
 
-    def __init__(self, tickets: TicketQueries, users: UserQueries) -> None:
-        self.tickets, self.users = tickets, users
-
-    def handle(self, actor_id: int, status: TicketStatus | None = None) -> list[TicketSummaryView]:
-        actor = require_viewer(self.users, actor_id)
-        return self.tickets.list_by_requester(actor.id, status)
+    def handle(self, query: ListMyTicketsQuery) -> list[TicketSummaryView]:
+        actor = self._require_viewer(query.actor_id)
+        return self._tickets.list_by_requester(actor.id, query.status)
 
 
-class ListAssignedTicketsHandler:
+class ListAssignedTicketsHandler(TicketQueryHandler[ListAssignedTicketsQuery, list[TicketSummaryView]]):
     """UC-05: teknisyen kendisine atanan talepleri öncelik sırasıyla listeler."""
 
-    def __init__(self, tickets: TicketQueries, users: UserQueries) -> None:
-        self.tickets, self.users = tickets, users
-
-    def handle(self, actor_id: int, status: TicketStatus | None = None) -> list[TicketSummaryView]:
-        actor = require_viewer(self.users, actor_id, UserRole.TECHNICIAN)
-        return self.tickets.list_by_assignee(actor.id, status)
+    def handle(self, query: ListAssignedTicketsQuery) -> list[TicketSummaryView]:
+        actor = self._require_viewer(query.actor_id, UserRole.TECHNICIAN)
+        return self._tickets.list_by_assignee(actor.id, query.status)
 
 
-class ListAllTicketsHandler:
+class ListAllTicketsHandler(TicketQueryHandler[ListAllTicketsQuery, list[TicketSummaryView]]):
     """Yönetici kuyruğu: örn. status=ESCALATED ile atama bekleyen talepler (UC-10 öncesi)."""
 
-    def __init__(self, tickets: TicketQueries, users: UserQueries) -> None:
-        self.tickets, self.users = tickets, users
-
-    def handle(self, actor_id: int, status: TicketStatus | None = None) -> list[TicketSummaryView]:
-        require_viewer(self.users, actor_id, UserRole.ADMIN)
-        return self.tickets.list_all(status)
+    def handle(self, query: ListAllTicketsQuery) -> list[TicketSummaryView]:
+        self._require_viewer(query.actor_id, UserRole.ADMIN)
+        return self._tickets.list_all(query.status)
 
 
-class GetTicketDetailHandler:
+class GetTicketDetailHandler(TicketQueryHandler[GetTicketDetailQuery, TicketDetailView]):
     def __init__(self, tickets: TicketQueries, users: UserQueries, ai_threshold: float) -> None:
-        self.tickets, self.users = tickets, users
-        self.ai_threshold = ai_threshold
+        super().__init__(tickets, users)
+        self._ai_threshold = ai_threshold
 
-    def handle(self, actor_id: int, ticket_id: int) -> TicketDetailView:
-        actor = require_viewer(self.users, actor_id)
-        detail = self.tickets.get_detail(ticket_id)
+    def handle(self, query: GetTicketDetailQuery) -> TicketDetailView:
+        actor = self._require_viewer(query.actor_id)
+        detail = self._tickets.get_detail(query.ticket_id)
         if detail is None:
             raise NotFoundError("Talep bulunamadı.")
 
@@ -170,12 +207,12 @@ class GetTicketDetailHandler:
         # İş kuralı 4'ün okuma tarafı: güveni düşük AI yanıtı talep sahibine
         # gösterilmez; teknisyen ve yönetici bağlam olarak görebilir.
         answer = detail.ai_answer
-        if answer and answer.confidence < self.ai_threshold and not is_staff:
+        if answer and answer.confidence < self._ai_threshold and not is_staff:
             detail = replace(detail, ai_answer=None)
         return detail
 
 
-class GetAttachmentFileHandler:
+class GetAttachmentFileHandler(TicketQueryHandler[GetAttachmentFileQuery, AttachmentContentView]):
     """Ekran görüntüsünün kendisi (UC-15'in görüntüleme tarafı).
 
     Ek yükleme kuralıyla aynı: yalnızca talebin tarafları (talep sahibi,
@@ -183,18 +220,19 @@ class GetAttachmentFileHandler:
     """
 
     def __init__(self, tickets: TicketQueries, users: UserQueries, storage: FileStorage) -> None:
-        self.tickets, self.users, self.storage = tickets, users, storage
+        super().__init__(tickets, users)
+        self._storage = storage
 
-    def handle(self, actor_id: int, ticket_id: int, attachment_id: int) -> tuple[bytes, str]:
-        actor = require_viewer(self.users, actor_id)
-        attachment = self.tickets.get_attachment(ticket_id, attachment_id)
+    def handle(self, query: GetAttachmentFileQuery) -> AttachmentContentView:
+        actor = self._require_viewer(query.actor_id)
+        attachment = self._tickets.get_attachment(query.ticket_id, query.attachment_id)
         if attachment is None:
             raise NotFoundError("Ek bulunamadı.")
         is_participant = actor.id in (attachment.requester_id, attachment.assignee_id)
         if not is_participant and actor.role != UserRole.ADMIN:
             raise PermissionDeniedError("Bu eki görüntüleme yetkiniz yok.")
         try:
-            content = self.storage.read(attachment.file_path)
+            content = self._storage.read(attachment.file_path)
         except FileNotFoundError:
             raise NotFoundError("Ek dosyası depolamada bulunamadı.") from None
-        return content, attachment.mime_type
+        return AttachmentContentView(content=content, mime_type=attachment.mime_type)

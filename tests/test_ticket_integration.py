@@ -4,25 +4,25 @@ Veritabanında yalnızca modifiers listesi durur; okurken Factory bu listeden
 decorator'lı nesneyi yeniden kurar. Bu test o döngüyü uçtan uca doğrular.
 """
 
-from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
+from app.application.commands.attachments import AttachScreenshotCommand, AttachScreenshotHandler
 from app.application.commands.ticket_workflow import (
-    AddComment,
+    AddCommentCommand,
     AddCommentHandler,
-    AssignTicket,
+    AssignTicketCommand,
     AssignTicketHandler,
-    CloseTicket,
+    CloseTicketCommand,
     CloseTicketHandler,
-    ReopenTicket,
+    ReopenTicketCommand,
     ReopenTicketHandler,
-    ResolveTicket,
+    ResolveTicketCommand,
     ResolveTicketHandler,
-    StartWork,
+    StartWorkCommand,
     StartWorkHandler,
 )
 from app.application.commands.tickets import (
-    CreateTicket,
+    CreateTicketCommand,
     CreateTicketHandler,
-    SetTicketUrgency,
+    SetTicketUrgencyCommand,
     SetTicketUrgencyHandler,
 )
 from app.domain.enums import TicketCategory, TicketModifier, TicketStatus, UserRole
@@ -39,7 +39,7 @@ def test_modifiers_round_trip_and_factory_rebuilds_behavior(sqlalchemy_uow):
         uow.commit()
 
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=vip.id,
             title="Projeksiyon açılmıyor",
             description="Amfi 1",
@@ -51,7 +51,7 @@ def test_modifiers_round_trip_and_factory_rebuilds_behavior(sqlalchemy_uow):
     assert behavior.sla_hours() == 24
 
     SetTicketUrgencyHandler(uow).handle(
-        SetTicketUrgency(actor_id=admin.id, ticket_id=ticket_id, is_urgent=True)
+        SetTicketUrgencyCommand(actor_id=admin.id, ticket_id=ticket_id, is_urgent=True)
     )
     with uow:
         ticket = uow.tickets.get(ticket_id)
@@ -72,7 +72,7 @@ def test_full_lifecycle_with_reopen_on_real_database(sqlalchemy_uow):
         elif_ = uow.users.add(User(full_name="T2", email="it.t2@test.edu", role=UserRole.TECHNICIAN))
         uow.commit()
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(actor_id=user.id, title="VPN", description="d", category=TicketCategory.NETWORK)
+        CreateTicketCommand(actor_id=user.id, title="VPN", description="d", category=TicketCategory.NETWORK)
     )
     with uow:  # AI adımı 7. adımda; şimdilik eskalasyonu doğrudan domain ile yapıyoruz
         ticket = uow.tickets.get(ticket_id)
@@ -81,20 +81,20 @@ def test_full_lifecycle_with_reopen_on_real_database(sqlalchemy_uow):
         uow.commit()
 
     AssignTicketHandler(uow).handle(
-        AssignTicket(actor_id=admin.id, ticket_id=ticket_id, technician_id=ali.id)
+        AssignTicketCommand(actor_id=admin.id, ticket_id=ticket_id, technician_id=ali.id)
     )
-    StartWorkHandler(uow).handle(StartWork(actor_id=ali.id, ticket_id=ticket_id))
+    StartWorkHandler(uow).handle(StartWorkCommand(actor_id=ali.id, ticket_id=ticket_id))
     AddCommentHandler(uow).handle(
-        AddComment(actor_id=ali.id, ticket_id=ticket_id, content="Sertifika yenilendi.")
+        AddCommentCommand(actor_id=ali.id, ticket_id=ticket_id, content="Sertifika yenilendi.")
     )
-    ResolveTicketHandler(uow).handle(ResolveTicket(actor_id=ali.id, ticket_id=ticket_id))
-    ReopenTicketHandler(uow).handle(ReopenTicket(actor_id=user.id, ticket_id=ticket_id))
+    ResolveTicketHandler(uow).handle(ResolveTicketCommand(actor_id=ali.id, ticket_id=ticket_id))
+    ReopenTicketHandler(uow).handle(ReopenTicketCommand(actor_id=user.id, ticket_id=ticket_id))
     AssignTicketHandler(uow).handle(
-        AssignTicket(actor_id=admin.id, ticket_id=ticket_id, technician_id=elif_.id)
+        AssignTicketCommand(actor_id=admin.id, ticket_id=ticket_id, technician_id=elif_.id)
     )
-    StartWorkHandler(uow).handle(StartWork(actor_id=elif_.id, ticket_id=ticket_id))
-    ResolveTicketHandler(uow).handle(ResolveTicket(actor_id=elif_.id, ticket_id=ticket_id))
-    CloseTicketHandler(uow).handle(CloseTicket(actor_id=user.id, ticket_id=ticket_id))
+    StartWorkHandler(uow).handle(StartWorkCommand(actor_id=elif_.id, ticket_id=ticket_id))
+    ResolveTicketHandler(uow).handle(ResolveTicketCommand(actor_id=elif_.id, ticket_id=ticket_id))
+    CloseTicketHandler(uow).handle(CloseTicketCommand(actor_id=user.id, ticket_id=ticket_id))
 
     with uow:
         ticket = uow.tickets.get(ticket_id)
@@ -120,14 +120,14 @@ def test_screenshot_is_stored_on_disk_and_recorded_in_database(sqlalchemy_uow, t
         user = uow.users.add(User(full_name="A", email="it.att@test.edu"))
         uow.commit()
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=user.id, title="Mavi ekran", description="d", category=TicketCategory.SOFTWARE
         )
     )
     png = b"\x89PNG\r\n\x1a\n" + b"\x01" * 50
 
     attachment_id = AttachScreenshotHandler(uow, LocalFileStorage(tmp_path), 1024).handle(
-        AttachScreenshot(actor_id=user.id, ticket_id=ticket_id, content=png)
+        AttachScreenshotCommand(actor_id=user.id, ticket_id=ticket_id, content=png)
     )
 
     with uow:

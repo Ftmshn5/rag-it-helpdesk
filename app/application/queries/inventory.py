@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from app.application.errors import NotFoundError
-from app.application.queries.users import UserQueries, require_viewer
+from app.application.queries.base import ActorQuery, QueryHandler, TQuery, TResult
+from app.application.queries.users import UserQueries
 from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
 
 # --- DTO'lar ---
@@ -76,20 +77,48 @@ class InventoryQueries(ABC):
         """En yeni bakım önce."""
 
 
+# --- Sorgular ---
+
+
+@dataclass(frozen=True, kw_only=True)
+class GetInventoryReportQuery(ActorQuery):
+    status: DeviceStatus | None = None
+    device_type: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ListDevicesQuery(ActorQuery):
+    status: DeviceStatus | None = None
+    device_type: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ListMyDevicesQuery(ActorQuery):
+    pass
+
+
+@dataclass(frozen=True, kw_only=True)
+class GetMaintenanceHistoryQuery(ActorQuery):
+    device_id: int
+
+
 # --- Sorgu handler'ları ---
 
 
-class GetInventoryReportHandler:
-    """UC-11: yönetici envanter raporu (filtrelenebilir liste + durum/tür sayıları)."""
+class InventoryQueryHandler(QueryHandler[TQuery, TResult]):
+    """Envanter sorgularının ortak tabanı: envanter okuma arayüzünü de alır."""
 
     def __init__(self, inventory: InventoryQueries, users: UserQueries) -> None:
-        self.inventory, self.users = inventory, users
+        super().__init__(users)
+        self._inventory = inventory
 
-    def handle(
-        self, actor_id: int, status: DeviceStatus | None = None, device_type: str | None = None
-    ) -> InventoryReportView:
-        require_viewer(self.users, actor_id, UserRole.ADMIN)
-        devices = self.inventory.list_devices(status, device_type)
+
+class GetInventoryReportHandler(InventoryQueryHandler[GetInventoryReportQuery, InventoryReportView]):
+    """UC-11: yönetici envanter raporu (filtrelenebilir liste + durum/tür sayıları)."""
+
+    def handle(self, query: GetInventoryReportQuery) -> InventoryReportView:
+        self._require_viewer(query.actor_id, UserRole.ADMIN)
+        devices = self._inventory.list_devices(query.status, query.device_type)
 
         by_status = {s: 0 for s in DeviceStatus}  # sıfır olan durumlar da raporda görünsün
         by_type: dict[str, int] = {}
@@ -97,46 +126,33 @@ class GetInventoryReportHandler:
             by_status[device.status] += 1
             by_type[device.type] = by_type.get(device.type, 0) + 1
 
-        return InventoryReportView(
-            total=len(devices), by_status=by_status, by_type=by_type, devices=devices
-        )
+        return InventoryReportView(total=len(devices), by_status=by_status, by_type=by_type, devices=devices)
 
 
-class ListDevicesHandler:
+class ListDevicesHandler(InventoryQueryHandler[ListDevicesQuery, list[DeviceInventoryView]]):
     """Cihaz listesi: teknisyen bakım kaydı açmak, yönetici zimmet işlemleri için kullanır.
 
     Envanter raporundan (yalnızca yönetici) farkı: sayımlar yok, yalnızca liste.
     """
 
-    def __init__(self, inventory: InventoryQueries, users: UserQueries) -> None:
-        self.inventory, self.users = inventory, users
-
-    def handle(
-        self, actor_id: int, status: DeviceStatus | None = None, device_type: str | None = None
-    ) -> list[DeviceInventoryView]:
-        require_viewer(self.users, actor_id, UserRole.TECHNICIAN, UserRole.ADMIN)
-        return self.inventory.list_devices(status, device_type)
+    def handle(self, query: ListDevicesQuery) -> list[DeviceInventoryView]:
+        self._require_viewer(query.actor_id, UserRole.TECHNICIAN, UserRole.ADMIN)
+        return self._inventory.list_devices(query.status, query.device_type)
 
 
-class ListMyDevicesHandler:
+class ListMyDevicesHandler(InventoryQueryHandler[ListMyDevicesQuery, list[DeviceInventoryView]]):
     """UC-04: kullanıcı kendisine zimmetli cihazları görür."""
 
-    def __init__(self, inventory: InventoryQueries, users: UserQueries) -> None:
-        self.inventory, self.users = inventory, users
-
-    def handle(self, actor_id: int) -> list[DeviceInventoryView]:
-        actor = require_viewer(self.users, actor_id)
-        return self.inventory.list_held_by(actor.id)
+    def handle(self, query: ListMyDevicesQuery) -> list[DeviceInventoryView]:
+        actor = self._require_viewer(query.actor_id)
+        return self._inventory.list_held_by(actor.id)
 
 
-class GetMaintenanceHistoryHandler:
+class GetMaintenanceHistoryHandler(InventoryQueryHandler[GetMaintenanceHistoryQuery, list[MaintenanceRecordView]]):
     """UC-17: teknisyen ve yönetici bir cihazın bakım geçmişini görür."""
 
-    def __init__(self, inventory: InventoryQueries, users: UserQueries) -> None:
-        self.inventory, self.users = inventory, users
-
-    def handle(self, actor_id: int, device_id: int) -> list[MaintenanceRecordView]:
-        require_viewer(self.users, actor_id, UserRole.TECHNICIAN, UserRole.ADMIN)
-        if not self.inventory.device_exists(device_id):
+    def handle(self, query: GetMaintenanceHistoryQuery) -> list[MaintenanceRecordView]:
+        self._require_viewer(query.actor_id, UserRole.TECHNICIAN, UserRole.ADMIN)
+        if not self._inventory.device_exists(query.device_id):
             raise NotFoundError("Cihaz bulunamadı.")
-        return self.inventory.maintenance_history(device_id)
+        return self._inventory.maintenance_history(query.device_id)

@@ -4,26 +4,26 @@ from fastapi import APIRouter, Depends, File, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.api.schemas import CreatedResponse
-from app.application.commands.ai_answers import EvaluateAiAnswer, EvaluateAiAnswerHandler
-from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
+from app.application.commands.ai_answers import EvaluateAiAnswerCommand, EvaluateAiAnswerHandler
+from app.application.commands.attachments import AttachScreenshotCommand, AttachScreenshotHandler
 from app.application.commands.ticket_workflow import (
-    AddComment,
+    AddCommentCommand,
     AddCommentHandler,
-    AssignTicket,
+    AssignTicketCommand,
     AssignTicketHandler,
-    CloseTicket,
+    CloseTicketCommand,
     CloseTicketHandler,
-    ReopenTicket,
+    ReopenTicketCommand,
     ReopenTicketHandler,
-    ResolveTicket,
+    ResolveTicketCommand,
     ResolveTicketHandler,
-    StartWork,
+    StartWorkCommand,
     StartWorkHandler,
 )
 from app.application.commands.tickets import (
-    CreateTicket,
+    CreateTicketCommand,
     CreateTicketHandler,
-    SetTicketUrgency,
+    SetTicketUrgencyCommand,
     SetTicketUrgencyHandler,
 )
 from app.core.config import get_settings
@@ -75,7 +75,7 @@ def create_ticket(
     actor_id: int = Depends(get_current_user_id),
     handler: CreateTicketHandler = Depends(get_create_ticket_handler),
 ) -> CreatedResponse:
-    ticket_id = handler.handle(CreateTicket(actor_id=actor_id, **body.model_dump()))
+    ticket_id = handler.handle(CreateTicketCommand(actor_id=actor_id, **body.model_dump()))
     return CreatedResponse(id=ticket_id)
 
 
@@ -87,7 +87,7 @@ def set_ticket_urgency(
     handler: SetTicketUrgencyHandler = Depends(get_set_ticket_urgency_handler),
 ) -> None:
     handler.handle(
-        SetTicketUrgency(actor_id=actor_id, ticket_id=ticket_id, is_urgent=body.is_urgent)
+        SetTicketUrgencyCommand(actor_id=actor_id, ticket_id=ticket_id, is_urgent=body.is_urgent)
     )
 
 
@@ -106,7 +106,7 @@ def attach_screenshot(
     # en fazla bu kadarı alınır; sınırı aştığını domain kuralı yakalar.
     content = file.file.read(get_settings().max_upload_size_bytes + 1)
     attachment_id = handler.handle(
-        AttachScreenshot(actor_id=actor_id, ticket_id=ticket_id, content=content)
+        AttachScreenshotCommand(actor_id=actor_id, ticket_id=ticket_id, content=content)
     )
     return CreatedResponse(id=attachment_id)
 
@@ -122,7 +122,7 @@ def assign_ticket(
     handler: AssignTicketHandler = Depends(get_assign_ticket_handler),
 ) -> None:
     handler.handle(
-        AssignTicket(actor_id=actor_id, ticket_id=ticket_id, technician_id=body.technician_id)
+        AssignTicketCommand(actor_id=actor_id, ticket_id=ticket_id, technician_id=body.technician_id)
     )
 
 
@@ -132,7 +132,7 @@ def start_work(
     actor_id: int = Depends(get_current_user_id),
     handler: StartWorkHandler = Depends(get_start_work_handler),
 ) -> None:
-    handler.handle(StartWork(actor_id=actor_id, ticket_id=ticket_id))
+    handler.handle(StartWorkCommand(actor_id=actor_id, ticket_id=ticket_id))
 
 
 @router.post("/{ticket_id}/resolve", status_code=status.HTTP_204_NO_CONTENT)
@@ -141,7 +141,7 @@ def resolve_ticket(
     actor_id: int = Depends(get_current_user_id),
     handler: ResolveTicketHandler = Depends(get_resolve_ticket_handler),
 ) -> None:
-    handler.handle(ResolveTicket(actor_id=actor_id, ticket_id=ticket_id))
+    handler.handle(ResolveTicketCommand(actor_id=actor_id, ticket_id=ticket_id))
 
 
 @router.post("/{ticket_id}/close", status_code=status.HTTP_204_NO_CONTENT)
@@ -150,7 +150,7 @@ def close_ticket(
     actor_id: int = Depends(get_current_user_id),
     handler: CloseTicketHandler = Depends(get_close_ticket_handler),
 ) -> None:
-    handler.handle(CloseTicket(actor_id=actor_id, ticket_id=ticket_id))
+    handler.handle(CloseTicketCommand(actor_id=actor_id, ticket_id=ticket_id))
 
 
 @router.post("/{ticket_id}/reopen", status_code=status.HTTP_204_NO_CONTENT)
@@ -159,7 +159,7 @@ def reopen_ticket(
     actor_id: int = Depends(get_current_user_id),
     handler: ReopenTicketHandler = Depends(get_reopen_ticket_handler),
 ) -> None:
-    handler.handle(ReopenTicket(actor_id=actor_id, ticket_id=ticket_id))
+    handler.handle(ReopenTicketCommand(actor_id=actor_id, ticket_id=ticket_id))
 
 
 # --- Not ---
@@ -177,7 +177,7 @@ def add_comment(
     handler: AddCommentHandler = Depends(get_add_comment_handler),
 ) -> CreatedResponse:
     comment_id = handler.handle(
-        AddComment(actor_id=actor_id, ticket_id=ticket_id, content=body.content)
+        AddCommentCommand(actor_id=actor_id, ticket_id=ticket_id, content=body.content)
     )
     return CreatedResponse(id=comment_id)
 
@@ -193,5 +193,5 @@ def evaluate_ai_answer(
     handler: EvaluateAiAnswerHandler = Depends(get_evaluate_ai_answer_handler),
 ) -> None:
     handler.handle(
-        EvaluateAiAnswer(actor_id=actor_id, ticket_id=ticket_id, is_helpful=body.is_helpful)
+        EvaluateAiAnswerCommand(actor_id=actor_id, ticket_id=ticket_id, is_helpful=body.is_helpful)
     )

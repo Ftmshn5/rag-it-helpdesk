@@ -85,6 +85,7 @@ infrastructure/
 
 ### CQRS
 - Yazma (`commands/`) ve okuma (`queries/`) ayrı modüllerde, ayrı handler sınıflarında.
+- Her handler `CommandHandler` / `QueryHandler` soyut tabanından türer (`commands/base.py`, `queries/base.py`); ortak yetki ve "bulunamadı" kontrolleri bu tabanların korumalı metotlarıdır. Command/query verileri değiştirilemez dataclass'lardır (`*Command`, `*Query`; kullanıcının başlattıkları `ActorCommand` / `ActorQuery`). Bu düzeni `tests/test_oop_structure.py` denetler.
 - PostgreSQL'de iki şema:
   - `write` şeması: normalize tablolar, iş kuralları burada uygulanır.
   - `read` şeması: raporlar için denormalize read model tabloları (örn. `ticket_summary`, `inventory_report`, `failure_stats`).
@@ -327,7 +328,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [x] **11. Gerçek RAG:** Ollama kurulumu, embedding + pgvector, bilgi bankası dokümanları, Facade arkasına bağlama
 - [ ] **OOP uyumu (hocanın şartı, 12'den önce):** mevcut kodun "Nesne yönelimli programlama kuralları"na göre düzenlenmesi
   - [x] R1. Domain hata hiyerarşisi: `DomainError` tabanı ve kurala özgü hata sınıfları
-  - [ ] R2. `CommandHandler` / `QueryHandler` temel sınıfları; command/query nesneleri (`*Command`, `*Query`)
+  - [x] R2. `CommandHandler` / `QueryHandler` temel sınıfları; command/query nesneleri (`*Command`, `*Query`)
   - [ ] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
   - [ ] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
   - [ ] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler

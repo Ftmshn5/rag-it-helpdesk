@@ -12,17 +12,17 @@ from pydantic import BaseModel, Field
 
 from app.api.schemas import CreatedResponse
 from app.application.commands.assignments import (
-    AssignDevice,
+    AssignDeviceCommand,
     AssignDeviceHandler,
-    ReturnDevice,
+    ReturnDeviceCommand,
     ReturnDeviceHandler,
 )
 from app.application.commands.devices import (
-    RegisterDevice,
+    RegisterDeviceCommand,
     RegisterDeviceHandler,
-    RetireDevice,
+    RetireDeviceCommand,
     RetireDeviceHandler,
-    UpdateDeviceDetails,
+    UpdateDeviceDetailsCommand,
     UpdateDeviceDetailsHandler,
 )
 from app.core.dependencies import (
@@ -65,7 +65,7 @@ def register_device(
     actor_id: int = Depends(get_current_user_id),
     handler: RegisterDeviceHandler = Depends(get_register_device_handler),
 ) -> CreatedResponse:
-    device_id = handler.handle(RegisterDevice(actor_id=actor_id, **body.model_dump()))
+    device_id = handler.handle(RegisterDeviceCommand(actor_id=actor_id, **body.model_dump()))
     return CreatedResponse(id=device_id)
 
 
@@ -77,7 +77,7 @@ def update_device_details(
     handler: UpdateDeviceDetailsHandler = Depends(get_update_device_details_handler),
 ) -> None:
     handler.handle(
-        UpdateDeviceDetails(actor_id=actor_id, device_id=device_id, **body.model_dump())
+        UpdateDeviceDetailsCommand(actor_id=actor_id, device_id=device_id, **body.model_dump())
     )
 
 
@@ -87,7 +87,7 @@ def retire_device(
     actor_id: int = Depends(get_current_user_id),
     handler: RetireDeviceHandler = Depends(get_retire_device_handler),
 ) -> None:
-    handler.handle(RetireDevice(actor_id=actor_id, device_id=device_id))
+    handler.handle(RetireDeviceCommand(actor_id=actor_id, device_id=device_id))
 
 
 @router.post(
@@ -102,7 +102,7 @@ def assign_device(
     handler: AssignDeviceHandler = Depends(get_assign_device_handler),
 ) -> CreatedResponse:
     assignment_id = handler.handle(
-        AssignDevice(actor_id=actor_id, device_id=device_id, user_id=body.user_id)
+        AssignDeviceCommand(actor_id=actor_id, device_id=device_id, user_id=body.user_id)
     )
     return CreatedResponse(id=assignment_id)
 
@@ -113,4 +113,4 @@ def return_device(
     actor_id: int = Depends(get_current_user_id),
     handler: ReturnDeviceHandler = Depends(get_return_device_handler),
 ) -> None:
-    handler.handle(ReturnDevice(actor_id=actor_id, device_id=device_id))
+    handler.handle(ReturnDeviceCommand(actor_id=actor_id, device_id=device_id))

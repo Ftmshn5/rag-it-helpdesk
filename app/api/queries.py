@@ -1,6 +1,9 @@
 """Okuma endpoint'leri (CQRS okuma tarafı).
 
 Yazma endpoint'lerinden ayrı bir router'dadır: tümü GET, hiçbiri veri değiştirmez.
+Router fonksiyonları incedir: HTTP parametrelerinden bir Query nesnesi kurar,
+handler'a verir ve sonucu döner; iş mantığı veya yetki kontrolü içermez.
+
 Sabit yollar (/tickets/mine) değişkenli yoldan (/tickets/{ticket_id}) önce
 tanımlanır; aksi halde "mine" bir talep numarası sanılırdı.
 """
@@ -10,33 +13,42 @@ from fastapi import APIRouter, Depends, Response
 from app.application.queries.inventory import (
     DeviceInventoryView,
     GetInventoryReportHandler,
+    GetInventoryReportQuery,
     GetMaintenanceHistoryHandler,
+    GetMaintenanceHistoryQuery,
     InventoryReportView,
     ListDevicesHandler,
+    ListDevicesQuery,
     ListMyDevicesHandler,
+    ListMyDevicesQuery,
     MaintenanceRecordView,
 )
 from app.application.queries.tickets import (
     GetAttachmentFileHandler,
+    GetAttachmentFileQuery,
     GetTicketDetailHandler,
+    GetTicketDetailQuery,
     ListAllTicketsHandler,
+    ListAllTicketsQuery,
     ListAssignedTicketsHandler,
+    ListAssignedTicketsQuery,
     ListMyTicketsHandler,
+    ListMyTicketsQuery,
     TicketDetailView,
     TicketSummaryView,
 )
-from app.application.queries.users import ListUsersHandler, UserView
+from app.application.queries.users import ListUsersHandler, ListUsersQuery, UserView
 from app.core.dependencies import (
     get_attachment_file_handler,
     get_current_user_id,
-    get_list_devices_handler,
     get_inventory_report_handler,
-    get_list_my_devices_handler,
-    get_maintenance_history_handler,
     get_list_all_tickets_handler,
     get_list_assigned_tickets_handler,
+    get_list_devices_handler,
+    get_list_my_devices_handler,
     get_list_my_tickets_handler,
     get_list_users_handler,
+    get_maintenance_history_handler,
     get_ticket_detail_handler,
 )
 from app.domain.enums import DeviceStatus, TicketStatus
@@ -45,9 +57,9 @@ router = APIRouter(tags=["queries"])
 
 
 @router.get("/users", response_model=list[UserView])
-def list_users(handler: ListUsersHandler = Depends(get_list_users_handler)):
+def list_users(handler: ListUsersHandler = Depends(get_list_users_handler)) -> list[UserView]:
     """Kimlik doğrulama kapsam dışı: arayüzdeki kullanıcı seçme kutusu bu listeyi kullanır."""
-    return handler.handle()
+    return handler.handle(ListUsersQuery())
 
 
 @router.get("/tickets/mine", response_model=list[TicketSummaryView])
@@ -55,8 +67,8 @@ def list_my_tickets(
     status: TicketStatus | None = None,
     actor_id: int = Depends(get_current_user_id),
     handler: ListMyTicketsHandler = Depends(get_list_my_tickets_handler),
-):
-    return handler.handle(actor_id, status)
+) -> list[TicketSummaryView]:
+    return handler.handle(ListMyTicketsQuery(actor_id=actor_id, status=status))
 
 
 @router.get("/tickets/assigned", response_model=list[TicketSummaryView])
@@ -64,8 +76,8 @@ def list_assigned_tickets(
     status: TicketStatus | None = None,
     actor_id: int = Depends(get_current_user_id),
     handler: ListAssignedTicketsHandler = Depends(get_list_assigned_tickets_handler),
-):
-    return handler.handle(actor_id, status)
+) -> list[TicketSummaryView]:
+    return handler.handle(ListAssignedTicketsQuery(actor_id=actor_id, status=status))
 
 
 @router.get("/tickets", response_model=list[TicketSummaryView])
@@ -73,8 +85,8 @@ def list_all_tickets(
     status: TicketStatus | None = None,
     actor_id: int = Depends(get_current_user_id),
     handler: ListAllTicketsHandler = Depends(get_list_all_tickets_handler),
-):
-    return handler.handle(actor_id, status)
+) -> list[TicketSummaryView]:
+    return handler.handle(ListAllTicketsQuery(actor_id=actor_id, status=status))
 
 
 @router.get("/tickets/{ticket_id}/attachments/{attachment_id}")
@@ -84,10 +96,12 @@ def get_attachment_file(
     actor_id: int = Depends(get_current_user_id),
     handler: GetAttachmentFileHandler = Depends(get_attachment_file_handler),
 ) -> Response:
-    content, mime_type = handler.handle(actor_id, ticket_id, attachment_id)
+    attachment = handler.handle(
+        GetAttachmentFileQuery(actor_id=actor_id, ticket_id=ticket_id, attachment_id=attachment_id)
+    )
     return Response(
-        content=content,
-        media_type=mime_type,
+        content=attachment.content,
+        media_type=attachment.mime_type,
         headers={
             # Tarayıcı türü tahmin etmeye çalışmasın: yalnızca bildirilen png/jpg
             "X-Content-Type-Options": "nosniff",
@@ -102,8 +116,8 @@ def get_ticket_detail(
     ticket_id: int,
     actor_id: int = Depends(get_current_user_id),
     handler: GetTicketDetailHandler = Depends(get_ticket_detail_handler),
-):
-    return handler.handle(actor_id, ticket_id)
+) -> TicketDetailView:
+    return handler.handle(GetTicketDetailQuery(actor_id=actor_id, ticket_id=ticket_id))
 
 
 # --- Envanter ---
@@ -115,8 +129,8 @@ def get_inventory_report(
     type: str | None = None,
     actor_id: int = Depends(get_current_user_id),
     handler: GetInventoryReportHandler = Depends(get_inventory_report_handler),
-):
-    return handler.handle(actor_id, status, type)
+) -> InventoryReportView:
+    return handler.handle(GetInventoryReportQuery(actor_id=actor_id, status=status, device_type=type))
 
 
 @router.get("/devices", response_model=list[DeviceInventoryView])
@@ -125,16 +139,16 @@ def list_devices(
     type: str | None = None,
     actor_id: int = Depends(get_current_user_id),
     handler: ListDevicesHandler = Depends(get_list_devices_handler),
-):
-    return handler.handle(actor_id, status, type)
+) -> list[DeviceInventoryView]:
+    return handler.handle(ListDevicesQuery(actor_id=actor_id, status=status, device_type=type))
 
 
 @router.get("/devices/mine", response_model=list[DeviceInventoryView])
 def list_my_devices(
     actor_id: int = Depends(get_current_user_id),
     handler: ListMyDevicesHandler = Depends(get_list_my_devices_handler),
-):
-    return handler.handle(actor_id)
+) -> list[DeviceInventoryView]:
+    return handler.handle(ListMyDevicesQuery(actor_id=actor_id))
 
 
 @router.get("/devices/{device_id}/maintenance-records", response_model=list[MaintenanceRecordView])
@@ -142,5 +156,5 @@ def get_maintenance_history(
     device_id: int,
     actor_id: int = Depends(get_current_user_id),
     handler: GetMaintenanceHistoryHandler = Depends(get_maintenance_history_handler),
-):
-    return handler.handle(actor_id, device_id)
+) -> list[MaintenanceRecordView]:
+    return handler.handle(GetMaintenanceHistoryQuery(actor_id=actor_id, device_id=device_id))

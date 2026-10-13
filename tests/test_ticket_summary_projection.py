@@ -6,16 +6,16 @@ import pytest
 
 from app.application.commands.ai_answers import (
     AutoAnswerTicketHandler,
-    EvaluateAiAnswer,
+    EvaluateAiAnswerCommand,
     EvaluateAiAnswerHandler,
 )
 from app.application.commands.ticket_workflow import (
-    AddComment,
+    AddCommentCommand,
     AddCommentHandler,
-    AssignTicket,
+    AssignTicketCommand,
     AssignTicketHandler,
 )
-from app.application.commands.tickets import CreateTicket, CreateTicketHandler
+from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import TicketCategory, TicketModifier, TicketStatus, UserRole
 from app.domain.inventory import Device
@@ -177,7 +177,7 @@ def test_read_model_follows_write_side_through_events(session_factory, projector
     uow = SqlAlchemyUnitOfWork(bus, session_factory)
 
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=dean.id, title="Şifremi unuttum", description="-", category=TicketCategory.ACCOUNT
         )
     )
@@ -185,13 +185,13 @@ def test_read_model_follows_write_side_through_events(session_factory, projector
     assert (row.status, row.ai_confidence, row.sla_hours) == ("AI_ANSWERED", 0.85, 24)
 
     EvaluateAiAnswerHandler(uow).handle(
-        EvaluateAiAnswer(actor_id=dean.id, ticket_id=ticket_id, is_helpful=False)
+        EvaluateAiAnswerCommand(actor_id=dean.id, ticket_id=ticket_id, is_helpful=False)
     )
     AssignTicketHandler(uow).handle(
-        AssignTicket(actor_id=admin.id, ticket_id=ticket_id, technician_id=tech.id)
+        AssignTicketCommand(actor_id=admin.id, ticket_id=ticket_id, technician_id=tech.id)
     )
     AddCommentHandler(uow).handle(
-        AddComment(actor_id=tech.id, ticket_id=ticket_id, content="Hesap kilidi açıldı.")
+        AddCommentCommand(actor_id=tech.id, ticket_id=ticket_id, content="Hesap kilidi açıldı.")
     )
 
     row = read_row(session_factory, ticket_id)

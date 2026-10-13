@@ -11,12 +11,8 @@ UC-02 (AI önerisini değerlendir): talep sahibi "çözüldü / çözülmedi" de
 import logging
 from dataclasses import dataclass
 
-from app.application.commands.common import get_ticket_or_raise
-from app.application.commands.ticket_workflow import (
-    TicketCommand,
-    TicketTransitionHandler,
-    require_requester,
-)
+from app.application.commands.base import Command, CommandHandler
+from app.application.commands.ticket_workflow import TicketCommand, TicketTransitionHandler
 from app.application.errors import NotFoundError
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.application.interfaces.unit_of_work import UnitOfWork
@@ -29,44 +25,46 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, kw_only=True)
-class AutoAnswerTicket:
+class AutoAnswerTicketCommand(Command):
+    """Aktörü kullanıcı değil AI asistan olduğu için actor_id taşımaz."""
+
     ticket_id: int
 
 
-class AutoAnswerTicketHandler:
+class AutoAnswerTicketHandler(CommandHandler[AutoAnswerTicketCommand, None]):
     def __init__(self, uow: UnitOfWork, ai_support: AiSupportFacade, threshold: float) -> None:
-        self.uow = uow
-        self.ai_support = ai_support
-        self.threshold = threshold
+        super().__init__(uow)
+        self._ai_support = ai_support
+        self._threshold = threshold
 
-    def handle(self, command: AutoAnswerTicket) -> None:
+    def handle(self, command: AutoAnswerTicketCommand) -> None:
         # AI çağrısı (gerçek LLM'de saniyeler sürer) hiçbir transaction açıkken
         # yapılmaz: önce kısa bir okuma, sonra AI, sonra kısa bir yazma transaction'ı.
         # Böylece yavaş model veritabanı bağlantısını ve satır kilitlerini tutmaz.
-        with self.uow:
-            ticket = get_ticket_or_raise(self.uow, command.ticket_id)
+        with self._uow:
+            ticket = self._get_ticket(command.ticket_id)
             if ticket.status != TicketStatus.OPEN:
                 # Aynı olay iki kez işlenirse ikinci kez yanıt üretme (idempotent)
                 return
 
         answer = self._ask_ai(ticket)
 
-        with self.uow:
+        with self._uow:
             # AI düşünürken talep değişmiş olabilir; güncel hali üzerinden karar verilir
-            ticket = get_ticket_or_raise(self.uow, command.ticket_id)
+            ticket = self._get_ticket(command.ticket_id)
             if ticket.status != TicketStatus.OPEN:
                 return
 
             old_status = ticket.status
             shown_to_user = ticket.receive_ai_answer(  # iş kuralı 4 domain'de
-                answer.confidence if answer else None, self.threshold
+                answer.confidence if answer else None, self._threshold
             )
 
             # Düşük güvenli yanıt da saklanır: kullanıcıya gösterilmez ama
             # istatistik (UC-12) ve AI kalitesinin izlenmesi için değerlidir.
             response = None
             if answer is not None:
-                response = self.uow.ai_responses.add(
+                response = self._uow.ai_responses.add(
                     AIResponse(
                         ticket_id=ticket.id,
                         answer=answer.answer,
@@ -74,9 +72,9 @@ class AutoAnswerTicketHandler:
                         sources=answer.sources,
                     )
                 )
-            self.uow.tickets.update(ticket)
+            self._uow.tickets.update(ticket)
 
-            self.uow.add_event(
+            self._uow.add_event(
                 AiAnswerRecorded(
                     ticket_id=ticket.id,
                     ai_response_id=response.id if response else None,
@@ -84,7 +82,7 @@ class AutoAnswerTicketHandler:
                     escalated=not shown_to_user,
                 )
             )
-            self.uow.add_event(
+            self._uow.add_event(
                 TicketStatusChanged(
                     ticket_id=ticket.id,
                     old_status=old_status,
@@ -93,12 +91,12 @@ class AutoAnswerTicketHandler:
                     assignee_id=ticket.assignee_id,
                 )
             )
-            self.uow.commit()
+            self._uow.commit()
 
-    def _ask_ai(self, ticket) -> AutoAnswer | None:
+    def _ask_ai(self, ticket: Ticket) -> AutoAnswer | None:
         """AI'a sorar; AI hata verirse None döner (talep eskale edilir, akış durmaz)."""
         try:
-            return self.ai_support.try_auto_resolve(ticket)
+            return self._ai_support.try_auto_resolve(ticket)
         except Exception:
             logger.exception("AI yanıtı üretilemedi (talep %s); talep eskale edilecek", ticket.id)
             return None
@@ -108,7 +106,7 @@ class AutoAnswerTicketHandler:
 
 
 @dataclass(frozen=True, kw_only=True)
-class EvaluateAiAnswer(TicketCommand):
+class EvaluateAiAnswerCommand(TicketCommand):
     is_helpful: bool
 
 
@@ -117,18 +115,18 @@ class EvaluateAiAnswerHandler(TicketTransitionHandler):
     TicketTransitionHandler'dan alır, yalnızca yetki ve geçişi tanımlar."""
 
     def authorize(self, actor: User, ticket: Ticket) -> None:
-        require_requester(actor, ticket)
+        self._ensure_requester(actor, ticket)
 
-    def apply(self, ticket: Ticket, command: EvaluateAiAnswer) -> None:
-        response = self.uow.ai_responses.get_by_ticket(ticket.id)
+    def apply(self, ticket: Ticket, command: EvaluateAiAnswerCommand) -> None:
+        response = self._uow.ai_responses.get_by_ticket(ticket.id)
         if response is None:
             raise NotFoundError("Bu talep için AI yanıtı bulunamadı.")
 
         ticket.apply_ai_feedback(command.is_helpful)  # State: yalnızca AI_ANSWERED'da
         response.record_feedback(command.is_helpful)
 
-        self.uow.ai_responses.update(response)
-        self.uow.add_event(
+        self._uow.ai_responses.update(response)
+        self._uow.add_event(
             AiFeedbackGiven(
                 ticket_id=ticket.id, ai_response_id=response.id, is_helpful=command.is_helpful
             )

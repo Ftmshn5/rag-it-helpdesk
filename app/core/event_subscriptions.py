@@ -7,7 +7,7 @@ bu dosyaya bir `subscribe` satırı eklenir; olayı üreten koda dokunulmaz.
 import logging
 from collections.abc import Callable
 
-from app.application.commands.ai_answers import AutoAnswerTicket, AutoAnswerTicketHandler
+from app.application.commands.ai_answers import AutoAnswerTicketCommand, AutoAnswerTicketHandler
 from app.application.interfaces.event_bus import EventBus
 from app.domain.events import (
     AiAnswerRecorded,
@@ -66,7 +66,7 @@ def submit_auto_answer(
 ) -> None:
     """AI yanıt işini kuyruğa verir (olay dinleyicisi ve açılıştaki kurtarma kullanır)."""
     runner.submit(
-        lambda: make_auto_answer_handler().handle(AutoAnswerTicket(ticket_id=ticket_id)),
+        lambda: make_auto_answer_handler().handle(AutoAnswerTicketCommand(ticket_id=ticket_id)),
         f"AI yanıtı (talep {ticket_id})",
     )
 

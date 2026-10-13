@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
-from app.application.commands.tickets import CreateTicket, CreateTicketHandler
+from app.application.commands.attachments import AttachScreenshotCommand, AttachScreenshotHandler
+from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.core.dependencies import get_db_session, get_file_storage
 from app.domain.enums import TicketCategory, UserRole
 from app.domain.user import User
@@ -46,12 +46,12 @@ def headers(user) -> dict:
 
 def create_ticket_with_screenshot(uow, storage, requester) -> tuple[int, int]:
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=requester.id, title="Mavi ekran", description="-", category=TicketCategory.SOFTWARE
         )
     )
     attachment_id = AttachScreenshotHandler(uow, storage, 1024).handle(
-        AttachScreenshot(actor_id=requester.id, ticket_id=ticket_id, content=PNG)
+        AttachScreenshotCommand(actor_id=requester.id, ticket_id=ticket_id, content=PNG)
     )
     return ticket_id, attachment_id
 
@@ -100,7 +100,7 @@ def test_attachment_cannot_be_opened_through_another_ticket(env):
     uow, storage, client, requester, stranger, _ = env
     _, secret_attachment = create_ticket_with_screenshot(uow, storage, requester)
     own_ticket = CreateTicketHandler(uow).handle(
-        CreateTicket(actor_id=stranger.id, title="Benim talebim", description="-", category=TicketCategory.ACCOUNT)
+        CreateTicketCommand(actor_id=stranger.id, title="Benim talebim", description="-", category=TicketCategory.ACCOUNT)
     )
 
     response = client.get(

@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.application.commands.ai_answers import AutoAnswerTicket, AutoAnswerTicketHandler
-from app.application.commands.tickets import CreateTicket, CreateTicketHandler
+from app.application.commands.ai_answers import AutoAnswerTicketCommand, AutoAnswerTicketHandler
+from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import TicketCategory, TicketStatus
@@ -66,7 +66,7 @@ def uow() -> FakeUnitOfWork:
 
 
 def run(uow, ai_support) -> None:
-    AutoAnswerTicketHandler(uow, ai_support, THRESHOLD).handle(AutoAnswerTicket(ticket_id=1))
+    AutoAnswerTicketHandler(uow, ai_support, THRESHOLD).handle(AutoAnswerTicketCommand(ticket_id=1))
 
 
 def test_confident_answer_is_saved_and_ticket_becomes_ai_answered(uow):
@@ -188,7 +188,7 @@ def test_creating_ticket_triggers_ai_through_event_bus(title, expected_status):
     requester = uow.users.add(User(full_name="Ayşe", email="a@x.edu"))
 
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=requester.id, title=title, description="", category=TicketCategory.SOFTWARE
         )
     )
@@ -202,7 +202,7 @@ def test_create_ticket_handler_does_not_know_about_ai():
     requester = uow.users.add(User(full_name="Ayşe", email="a@x.edu"))
 
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=requester.id, title="Şifremi unuttum", description="", category=TicketCategory.ACCOUNT
         )
     )
@@ -227,7 +227,7 @@ def test_ai_flow_on_real_database(session_factory):
         uow.commit()
 
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=requester.id,
             title="eduroam bağlanmıyor",
             description="Telefonumdan bağlanamıyorum",

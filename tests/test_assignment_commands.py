@@ -3,9 +3,9 @@
 import pytest
 
 from app.application.commands.assignments import (
-    AssignDevice,
+    AssignDeviceCommand,
     AssignDeviceHandler,
-    ReturnDevice,
+    ReturnDeviceCommand,
     ReturnDeviceHandler,
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
@@ -36,7 +36,7 @@ def test_assign_creates_active_assignment_and_marks_device_assigned(uow):
     admin_id, user_id, device_id = setup_data(uow)
 
     assignment_id = AssignDeviceHandler(uow).handle(
-        AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id)
+        AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=user_id)
     )
 
     assignment = uow.assignments.get(assignment_id)
@@ -56,10 +56,10 @@ def test_assign_creates_active_assignment_and_marks_device_assigned(uow):
 def test_assigned_device_cannot_be_assigned_again(uow):
     admin_id, user_id, device_id = setup_data(uow)
     handler = AssignDeviceHandler(uow)
-    handler.handle(AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id))
+    handler.handle(AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=user_id))
 
     with pytest.raises(DomainError, match="zaten zimmetli"):
-        handler.handle(AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id))
+        handler.handle(AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=user_id))
 
     assert len(uow.assignments.items) == 1
 
@@ -71,7 +71,7 @@ def test_active_assignment_record_blocks_assignment_even_if_status_is_inconsiste
 
     with pytest.raises(DomainError, match="aktif bir zimmeti var"):
         AssignDeviceHandler(uow).handle(
-            AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id)
+            AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=user_id)
         )
 
 
@@ -80,7 +80,7 @@ def test_assign_to_unknown_user_raises_not_found(uow):
 
     with pytest.raises(NotFoundError, match="kullanıcı bulunamadı"):
         AssignDeviceHandler(uow).handle(
-            AssignDevice(actor_id=admin_id, device_id=device_id, user_id=999)
+            AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=999)
         )
     assert uow.devices.get(device_id).status == DeviceStatus.IN_STOCK
 
@@ -90,17 +90,17 @@ def test_only_admin_can_assign(uow):
 
     with pytest.raises(PermissionDeniedError):
         AssignDeviceHandler(uow).handle(
-            AssignDevice(actor_id=user_id, device_id=device_id, user_id=user_id)
+            AssignDeviceCommand(actor_id=user_id, device_id=device_id, user_id=user_id)
         )
 
 
 def test_return_closes_assignment_and_puts_device_back_in_stock(uow):
     admin_id, user_id, device_id = setup_data(uow)
     assignment_id = AssignDeviceHandler(uow).handle(
-        AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id)
+        AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=user_id)
     )
 
-    ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin_id, device_id=device_id))
+    ReturnDeviceHandler(uow).handle(ReturnDeviceCommand(actor_id=admin_id, device_id=device_id))
 
     assignment = uow.assignments.get(assignment_id)
     assert assignment.returned_at is not None
@@ -113,19 +113,19 @@ def test_return_without_active_assignment_is_rejected(uow):
     admin_id, _, device_id = setup_data(uow)
 
     with pytest.raises(DomainError, match="aktif bir zimmeti yok"):
-        ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin_id, device_id=device_id))
+        ReturnDeviceHandler(uow).handle(ReturnDeviceCommand(actor_id=admin_id, device_id=device_id))
 
 
 def test_device_in_repair_cannot_be_returned_and_assignment_stays_active(uow):
     admin_id, user_id, device_id = setup_data(uow)
     assignment_id = AssignDeviceHandler(uow).handle(
-        AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id)
+        AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=user_id)
     )
     device = uow.devices.get(device_id)
     device.status = DeviceStatus.IN_REPAIR  # bakım akışı 4c'de; burada durumu elle kuruyoruz
     uow.devices.update(device)
 
     with pytest.raises(DomainError, match="bakımda"):
-        ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin_id, device_id=device_id))
+        ReturnDeviceHandler(uow).handle(ReturnDeviceCommand(actor_id=admin_id, device_id=device_id))
 
     assert uow.assignments.get(assignment_id).is_active

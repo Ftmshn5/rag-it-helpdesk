@@ -3,11 +3,11 @@
 import pytest
 
 from app.application.commands.devices import (
-    RegisterDevice,
+    RegisterDeviceCommand,
     RegisterDeviceHandler,
-    RetireDevice,
+    RetireDeviceCommand,
     RetireDeviceHandler,
-    UpdateDeviceDetails,
+    UpdateDeviceDetailsCommand,
     UpdateDeviceDetailsHandler,
 )
 from app.application.errors import AuthenticationError, NotFoundError, PermissionDeniedError
@@ -30,7 +30,7 @@ def uow() -> FakeUnitOfWork:
 ADMIN_ID, USER_ID = 1, 2
 
 
-def register_command(**overrides) -> RegisterDevice:
+def register_command(**overrides) -> RegisterDeviceCommand:
     values = dict(
         actor_id=ADMIN_ID,
         asset_tag="PC-0100",
@@ -39,7 +39,7 @@ def register_command(**overrides) -> RegisterDevice:
         model="OptiPlex",
         serial_number="SN-100",
     )
-    return RegisterDevice(**(values | overrides))
+    return RegisterDeviceCommand(**(values | overrides))
 
 
 def add_device(uow, status=DeviceStatus.IN_STOCK, asset_tag="PC-0001") -> Device:
@@ -112,7 +112,7 @@ def test_update_changes_details_but_never_status(uow):
     device = add_device(uow, status=DeviceStatus.ASSIGNED)
 
     UpdateDeviceDetailsHandler(uow).handle(
-        UpdateDeviceDetails(actor_id=ADMIN_ID, device_id=device.id, location="Kütüphane")
+        UpdateDeviceDetailsCommand(actor_id=ADMIN_ID, device_id=device.id, location="Kütüphane")
     )
 
     updated = uow.devices.get(device.id)
@@ -124,7 +124,7 @@ def test_update_changes_details_but_never_status(uow):
 def test_update_unknown_device_raises_not_found(uow):
     with pytest.raises(NotFoundError):
         UpdateDeviceDetailsHandler(uow).handle(
-            UpdateDeviceDetails(actor_id=ADMIN_ID, device_id=42, location="X")
+            UpdateDeviceDetailsCommand(actor_id=ADMIN_ID, device_id=42, location="X")
         )
 
 
@@ -134,7 +134,7 @@ def test_update_unknown_device_raises_not_found(uow):
 def test_admin_retires_device_in_stock(uow):
     device = add_device(uow)
 
-    RetireDeviceHandler(uow).handle(RetireDevice(actor_id=ADMIN_ID, device_id=device.id))
+    RetireDeviceHandler(uow).handle(RetireDeviceCommand(actor_id=ADMIN_ID, device_id=device.id))
 
     assert uow.devices.get(device.id).status == DeviceStatus.RETIRED
     assert isinstance(uow.event_bus.published[0], DeviceRetired)
@@ -144,7 +144,7 @@ def test_assigned_device_cannot_be_retired_and_nothing_is_saved(uow):
     device = add_device(uow, status=DeviceStatus.ASSIGNED)
 
     with pytest.raises(DomainError):
-        RetireDeviceHandler(uow).handle(RetireDevice(actor_id=ADMIN_ID, device_id=device.id))
+        RetireDeviceHandler(uow).handle(RetireDeviceCommand(actor_id=ADMIN_ID, device_id=device.id))
 
     assert uow.devices.get(device.id).status == DeviceStatus.ASSIGNED
     assert not uow.committed

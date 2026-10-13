@@ -5,20 +5,25 @@ from fastapi.testclient import TestClient
 
 from app.application.commands.ai_answers import AutoAnswerTicketHandler
 from app.application.commands.assignments import (
-    AssignDevice,
+    AssignDeviceCommand,
     AssignDeviceHandler,
-    ReturnDevice,
+    ReturnDeviceCommand,
     ReturnDeviceHandler,
 )
-from app.application.commands.devices import RegisterDevice, RegisterDeviceHandler
+from app.application.commands.devices import RegisterDeviceCommand, RegisterDeviceHandler
 from app.application.commands.maintenance import (
-    CompleteMaintenance,
+    CompleteMaintenanceCommand,
     CompleteMaintenanceHandler,
-    StartMaintenance,
+    StartMaintenanceCommand,
     StartMaintenanceHandler,
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
-from app.application.queries.inventory import GetInventoryReportHandler, GetMaintenanceHistoryHandler
+from app.application.queries.inventory import (
+    GetInventoryReportHandler,
+    GetInventoryReportQuery,
+    GetMaintenanceHistoryHandler,
+    GetMaintenanceHistoryQuery,
+)
 from app.core.dependencies import get_db_session
 from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
@@ -64,7 +69,7 @@ def inventory_row(session_factory, device_id) -> DeviceInventoryModel:
 
 def register(uow, admin, asset_tag="INV-0001", type_="Dizüstü") -> int:
     return RegisterDeviceHandler(uow).handle(
-        RegisterDevice(
+        RegisterDeviceCommand(
             actor_id=admin.id,
             asset_tag=asset_tag,
             type=type_,
@@ -85,12 +90,12 @@ def test_inventory_row_follows_device_lifecycle(session_factory, setup):
     row = inventory_row(session_factory, device_id)
     assert (row.status, row.holder_name, row.maintenance_count) == ("IN_STOCK", None, 0)
 
-    AssignDeviceHandler(uow).handle(AssignDevice(actor_id=admin.id, device_id=device_id, user_id=user.id))
+    AssignDeviceHandler(uow).handle(AssignDeviceCommand(actor_id=admin.id, device_id=device_id, user_id=user.id))
     row = inventory_row(session_factory, device_id)
     assert (row.status, row.holder_name, row.holder_department) == ("ASSIGNED", "Envanter Kul.", "Fizik")
 
     record_id = StartMaintenanceHandler(uow).handle(
-        StartMaintenance(
+        StartMaintenanceCommand(
             actor_id=tech.id, device_id=device_id, type=MaintenanceType.REPAIR, description="Fan"
         )
     )
@@ -99,9 +104,9 @@ def test_inventory_row_follows_device_lifecycle(session_factory, setup):
     assert row.holder_name == "Envanter Kul."  # bakımdayken zimmet sürer
 
     CompleteMaintenanceHandler(uow).handle(
-        CompleteMaintenance(actor_id=tech.id, maintenance_record_id=record_id)
+        CompleteMaintenanceCommand(actor_id=tech.id, maintenance_record_id=record_id)
     )
-    ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin.id, device_id=device_id))
+    ReturnDeviceHandler(uow).handle(ReturnDeviceCommand(actor_id=admin.id, device_id=device_id))
     row = inventory_row(session_factory, device_id)
     assert (row.status, row.holder_name, row.has_open_maintenance) == ("IN_STOCK", None, False)
     assert row.last_maintenance_at is not None
@@ -120,12 +125,14 @@ def test_inventory_report_counts_and_filters(session_factory, setup):
     laptop = register(uow, admin, "INV-0001", "Dizüstü")
     register(uow, admin, "INV-0002", "Dizüstü")
     register(uow, admin, "INV-0003", "Yazıcı")
-    AssignDeviceHandler(uow).handle(AssignDevice(actor_id=admin.id, device_id=laptop, user_id=user.id))
+    AssignDeviceHandler(uow).handle(AssignDeviceCommand(actor_id=admin.id, device_id=laptop, user_id=user.id))
 
     with session_factory() as session:
         handler = GetInventoryReportHandler(SqlInventoryQueries(session), SqlUserQueries(session))
-        report = handler.handle(admin.id)
-        only_assigned_laptops = handler.handle(admin.id, DeviceStatus.ASSIGNED, "Dizüstü")
+        report = handler.handle(GetInventoryReportQuery(actor_id=admin.id))
+        only_assigned_laptops = handler.handle(
+            GetInventoryReportQuery(actor_id=admin.id, status=DeviceStatus.ASSIGNED, device_type="Dizüstü")
+        )
 
     assert report.total == len(before) + 3
     assert all(status in report.by_status for status in DeviceStatus)  # sıfırlar da var
@@ -141,7 +148,7 @@ def test_inventory_report_is_admin_only(session_factory, setup):
     with session_factory() as session:
         handler = GetInventoryReportHandler(SqlInventoryQueries(session), SqlUserQueries(session))
         with pytest.raises(PermissionDeniedError):
-            handler.handle(tech.id)
+            handler.handle(GetInventoryReportQuery(actor_id=tech.id))
 
 
 def test_maintenance_history_newest_first_with_technician_name(session_factory, setup):
@@ -149,21 +156,21 @@ def test_maintenance_history_newest_first_with_technician_name(session_factory, 
     device_id = register(uow, admin)
     for description in ("İlk bakım", "İkinci bakım"):
         record_id = StartMaintenanceHandler(uow).handle(
-            StartMaintenance(
+            StartMaintenanceCommand(
                 actor_id=tech.id, device_id=device_id, type=MaintenanceType.PERIODIC, description=description
             )
         )
         CompleteMaintenanceHandler(uow).handle(
-            CompleteMaintenance(actor_id=tech.id, maintenance_record_id=record_id)
+            CompleteMaintenanceCommand(actor_id=tech.id, maintenance_record_id=record_id)
         )
 
     with session_factory() as session:
         handler = GetMaintenanceHistoryHandler(SqlInventoryQueries(session), SqlUserQueries(session))
-        history = handler.handle(tech.id, device_id)
+        history = handler.handle(GetMaintenanceHistoryQuery(actor_id=tech.id, device_id=device_id))
         with pytest.raises(PermissionDeniedError):
-            handler.handle(user.id, device_id)  # UC-17: teknisyen ve yönetici
+            handler.handle(GetMaintenanceHistoryQuery(actor_id=user.id, device_id=device_id))  # UC-17: teknisyen ve yönetici
         with pytest.raises(NotFoundError):
-            handler.handle(admin.id, 999_999)
+            handler.handle(GetMaintenanceHistoryQuery(actor_id=admin.id, device_id=999_999))
 
     assert [h.description for h in history] == ["İkinci bakım", "İlk bakım"]
     assert history[0].technician_name == "Envanter Tek."
@@ -176,7 +183,7 @@ def test_maintenance_history_newest_first_with_technician_name(session_factory, 
 def test_inventory_endpoints(session_factory, setup):
     uow, admin, tech, user = setup
     device_id = register(uow, admin)
-    AssignDeviceHandler(uow).handle(AssignDevice(actor_id=admin.id, device_id=device_id, user_id=user.id))
+    AssignDeviceHandler(uow).handle(AssignDeviceCommand(actor_id=admin.id, device_id=device_id, user_id=user.id))
 
     app = create_app()
 

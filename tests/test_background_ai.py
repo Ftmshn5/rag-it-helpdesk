@@ -4,7 +4,7 @@ import logging
 import threading
 
 from app.application.commands.ai_answers import AutoAnswerTicketHandler
-from app.application.commands.tickets import CreateTicket, CreateTicketHandler
+from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.core import dependencies
 from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import TicketCategory, TicketStatus
@@ -88,7 +88,7 @@ def test_ticket_creation_returns_before_ai_runs():
     requester = uow.users.add(User(full_name="Ayşe", email="a@x.edu"))
 
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(actor_id=requester.id, title="Şifremi unuttum", description="", category=TicketCategory.ACCOUNT)
+        CreateTicketCommand(actor_id=requester.id, title="Şifremi unuttum", description="", category=TicketCategory.ACCOUNT)
     )
 
     assert uow.tickets.get(ticket_id).status == TicketStatus.OPEN
@@ -107,7 +107,7 @@ def test_open_tickets_are_requeued_on_startup(session_factory, monkeypatch):
         requester = uow.users.add(User(full_name="Bekleyen", email="resume@test.edu"))
         uow.commit()
     open_id = CreateTicketHandler(uow).handle(
-        CreateTicket(actor_id=requester.id, title="Yazıcı", description="-", category=TicketCategory.HARDWARE)
+        CreateTicketCommand(actor_id=requester.id, title="Yazıcı", description="-", category=TicketCategory.HARDWARE)
     )
     TicketSummaryProjector(session_factory).refresh(open_id)
     monkeypatch.setattr(dependencies, "SessionLocal", session_factory)

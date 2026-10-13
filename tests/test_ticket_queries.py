@@ -5,14 +5,18 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from app.application.commands.ticket_workflow import AddComment, AddCommentHandler
+from app.application.commands.ticket_workflow import AddCommentCommand, AddCommentHandler
 from app.application.errors import AuthenticationError, NotFoundError, PermissionDeniedError
 from app.application.queries.tickets import (
     AiAnswerView,
     GetTicketDetailHandler,
+    GetTicketDetailQuery,
     ListAllTicketsHandler,
+    ListAllTicketsQuery,
     ListAssignedTicketsHandler,
+    ListAssignedTicketsQuery,
     ListMyTicketsHandler,
+    ListMyTicketsQuery,
     TicketDetailView,
     TicketQueries,
     TicketSummaryView,
@@ -104,27 +108,31 @@ class FakeTicketQueries(TicketQueries):
 
 def test_my_tickets_are_filtered_by_actor_not_by_parameter():
     queries = FakeTicketQueries()
-    ListMyTicketsHandler(queries, FakeUserQueries()).handle(REQUESTER, S.OPEN)
+    ListMyTicketsHandler(queries, FakeUserQueries()).handle(ListMyTicketsQuery(actor_id=REQUESTER, status=S.OPEN))
     assert queries.calls == [("requester", REQUESTER, S.OPEN)]
 
 
 def test_unknown_viewer_is_rejected():
     with pytest.raises(AuthenticationError):
-        ListMyTicketsHandler(FakeTicketQueries(), FakeUserQueries()).handle(99)
+        ListMyTicketsHandler(FakeTicketQueries(), FakeUserQueries()).handle(ListMyTicketsQuery(actor_id=99))
 
 
 @pytest.mark.parametrize(
-    "handler_class, allowed, denied",
+    "handler_class, query_class, allowed, denied",
     [
-        (ListAssignedTicketsHandler, TECH, REQUESTER),
-        (ListAllTicketsHandler, ADMIN, TECH),
+        (ListAssignedTicketsHandler, ListAssignedTicketsQuery, TECH, REQUESTER),
+        (ListAllTicketsHandler, ListAllTicketsQuery, ADMIN, TECH),
     ],
 )
-def test_role_restricted_lists(handler_class, allowed, denied):
+def test_role_restricted_lists(handler_class, query_class, allowed, denied):
     handler = handler_class(FakeTicketQueries(), FakeUserQueries())
-    handler.handle(allowed)
+    handler.handle(query_class(actor_id=allowed))
     with pytest.raises(PermissionDeniedError):
-        handler.handle(denied)
+        handler.handle(query_class(actor_id=denied))
+
+
+def detail_query(actor_id: int) -> GetTicketDetailQuery:
+    return GetTicketDetailQuery(actor_id=actor_id, ticket_id=10)
 
 
 def detail_with_ai(confidence: float) -> TicketDetailView:
@@ -138,28 +146,28 @@ def detail_with_ai(confidence: float) -> TicketDetailView:
 @pytest.mark.parametrize("actor_id", [REQUESTER, TECH, ADMIN])
 def test_participants_can_view_detail(actor_id):
     handler = GetTicketDetailHandler(FakeTicketQueries(detail_with_ai(0.9)), FakeUserQueries(), 0.6)
-    assert handler.handle(actor_id, 10).ai_answer.answer == "Cevap"
+    assert handler.handle(detail_query(actor_id)).ai_answer.answer == "Cevap"
 
 
 @pytest.mark.parametrize("actor_id", [STRANGER, OTHER_TECH])
 def test_others_cannot_view_detail(actor_id):
     handler = GetTicketDetailHandler(FakeTicketQueries(detail_with_ai(0.9)), FakeUserQueries(), 0.6)
     with pytest.raises(PermissionDeniedError):
-        handler.handle(actor_id, 10)
+        handler.handle(detail_query(actor_id))
 
 
 def test_missing_ticket_raises_not_found():
     handler = GetTicketDetailHandler(FakeTicketQueries(None), FakeUserQueries(), 0.6)
     with pytest.raises(NotFoundError):
-        handler.handle(REQUESTER, 10)
+        handler.handle(detail_query(REQUESTER))
 
 
 def test_low_confidence_answer_is_hidden_from_requester_but_visible_to_staff():
     handler = GetTicketDetailHandler(FakeTicketQueries(detail_with_ai(0.3)), FakeUserQueries(), 0.6)
 
-    assert handler.handle(REQUESTER, 10).ai_answer is None
-    assert handler.handle(TECH, 10).ai_answer.confidence == 0.3
-    assert handler.handle(ADMIN, 10).ai_answer.confidence == 0.3
+    assert handler.handle(detail_query(REQUESTER)).ai_answer is None
+    assert handler.handle(detail_query(TECH)).ai_answer.confidence == 0.3
+    assert handler.handle(detail_query(ADMIN)).ai_answer.confidence == 0.3
 
 
 # --- SQL implementasyonu (gerçek PostgreSQL) ---
@@ -196,7 +204,7 @@ def data(session_factory):
             AIResponse(ticket_id=vip.id, answer="Yeniden başlatın.", confidence=0.7, sources=["k.md"])
         )
         uow.commit()
-    AddCommentHandler(uow).handle(AddComment(actor_id=tech.id, ticket_id=vip.id, content="Bakıyorum."))
+    AddCommentHandler(uow).handle(AddCommentCommand(actor_id=tech.id, ticket_id=vip.id, content="Bakıyorum."))
     TicketSummaryProjector(session_factory).rebuild()
     return user, tech, normal, vip, urgent, resolved
 

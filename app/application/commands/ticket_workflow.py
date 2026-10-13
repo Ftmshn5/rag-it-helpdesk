@@ -5,70 +5,65 @@ not ekler), çözümü onaylama (kapatma) ve yeniden açma.
 
 Hangi geçişin hangi durumda mümkün olduğuna State deseni (domain) karar verir.
 Bu modül yalnızca "kim yapabilir" sorusunu cevaplar ve akışı yürütür.
-
-Tüm geçişler aynı akışı izlediği için ortak taban sınıf kullanılır
-(Template Method): yükle → yetki → geçiş → kaydet → olay → commit.
-Alt sınıflar yalnızca `authorize` ve `apply` adımlarını doldurur.
 """
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 
-from app.application.commands.common import ALL_ROLES, get_ticket_or_raise, require_role
-from app.application.errors import NotFoundError, PermissionDeniedError
-from app.application.interfaces.unit_of_work import UnitOfWork
+from app.application.commands.base import ActorCommand, CommandHandler
+from app.application.errors import PermissionDeniedError
 from app.domain.enums import UserRole
 from app.domain.events import TicketCommentAdded, TicketStatusChanged
 from app.domain.ticket import Ticket, TicketComment
 from app.domain.user import User
 
-# --- Yetki kontrolleri ---
-
-
-def require_admin(actor: User, ticket: Ticket) -> None:
-    if actor.role != UserRole.ADMIN:
-        raise PermissionDeniedError("Bu işlem için yetkiniz yok.")
-
-
-def require_assigned_technician(actor: User, ticket: Ticket) -> None:
-    if actor.id != ticket.assignee_id:
-        raise PermissionDeniedError("Bu talep size atanmamış.")
-
-
-def require_requester(actor: User, ticket: Ticket) -> None:
-    if actor.id != ticket.requester_id:
-        raise PermissionDeniedError("Bu işlemi yalnızca talep sahibi yapabilir.")
-
-
-def require_requester_or_admin(actor: User, ticket: Ticket) -> None:
-    if actor.id != ticket.requester_id and actor.role != UserRole.ADMIN:
-        raise PermissionDeniedError("Bu işlemi yalnızca talep sahibi veya yönetici yapabilir.")
-
-
-# --- Ortak akış ---
-
 
 @dataclass(frozen=True, kw_only=True)
-class TicketCommand:
-    actor_id: int
+class TicketCommand(ActorCommand):
+    """Belirli bir talep üzerinde yapılan command'ların ortak verisi."""
+
     ticket_id: int
 
 
-class TicketTransitionHandler(ABC):
-    def __init__(self, uow: UnitOfWork) -> None:
-        self.uow = uow
+class TicketCommandHandler(CommandHandler[TicketCommand, None]):
+    """Talep command'larının ortak tabanı: "kim yapabilir" kontrollerini sağlar."""
+
+    def _ensure_admin(self, actor: User) -> None:
+        if actor.role != UserRole.ADMIN:
+            raise PermissionDeniedError("Bu işlem için yetkiniz yok.")
+
+    def _ensure_assigned_technician(self, actor: User, ticket: Ticket) -> None:
+        if actor.id != ticket.assignee_id:
+            raise PermissionDeniedError("Bu talep size atanmamış.")
+
+    def _ensure_requester(self, actor: User, ticket: Ticket) -> None:
+        if actor.id != ticket.requester_id:
+            raise PermissionDeniedError("Bu işlemi yalnızca talep sahibi yapabilir.")
+
+    def _ensure_requester_or_admin(self, actor: User, ticket: Ticket) -> None:
+        if actor.id != ticket.requester_id and actor.role != UserRole.ADMIN:
+            raise PermissionDeniedError("Bu işlemi yalnızca talep sahibi veya yönetici yapabilir.")
+
+
+class TicketTransitionHandler(TicketCommandHandler):
+    """Template Method deseni — Abstract Class: tüm durum geçişlerinin ortak akışı.
+
+    Akış sabittir: yükle → yetki → geçiş → kaydet → olay → commit.
+    Alt sınıflar (Concrete Class) yalnızca değişen iki adımı doldurur:
+    `authorize` (kim yapabilir) ve `apply` (hangi domain metodu çağrılır).
+    """
 
     def handle(self, command: TicketCommand) -> None:
-        with self.uow:
-            actor = require_role(self.uow, command.actor_id, *ALL_ROLES)
-            ticket = get_ticket_or_raise(self.uow, command.ticket_id)
+        with self._uow:
+            actor = self._require_actor(command.actor_id)
+            ticket = self._get_ticket(command.ticket_id)
             self.authorize(actor, ticket)
 
             old_status = ticket.status
             self.apply(ticket, command)  # geçersiz geçişte State hata fırlatır → commit yok
 
-            self.uow.tickets.update(ticket)
-            self.uow.add_event(
+            self._uow.tickets.update(ticket)
+            self._uow.add_event(
                 TicketStatusChanged(
                     ticket_id=ticket.id,
                     old_status=old_status,
@@ -77,7 +72,7 @@ class TicketTransitionHandler(ABC):
                     assignee_id=ticket.assignee_id,
                 )
             )
-            self.uow.commit()
+            self._uow.commit()
 
     @abstractmethod
     def authorize(self, actor: User, ticket: Ticket) -> None: ...
@@ -90,18 +85,16 @@ class TicketTransitionHandler(ABC):
 
 
 @dataclass(frozen=True, kw_only=True)
-class AssignTicket(TicketCommand):
+class AssignTicketCommand(TicketCommand):
     technician_id: int
 
 
 class AssignTicketHandler(TicketTransitionHandler):
     def authorize(self, actor: User, ticket: Ticket) -> None:
-        require_admin(actor, ticket)
+        self._ensure_admin(actor)
 
-    def apply(self, ticket: Ticket, command: AssignTicket) -> None:
-        technician = self.uow.users.get(command.technician_id)
-        if technician is None:
-            raise NotFoundError("Atanacak kullanıcı bulunamadı.")
+    def apply(self, ticket: Ticket, command: AssignTicketCommand) -> None:
+        technician = self._get_user(command.technician_id, "Atanacak kullanıcı bulunamadı.")
         ticket.assign(technician)  # iş kuralı 3 domain'de
 
 
@@ -109,28 +102,28 @@ class AssignTicketHandler(TicketTransitionHandler):
 
 
 @dataclass(frozen=True, kw_only=True)
-class StartWork(TicketCommand):
+class StartWorkCommand(TicketCommand):
     pass
 
 
 class StartWorkHandler(TicketTransitionHandler):
     def authorize(self, actor: User, ticket: Ticket) -> None:
-        require_assigned_technician(actor, ticket)
+        self._ensure_assigned_technician(actor, ticket)
 
-    def apply(self, ticket: Ticket, command: StartWork) -> None:
+    def apply(self, ticket: Ticket, command: StartWorkCommand) -> None:
         ticket.start_work()
 
 
 @dataclass(frozen=True, kw_only=True)
-class ResolveTicket(TicketCommand):
+class ResolveTicketCommand(TicketCommand):
     pass
 
 
 class ResolveTicketHandler(TicketTransitionHandler):
     def authorize(self, actor: User, ticket: Ticket) -> None:
-        require_assigned_technician(actor, ticket)
+        self._ensure_assigned_technician(actor, ticket)
 
-    def apply(self, ticket: Ticket, command: ResolveTicket) -> None:
+    def apply(self, ticket: Ticket, command: ResolveTicketCommand) -> None:
         ticket.resolve()
 
 
@@ -138,28 +131,28 @@ class ResolveTicketHandler(TicketTransitionHandler):
 
 
 @dataclass(frozen=True, kw_only=True)
-class CloseTicket(TicketCommand):
+class CloseTicketCommand(TicketCommand):
     pass
 
 
 class CloseTicketHandler(TicketTransitionHandler):
     def authorize(self, actor: User, ticket: Ticket) -> None:
-        require_requester_or_admin(actor, ticket)
+        self._ensure_requester_or_admin(actor, ticket)
 
-    def apply(self, ticket: Ticket, command: CloseTicket) -> None:
+    def apply(self, ticket: Ticket, command: CloseTicketCommand) -> None:
         ticket.close()
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReopenTicket(TicketCommand):
+class ReopenTicketCommand(TicketCommand):
     pass
 
 
 class ReopenTicketHandler(TicketTransitionHandler):
     def authorize(self, actor: User, ticket: Ticket) -> None:
-        require_requester(actor, ticket)
+        self._ensure_requester(actor, ticket)
 
-    def apply(self, ticket: Ticket, command: ReopenTicket) -> None:
+    def apply(self, ticket: Ticket, command: ReopenTicketCommand) -> None:
         ticket.reopen()
 
 
@@ -167,27 +160,22 @@ class ReopenTicketHandler(TicketTransitionHandler):
 
 
 @dataclass(frozen=True, kw_only=True)
-class AddComment(TicketCommand):
+class AddCommentCommand(TicketCommand):
     content: str
 
 
-class AddCommentHandler:
-    def __init__(self, uow: UnitOfWork) -> None:
-        self.uow = uow
-
-    def handle(self, command: AddComment) -> int:
-        with self.uow:
-            actor = require_role(self.uow, command.actor_id, *ALL_ROLES)
-            ticket = get_ticket_or_raise(self.uow, command.ticket_id)
+class AddCommentHandler(CommandHandler[AddCommentCommand, int]):
+    def handle(self, command: AddCommentCommand) -> int:
+        with self._uow:
+            actor = self._require_actor(command.actor_id)
+            ticket = self._get_ticket(command.ticket_id)
             if not ticket.is_participant(actor):
                 raise PermissionDeniedError("Bu talebe not ekleme yetkiniz yok.")
             ticket.ensure_open_for_contributions()
 
-            comment = self.uow.ticket_comments.add(
+            comment = self._uow.ticket_comments.add(
                 TicketComment(ticket_id=ticket.id, author_id=actor.id, content=command.content)
             )
-            self.uow.add_event(
-                TicketCommentAdded(ticket_id=ticket.id, comment_id=comment.id, author_id=actor.id)
-            )
-            self.uow.commit()
+            self._uow.add_event(TicketCommentAdded(ticket_id=ticket.id, comment_id=comment.id, author_id=actor.id))
+            self._uow.commit()
             return comment.id

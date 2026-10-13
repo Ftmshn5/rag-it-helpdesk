@@ -3,9 +3,9 @@
 import pytest
 
 from app.application.commands.tickets import (
-    CreateTicket,
+    CreateTicketCommand,
     CreateTicketHandler,
-    SetTicketUrgency,
+    SetTicketUrgencyCommand,
     SetTicketUrgencyHandler,
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
@@ -34,7 +34,7 @@ def create(uow, actor_id=USER_ID, **overrides) -> int:
         description="Kağıt sıkışıyor",
         category=TicketCategory.HARDWARE,
     )
-    return CreateTicketHandler(uow).handle(CreateTicket(**(values | overrides)))
+    return CreateTicketHandler(uow).handle(CreateTicketCommand(**(values | overrides)))
 
 
 def test_regular_user_ticket_has_basic_sla(uow):
@@ -71,7 +71,7 @@ def test_admin_marks_ticket_urgent_and_sla_tightens(uow):
     uow.event_bus.published.clear()
 
     SetTicketUrgencyHandler(uow).handle(
-        SetTicketUrgency(actor_id=ADMIN_ID, ticket_id=ticket_id, is_urgent=True)
+        SetTicketUrgencyCommand(actor_id=ADMIN_ID, ticket_id=ticket_id, is_urgent=True)
     )
 
     assert uow.tickets.get(ticket_id).is_urgent
@@ -85,7 +85,7 @@ def test_unchanged_urgency_produces_no_event(uow):
     uow.event_bus.published.clear()
 
     SetTicketUrgencyHandler(uow).handle(
-        SetTicketUrgency(actor_id=ADMIN_ID, ticket_id=ticket_id, is_urgent=True)
+        SetTicketUrgencyCommand(actor_id=ADMIN_ID, ticket_id=ticket_id, is_urgent=True)
     )
 
     assert uow.event_bus.published == []
@@ -96,5 +96,5 @@ def test_only_admin_can_change_urgency(uow):
 
     with pytest.raises(PermissionDeniedError):
         SetTicketUrgencyHandler(uow).handle(
-            SetTicketUrgency(actor_id=USER_ID, ticket_id=ticket_id, is_urgent=True)
+            SetTicketUrgencyCommand(actor_id=USER_ID, ticket_id=ticket_id, is_urgent=True)
         )

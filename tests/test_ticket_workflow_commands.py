@@ -3,17 +3,17 @@
 import pytest
 
 from app.application.commands.ticket_workflow import (
-    AddComment,
+    AddCommentCommand,
     AddCommentHandler,
-    AssignTicket,
+    AssignTicketCommand,
     AssignTicketHandler,
-    CloseTicket,
+    CloseTicketCommand,
     CloseTicketHandler,
-    ReopenTicket,
+    ReopenTicketCommand,
     ReopenTicketHandler,
-    ResolveTicket,
+    ResolveTicketCommand,
     ResolveTicketHandler,
-    StartWork,
+    StartWorkCommand,
     StartWorkHandler,
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
@@ -64,7 +64,7 @@ def test_admin_assigns_escalated_ticket_to_technician(uow):
     ticket_id = add_ticket(uow)
 
     AssignTicketHandler(uow).handle(
-        AssignTicket(actor_id=ADMIN, ticket_id=ticket_id, technician_id=TECH)
+        AssignTicketCommand(actor_id=ADMIN, ticket_id=ticket_id, technician_id=TECH)
     )
 
     ticket = uow.tickets.get(ticket_id)
@@ -84,7 +84,7 @@ def test_assigning_to_non_technician_violates_rule_3(uow):
 
     with pytest.raises(DomainError, match="yalnızca teknisyen"):
         AssignTicketHandler(uow).handle(
-            AssignTicket(actor_id=ADMIN, ticket_id=ticket_id, technician_id=STRANGER)
+            AssignTicketCommand(actor_id=ADMIN, ticket_id=ticket_id, technician_id=STRANGER)
         )
     assert status_of(uow, ticket_id) == S.ESCALATED
     assert uow.event_bus.published == []
@@ -94,7 +94,7 @@ def test_assigning_to_unknown_user_raises_not_found(uow):
     ticket_id = add_ticket(uow)
     with pytest.raises(NotFoundError, match="Atanacak kullanıcı"):
         AssignTicketHandler(uow).handle(
-            AssignTicket(actor_id=ADMIN, ticket_id=ticket_id, technician_id=99)
+            AssignTicketCommand(actor_id=ADMIN, ticket_id=ticket_id, technician_id=99)
         )
 
 
@@ -102,7 +102,7 @@ def test_only_admin_can_assign(uow):
     ticket_id = add_ticket(uow)
     with pytest.raises(PermissionDeniedError):
         AssignTicketHandler(uow).handle(
-            AssignTicket(actor_id=TECH, ticket_id=ticket_id, technician_id=TECH)
+            AssignTicketCommand(actor_id=TECH, ticket_id=ticket_id, technician_id=TECH)
         )
 
 
@@ -111,7 +111,7 @@ def test_open_ticket_cannot_be_assigned_before_ai(uow):
     ticket_id = add_ticket(uow, status=S.OPEN)
     with pytest.raises(DomainError, match="'Açık' durumundaki"):
         AssignTicketHandler(uow).handle(
-            AssignTicket(actor_id=ADMIN, ticket_id=ticket_id, technician_id=TECH)
+            AssignTicketCommand(actor_id=ADMIN, ticket_id=ticket_id, technician_id=TECH)
         )
 
 
@@ -121,10 +121,10 @@ def test_open_ticket_cannot_be_assigned_before_ai(uow):
 def test_assigned_technician_starts_and_resolves(uow):
     ticket_id = add_ticket(uow, status=S.ASSIGNED, assignee_id=TECH)
 
-    StartWorkHandler(uow).handle(StartWork(actor_id=TECH, ticket_id=ticket_id))
+    StartWorkHandler(uow).handle(StartWorkCommand(actor_id=TECH, ticket_id=ticket_id))
     assert status_of(uow, ticket_id) == S.IN_PROGRESS
 
-    ResolveTicketHandler(uow).handle(ResolveTicket(actor_id=TECH, ticket_id=ticket_id))
+    ResolveTicketHandler(uow).handle(ResolveTicketCommand(actor_id=TECH, ticket_id=ticket_id))
     ticket = uow.tickets.get(ticket_id)
     assert ticket.status == S.RESOLVED
     assert ticket.resolved_at is not None
@@ -136,7 +136,7 @@ def test_only_assigned_technician_can_work_on_ticket(uow, actor_id):
     ticket_id = add_ticket(uow, status=S.ASSIGNED, assignee_id=TECH)
 
     with pytest.raises(PermissionDeniedError, match="size atanmamış"):
-        StartWorkHandler(uow).handle(StartWork(actor_id=actor_id, ticket_id=ticket_id))
+        StartWorkHandler(uow).handle(StartWorkCommand(actor_id=actor_id, ticket_id=ticket_id))
 
 
 # --- Kapatma ve yeniden açma ---
@@ -146,7 +146,7 @@ def test_only_assigned_technician_can_work_on_ticket(uow, actor_id):
 def test_requester_or_admin_closes_resolved_ticket(uow, actor_id):
     ticket_id = add_ticket(uow, status=S.RESOLVED, assignee_id=TECH)
 
-    CloseTicketHandler(uow).handle(CloseTicket(actor_id=actor_id, ticket_id=ticket_id))
+    CloseTicketHandler(uow).handle(CloseTicketCommand(actor_id=actor_id, ticket_id=ticket_id))
 
     assert status_of(uow, ticket_id) == S.CLOSED
 
@@ -154,13 +154,13 @@ def test_requester_or_admin_closes_resolved_ticket(uow, actor_id):
 def test_technician_cannot_close_ticket(uow):
     ticket_id = add_ticket(uow, status=S.RESOLVED, assignee_id=TECH)
     with pytest.raises(PermissionDeniedError):
-        CloseTicketHandler(uow).handle(CloseTicket(actor_id=TECH, ticket_id=ticket_id))
+        CloseTicketHandler(uow).handle(CloseTicketCommand(actor_id=TECH, ticket_id=ticket_id))
 
 
 def test_requester_reopens_resolved_ticket(uow):
     ticket_id = add_ticket(uow, status=S.RESOLVED, assignee_id=TECH)
 
-    ReopenTicketHandler(uow).handle(ReopenTicket(actor_id=REQUESTER, ticket_id=ticket_id))
+    ReopenTicketHandler(uow).handle(ReopenTicketCommand(actor_id=REQUESTER, ticket_id=ticket_id))
 
     assert status_of(uow, ticket_id) == S.ESCALATED
 
@@ -169,13 +169,13 @@ def test_requester_reopens_resolved_ticket(uow):
 def test_only_requester_can_reopen(uow, actor_id):
     ticket_id = add_ticket(uow, status=S.RESOLVED, assignee_id=TECH)
     with pytest.raises(PermissionDeniedError, match="yalnızca talep sahibi"):
-        ReopenTicketHandler(uow).handle(ReopenTicket(actor_id=actor_id, ticket_id=ticket_id))
+        ReopenTicketHandler(uow).handle(ReopenTicketCommand(actor_id=actor_id, ticket_id=ticket_id))
 
 
 def test_closed_ticket_cannot_be_reopened(uow):
     ticket_id = add_ticket(uow, status=S.CLOSED)
     with pytest.raises(DomainError, match="'Kapandı' durumundaki"):
-        ReopenTicketHandler(uow).handle(ReopenTicket(actor_id=REQUESTER, ticket_id=ticket_id))
+        ReopenTicketHandler(uow).handle(ReopenTicketCommand(actor_id=REQUESTER, ticket_id=ticket_id))
 
 
 # --- Not ---
@@ -186,7 +186,7 @@ def test_participants_can_add_comment(uow, actor_id):
     ticket_id = add_ticket(uow, status=S.IN_PROGRESS, assignee_id=TECH)
 
     comment_id = AddCommentHandler(uow).handle(
-        AddComment(actor_id=actor_id, ticket_id=ticket_id, content="Kablo değiştirildi.")
+        AddCommentCommand(actor_id=actor_id, ticket_id=ticket_id, content="Kablo değiştirildi.")
     )
 
     comment = uow.ticket_comments.get(comment_id)
@@ -199,7 +199,7 @@ def test_non_participant_cannot_comment(uow):
     ticket_id = add_ticket(uow, status=S.IN_PROGRESS, assignee_id=TECH)
     with pytest.raises(PermissionDeniedError, match="not ekleme yetkiniz yok"):
         AddCommentHandler(uow).handle(
-            AddComment(actor_id=OTHER_TECH, ticket_id=ticket_id, content="x")
+            AddCommentCommand(actor_id=OTHER_TECH, ticket_id=ticket_id, content="x")
         )
 
 
@@ -207,5 +207,5 @@ def test_closed_ticket_rejects_comment(uow):
     ticket_id = add_ticket(uow, status=S.CLOSED, assignee_id=TECH)
     with pytest.raises(DomainError, match="Kapanmış talebe"):
         AddCommentHandler(uow).handle(
-            AddComment(actor_id=REQUESTER, ticket_id=ticket_id, content="x")
+            AddCommentCommand(actor_id=REQUESTER, ticket_id=ticket_id, content="x")
         )

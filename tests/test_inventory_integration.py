@@ -6,15 +6,15 @@ Test sonunda transaction geri alınır; geliştirme verisi değişmez.
 import pytest
 
 from app.application.commands.assignments import (
-    AssignDevice,
+    AssignDeviceCommand,
     AssignDeviceHandler,
-    ReturnDevice,
+    ReturnDeviceCommand,
     ReturnDeviceHandler,
 )
 from app.application.commands.maintenance import (
-    CompleteMaintenance,
+    CompleteMaintenanceCommand,
     CompleteMaintenanceHandler,
-    StartMaintenance,
+    StartMaintenanceCommand,
     StartMaintenanceHandler,
 )
 from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
@@ -36,11 +36,11 @@ def test_assign_return_and_reassign_cycle_on_real_database(sqlalchemy_uow):
 
     assign, give_back = AssignDeviceHandler(uow), ReturnDeviceHandler(uow)
 
-    first_id = assign.handle(AssignDevice(actor_id=admin.id, device_id=device.id, user_id=first.id))
-    give_back.handle(ReturnDevice(actor_id=admin.id, device_id=device.id))
+    first_id = assign.handle(AssignDeviceCommand(actor_id=admin.id, device_id=device.id, user_id=first.id))
+    give_back.handle(ReturnDeviceCommand(actor_id=admin.id, device_id=device.id))
     # Koşullu benzersiz indeks yalnızca AKTİF zimmeti sınırlar: iade sonrası yeni zimmet serbest
     second_id = assign.handle(
-        AssignDevice(actor_id=admin.id, device_id=device.id, user_id=second.id)
+        AssignDeviceCommand(actor_id=admin.id, device_id=device.id, user_id=second.id)
     )
 
     with uow:
@@ -66,10 +66,10 @@ def test_assigned_device_maintenance_cycle_on_real_database(sqlalchemy_uow):
         uow.commit()
 
     AssignDeviceHandler(uow).handle(
-        AssignDevice(actor_id=admin.id, device_id=device.id, user_id=owner.id)
+        AssignDeviceCommand(actor_id=admin.id, device_id=device.id, user_id=owner.id)
     )
     record_id = StartMaintenanceHandler(uow).handle(
-        StartMaintenance(
+        StartMaintenanceCommand(
             actor_id=tech.id,
             device_id=device.id,
             type=MaintenanceType.PART_REPLACEMENT,
@@ -78,10 +78,10 @@ def test_assigned_device_maintenance_cycle_on_real_database(sqlalchemy_uow):
     )
 
     with pytest.raises(DomainError, match="bakımda"):
-        ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin.id, device_id=device.id))
+        ReturnDeviceHandler(uow).handle(ReturnDeviceCommand(actor_id=admin.id, device_id=device.id))
 
     CompleteMaintenanceHandler(uow).handle(
-        CompleteMaintenance(actor_id=tech.id, maintenance_record_id=record_id)
+        CompleteMaintenanceCommand(actor_id=tech.id, maintenance_record_id=record_id)
     )
 
     with uow:

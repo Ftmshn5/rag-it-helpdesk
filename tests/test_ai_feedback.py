@@ -5,20 +5,20 @@ from fastapi.testclient import TestClient
 
 from app.application.commands.ai_answers import (
     AutoAnswerTicketHandler,
-    EvaluateAiAnswer,
+    EvaluateAiAnswerCommand,
     EvaluateAiAnswerHandler,
 )
 from app.application.commands.ticket_workflow import (
-    AssignTicket,
+    AssignTicketCommand,
     AssignTicketHandler,
-    CloseTicket,
+    CloseTicketCommand,
     CloseTicketHandler,
-    ResolveTicket,
+    ResolveTicketCommand,
     ResolveTicketHandler,
-    StartWork,
+    StartWorkCommand,
     StartWorkHandler,
 )
-from app.application.commands.tickets import CreateTicket, CreateTicketHandler
+from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.core.dependencies import get_unit_of_work
 from app.core.event_subscriptions import register_subscribers
@@ -63,7 +63,7 @@ def add_answered_ticket(uow, status=S.AI_ANSWERED, with_response=True) -> int:
 
 def evaluate(uow, ticket_id, is_helpful, actor_id=REQUESTER) -> None:
     EvaluateAiAnswerHandler(uow).handle(
-        EvaluateAiAnswer(actor_id=actor_id, ticket_id=ticket_id, is_helpful=is_helpful)
+        EvaluateAiAnswerCommand(actor_id=actor_id, ticket_id=ticket_id, is_helpful=is_helpful)
     )
 
 
@@ -162,7 +162,7 @@ def test_main_flow_end_to_end_on_real_database(session_factory):
         uow.commit()
 
     ticket_id = CreateTicketHandler(uow).handle(
-        CreateTicket(
+        CreateTicketCommand(
             actor_id=user.id,
             title="Yazıcı çıktı vermiyor",
             description="Kuyrukta bekliyor",
@@ -170,14 +170,14 @@ def test_main_flow_end_to_end_on_real_database(session_factory):
         )
     )
     EvaluateAiAnswerHandler(uow).handle(
-        EvaluateAiAnswer(actor_id=user.id, ticket_id=ticket_id, is_helpful=False)
+        EvaluateAiAnswerCommand(actor_id=user.id, ticket_id=ticket_id, is_helpful=False)
     )
     AssignTicketHandler(uow).handle(
-        AssignTicket(actor_id=admin.id, ticket_id=ticket_id, technician_id=tech.id)
+        AssignTicketCommand(actor_id=admin.id, ticket_id=ticket_id, technician_id=tech.id)
     )
-    StartWorkHandler(uow).handle(StartWork(actor_id=tech.id, ticket_id=ticket_id))
-    ResolveTicketHandler(uow).handle(ResolveTicket(actor_id=tech.id, ticket_id=ticket_id))
-    CloseTicketHandler(uow).handle(CloseTicket(actor_id=user.id, ticket_id=ticket_id))
+    StartWorkHandler(uow).handle(StartWorkCommand(actor_id=tech.id, ticket_id=ticket_id))
+    ResolveTicketHandler(uow).handle(ResolveTicketCommand(actor_id=tech.id, ticket_id=ticket_id))
+    CloseTicketHandler(uow).handle(CloseTicketCommand(actor_id=user.id, ticket_id=ticket_id))
 
     assert statuses == [
         S.AI_ANSWERED,  # AI asistan (Observer ile)

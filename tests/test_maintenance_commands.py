@@ -3,9 +3,9 @@
 import pytest
 
 from app.application.commands.maintenance import (
-    CompleteMaintenance,
+    CompleteMaintenanceCommand,
     CompleteMaintenanceHandler,
-    StartMaintenance,
+    StartMaintenanceCommand,
     StartMaintenanceHandler,
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
@@ -41,7 +41,7 @@ def start(uow, device_id, actor_id=TECHNICIAN_ID, **overrides) -> int:
         type=MaintenanceType.REPAIR,
         description="Ekran kartı değişimi",
     )
-    return StartMaintenanceHandler(uow).handle(StartMaintenance(**(values | overrides)))
+    return StartMaintenanceHandler(uow).handle(StartMaintenanceCommand(**(values | overrides)))
 
 
 def test_start_maintenance_puts_device_in_repair_and_remembers_previous_status(uow):
@@ -61,7 +61,7 @@ def test_complete_maintenance_restores_previous_status(uow):
     record_id = start(uow, device.id)
 
     CompleteMaintenanceHandler(uow).handle(
-        CompleteMaintenance(actor_id=TECHNICIAN_ID, maintenance_record_id=record_id)
+        CompleteMaintenanceCommand(actor_id=TECHNICIAN_ID, maintenance_record_id=record_id)
     )
 
     assert uow.devices.get(device.id).status == DeviceStatus.ASSIGNED
@@ -98,5 +98,5 @@ def test_unknown_ticket_is_rejected_and_nothing_changes(uow):
 def test_complete_unknown_record_raises_not_found(uow):
     with pytest.raises(NotFoundError, match="Bakım kaydı bulunamadı"):
         CompleteMaintenanceHandler(uow).handle(
-            CompleteMaintenance(actor_id=TECHNICIAN_ID, maintenance_record_id=42)
+            CompleteMaintenanceCommand(actor_id=TECHNICIAN_ID, maintenance_record_id=42)
         )

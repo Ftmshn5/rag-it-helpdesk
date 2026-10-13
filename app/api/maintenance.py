@@ -5,9 +5,9 @@ from pydantic import BaseModel, Field
 
 from app.api.schemas import CreatedResponse
 from app.application.commands.maintenance import (
-    CompleteMaintenance,
+    CompleteMaintenanceCommand,
     CompleteMaintenanceHandler,
-    StartMaintenance,
+    StartMaintenanceCommand,
     StartMaintenanceHandler,
 )
 from app.core.dependencies import (
@@ -38,7 +38,7 @@ def start_maintenance(
     handler: StartMaintenanceHandler = Depends(get_start_maintenance_handler),
 ) -> CreatedResponse:
     record_id = handler.handle(
-        StartMaintenance(actor_id=actor_id, device_id=device_id, **body.model_dump())
+        StartMaintenanceCommand(actor_id=actor_id, device_id=device_id, **body.model_dump())
     )
     return CreatedResponse(id=record_id)
 
@@ -53,5 +53,5 @@ def complete_maintenance(
     handler: CompleteMaintenanceHandler = Depends(get_complete_maintenance_handler),
 ) -> None:
     handler.handle(
-        CompleteMaintenance(actor_id=actor_id, maintenance_record_id=maintenance_record_id)
+        CompleteMaintenanceCommand(actor_id=actor_id, maintenance_record_id=maintenance_record_id)
     )
