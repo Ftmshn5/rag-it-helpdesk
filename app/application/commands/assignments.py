@@ -10,7 +10,6 @@ from app.application.commands.base import ActorCommand, CommandHandler
 from app.domain.enums import UserRole
 from app.domain.errors import DeviceAlreadyAssignedError, DeviceNotAssignedError
 from app.domain.events import DeviceAssigned, DeviceReturned
-from app.domain.inventory import Assignment
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -25,19 +24,18 @@ class AssignDeviceHandler(CommandHandler[AssignDeviceCommand, int]):
         with self._uow:
             admin = self._require_actor(command.actor_id, UserRole.ADMIN)
             device = self._get_device(command.device_id)
-            self._get_user(command.user_id, "Zimmetlenecek kullanıcı bulunamadı.")
+            user = self._get_user(command.user_id, "Zimmetlenecek kullanıcı bulunamadı.")
 
             # İş kuralı 1: bir cihazın aynı anda tek aktif zimmeti olabilir.
             # Asıl kontrol domain'de: yalnızca depodaki cihaz zimmetlenir (duruma
-            # özgü, anlaşılır hata mesajıyla). Ardından gelen sorgu, durum ile
-            # zimmet kayıtları bir şekilde çelişirse devreye giren ikinci güvencedir.
-            device.assign()
+            # özgü, anlaşılır hata mesajıyla) ve zimmet kaydını cihaz kendisi üretir.
+            # Ardından gelen sorgu, durum ile zimmet kayıtları bir şekilde çelişirse
+            # devreye giren ikinci güvencedir.
+            assignment = device.assign_to(user, assigned_by=admin)
             if self._uow.assignments.get_active_for_device(device.id):
                 raise DeviceAlreadyAssignedError("Cihazın zaten aktif bir zimmeti var.")
 
-            assignment = self._uow.assignments.add(
-                Assignment(device_id=device.id, user_id=command.user_id, assigned_by=admin.id)
-            )
+            assignment = self._uow.assignments.add(assignment)
             self._uow.devices.update(device)
             self._uow.add_event(
                 DeviceAssigned(device_id=device.id, user_id=command.user_id, assignment_id=assignment.id)
@@ -61,8 +59,7 @@ class ReturnDeviceHandler(CommandHandler[ReturnDeviceCommand, None]):
             if assignment is None:
                 raise DeviceNotAssignedError("Cihazın aktif bir zimmeti yok.")
 
-            device.mark_returned()
-            assignment.close()
+            device.return_from(assignment)  # zimmet kaydı da cihazla birlikte kapanır
 
             self._uow.assignments.update(assignment)
             self._uow.devices.update(device)

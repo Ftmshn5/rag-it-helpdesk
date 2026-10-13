@@ -35,7 +35,6 @@ from app.infrastructure.db.read_models import DeviceInventoryModel
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
 from app.main import create_app
-from tests.fakes import FakeEventBus
 
 
 @pytest.fixture

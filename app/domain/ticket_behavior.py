@@ -9,7 +9,7 @@ VipUrgentTicket gibi her kombinasyon için ayrı sınıf gerekirdi. Decorator'da
 
     UrgentTicket(VipTicket(BasicTicket(ticket)))
 
-Her sarmalayıcı aynı arayüzü (TicketBehavior) uygular, işi içteki nesneye
+Her sarmalayıcı aynı arayüzü (TicketComponent) uygular, işi içteki nesneye
 devreder ve sonucu kendi kuralıyla değiştirir:
 
     sla_hours():       72 → VIP: en geç 24 → Acil: en geç 4
@@ -19,7 +19,7 @@ devreder ve sonucu kendi kuralıyla değiştirir:
 FACTORY
 -------
 Veritabanında decorator nesnesi saklanmaz, yalnızca `ticket.modifiers` listesi
-(örn. ["VIP", "URGENT"]) tutulur. TicketBehaviorFactory bu listeye bakarak
+(örn. ["VIP", "URGENT"]) tutulur. TicketComponentFactory bu listeye bakarak
 doğru sarmalayıcıları doğru sırada giydirir; ticket'ı kullanan kod hangi
 decorator'ların uygulandığını bilmek zorunda kalmaz.
 """
@@ -54,7 +54,14 @@ class Notification:
 # --- Bileşen arayüzü ---
 
 
-class TicketBehavior(ABC):
+class TicketComponent(ABC):
+    """Decorator deseni — Component: talebin SLA, öncelik ve bildirim davranışı arayüzü.
+
+    Hem çıplak talep (BasicTicket) hem de her sarmalayıcı bu arayüzü uygular;
+    bu yüzden bir decorator başka bir decorator'ı sarabilir (Liskov: her
+    decorator bir TicketComponent'tir).
+    """
+
     @property
     @abstractmethod
     def ticket(self) -> Ticket: ...
@@ -75,7 +82,9 @@ class TicketBehavior(ABC):
 # --- Somut bileşen ---
 
 
-class BasicTicket(TicketBehavior):
+class BasicTicket(TicketComponent):
+    """Decorator deseni — Concrete Component: hiçbir özelliği olmayan talebin varsayılan davranışı."""
+
     SLA_HOURS = 72
     PRIORITY_SCORE = 10
 
@@ -105,13 +114,13 @@ class BasicTicket(TicketBehavior):
 # --- Decorator'lar ---
 
 
-class TicketDecorator(TicketBehavior):
-    """Varsayılan olarak her çağrıyı içteki nesneye devreder.
+class TicketDecorator(TicketComponent):
+    """Decorator deseni — Decorator: varsayılan olarak her çağrıyı içteki nesneye devreder.
 
     Alt sınıflar yalnızca değiştirmek istedikleri metodu ezer.
     """
 
-    def __init__(self, inner: TicketBehavior) -> None:
+    def __init__(self, inner: TicketComponent) -> None:
         self._inner = inner
 
     @property
@@ -129,6 +138,9 @@ class TicketDecorator(TicketBehavior):
 
 
 class VipTicket(TicketDecorator):
+    """Decorator deseni — Concrete Decorator: VIP taleplerin SLA süresini en geç 24 saate indirir,
+    öncelik puanını artırır ve BT yöneticisine e-posta bildirimi ekler."""
+
     MAX_SLA_HOURS = 24
     PRIORITY_BONUS = 20
 
@@ -150,6 +162,9 @@ class VipTicket(TicketDecorator):
 
 
 class UrgentTicket(TicketDecorator):
+    """Decorator deseni — Concrete Decorator: acil taleplerin SLA süresini en geç 4 saate indirir,
+    öncelik puanını artırır ve nöbetçi teknisyene SMS bildirimi ekler."""
+
     MAX_SLA_HOURS = 4
     PRIORITY_BONUS = 50
 
@@ -172,8 +187,8 @@ class UrgentTicket(TicketDecorator):
 # --- Factory ---
 
 
-class TicketBehaviorFactory:
-    """`ticket.modifiers` listesine göre ticket'ı decorator'larla sarar.
+class TicketComponentFactory:
+    """Factory deseni: `ticket.modifiers` listesine göre ticket'ı decorator'larla sarar.
 
     Sözlükteki sıra giydirme sırasıdır (ilk eleman en içte). Yeni bir modifier
     eklemek için yalnızca yeni bir decorator sınıfı yazıp buraya eklemek yeter;
@@ -186,8 +201,8 @@ class TicketBehaviorFactory:
     }
 
     @classmethod
-    def create(cls, ticket: Ticket) -> TicketBehavior:
-        behavior: TicketBehavior = BasicTicket(ticket)
+    def create(cls, ticket: Ticket) -> TicketComponent:
+        behavior: TicketComponent = BasicTicket(ticket)
         for modifier, decorator in cls.DECORATORS.items():
             if modifier in ticket.modifiers:
                 behavior = decorator(behavior)

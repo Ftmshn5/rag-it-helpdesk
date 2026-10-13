@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.clock import utc_now
 from app.domain.enums import TicketModifier
-from app.domain.ticket_behavior import TicketBehaviorFactory
+from app.domain.ticket_behavior import TicketComponentFactory
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.models import (
     AIResponseModel,
@@ -103,7 +103,7 @@ class TicketSummaryProjector(Projector):
             return None
 
         # Hesaplanan alanlar domain'den: Factory + Decorator (iş kuralı tek yerde)
-        behavior = TicketBehaviorFactory.create(ticket)
+        behavior = TicketComponentFactory.create(ticket)
         requester = session.get(UserModel, ticket.requester_id)
         assignee = session.get(UserModel, ticket.assignee_id) if ticket.assignee_id else None
         device = session.get(DeviceModel, ticket.device_id) if ticket.device_id else None

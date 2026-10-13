@@ -54,8 +54,7 @@ def test_set_urgent_is_idempotent():
 
 @pytest.mark.parametrize("status", [TicketStatus.RESOLVED, TicketStatus.CLOSED])
 def test_finished_ticket_urgency_cannot_change(status):
-    ticket = open_ticket()
-    ticket.status = status
+    ticket = Ticket(title="t", description="d", category=TicketCategory.NETWORK, requester_id=7, status=status)
 
     with pytest.raises(DomainError, match="aciliyeti değiştirilemez"):
         ticket.set_urgent(True)

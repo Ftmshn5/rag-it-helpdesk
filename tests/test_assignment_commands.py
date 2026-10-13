@@ -2,6 +2,9 @@
 
 import pytest
 
+from app.domain.enums import MaintenanceType
+from app.domain.inventory import MaintenanceRecord
+
 from app.application.commands.assignments import (
     AssignDeviceCommand,
     AssignDeviceHandler,
@@ -121,8 +124,9 @@ def test_device_in_repair_cannot_be_returned_and_assignment_stays_active(uow):
     assignment_id = AssignDeviceHandler(uow).handle(
         AssignDeviceCommand(actor_id=admin_id, device_id=device_id, user_id=user_id)
     )
+    # Zimmetli cihaz bakıma alınır (iş kuralı 2): zimmetliyken bakım açılabilir
     device = uow.devices.get(device_id)
-    device.status = DeviceStatus.IN_REPAIR  # bakım akışı 4c'de; burada durumu elle kuruyoruz
+    MaintenanceRecord.open(device=device, technician_id=admin_id, type=MaintenanceType.REPAIR, description="-")
     uow.devices.update(device)
 
     with pytest.raises(DomainError, match="bakımda"):

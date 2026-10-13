@@ -95,7 +95,7 @@ class AssignTicketHandler(TicketTransitionHandler):
 
     def apply(self, ticket: Ticket, command: AssignTicketCommand) -> None:
         technician = self._get_user(command.technician_id, "Atanacak kullanıcı bulunamadı.")
-        ticket.assign(technician)  # iş kuralı 3 domain'de
+        ticket.assign_to(technician)  # iş kuralı 3 domain'de
 
 
 # --- UC-06: teknisyen durumu günceller ---

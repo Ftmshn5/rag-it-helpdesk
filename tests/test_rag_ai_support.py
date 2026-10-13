@@ -17,7 +17,7 @@ from app.infrastructure.ai.prompting import (
     PromptBuilder,
     is_no_answer,
 )
-from app.infrastructure.ai.providers import AiProviderError, ChatModel, EmbeddingProvider
+from app.infrastructure.ai.providers import AiProviderError, LlmProvider, EmbeddingProvider
 from app.infrastructure.ai.rag_ai_support import (
     NO_ANSWER_CONFIDENCE,
     NO_ANSWER_TEXT,
@@ -49,7 +49,7 @@ class FakeRetriever(KnowledgeRetriever):
         return self.chunks[:limit]
 
 
-class FakeChatModel(ChatModel):
+class FakeLlmProvider(LlmProvider):
     def __init__(self, answer: str = "Kağıdı çıkarın ve yazıcıyı yeniden açın.") -> None:
         self.answer = answer
         self.prompts: list[tuple[str, str]] = []
@@ -77,7 +77,7 @@ def make_rag(chunks, chat=None, embedder=None):
     return RagAiSupport(
         embedder=embedder or FakeEmbedder(),
         retriever=FakeRetriever(chunks),
-        chat_model=chat or FakeChatModel(),
+        llm=chat or FakeLlmProvider(),
         confidence=CONFIDENCE,
         top_k=3,
     )
@@ -109,7 +109,7 @@ def test_invalid_confidence_settings_are_rejected(floor, ceiling):
 
 
 def test_answer_uses_llm_text_and_top_similarity_for_confidence():
-    chat = FakeChatModel()
+    chat = FakeLlmProvider()
     rag = make_rag([chunk("knowledge/yazici-sorunlari.md", 0.70), chunk("knowledge/yazici-sorunlari.md", 0.60)], chat)
 
     answer = rag.try_auto_resolve(TICKET)
@@ -124,7 +124,7 @@ def test_ticket_title_and_description_are_embedded_and_top_k_is_used():
     embedder = FakeEmbedder()
     retriever = FakeRetriever([chunk("knowledge/a.md", 0.7)])
     rag = RagAiSupport(
-        embedder=embedder, retriever=retriever, chat_model=FakeChatModel(), confidence=CONFIDENCE, top_k=3
+        embedder=embedder, retriever=retriever, llm=FakeLlmProvider(), confidence=CONFIDENCE, top_k=3
     )
 
     rag.try_auto_resolve(TICKET)
@@ -134,7 +134,7 @@ def test_ticket_title_and_description_are_embedded_and_top_k_is_used():
 
 
 def test_irrelevant_chunks_are_not_given_to_llm_and_not_listed_as_sources():
-    chat = FakeChatModel()
+    chat = FakeLlmProvider()
     rag = make_rag([chunk("knowledge/yazici.md", 0.70), chunk("knowledge/vpn.md", 0.40)], chat)
 
     answer = rag.try_auto_resolve(TICKET)
@@ -146,7 +146,7 @@ def test_irrelevant_chunks_are_not_given_to_llm_and_not_listed_as_sources():
 
 
 def test_no_relevant_chunk_skips_llm_and_returns_zero_confidence():
-    chat = FakeChatModel()
+    chat = FakeLlmProvider()
     rag = make_rag([chunk("knowledge/vpn.md", 0.30)], chat)
 
     answer = rag.try_auto_resolve(TICKET)
@@ -158,7 +158,7 @@ def test_no_relevant_chunk_skips_llm_and_returns_zero_confidence():
 
 
 def test_llm_no_answer_marker_lowers_confidence_below_threshold():
-    rag = make_rag([chunk("knowledge/yazici.md", 0.74)], FakeChatModel(answer=NO_ANSWER_MARKER))
+    rag = make_rag([chunk("knowledge/yazici.md", 0.74)], FakeLlmProvider(answer=NO_ANSWER_MARKER))
 
     answer = rag.try_auto_resolve(TICKET)
 
@@ -183,7 +183,7 @@ def test_no_answer_marker_is_recognized_in_its_variants(text, expected):
 
 
 def test_marker_variant_from_llm_also_lowers_confidence():
-    rag = make_rag([chunk("knowledge/yazici.md", 0.74)], FakeChatModel(answer="Bilgi_YOK\n\nİlgili bilgi yok."))
+    rag = make_rag([chunk("knowledge/yazici.md", 0.74)], FakeLlmProvider(answer="Bilgi_YOK\n\nİlgili bilgi yok."))
     assert rag.try_auto_resolve(TICKET).confidence == NO_ANSWER_CONFIDENCE
 
 
@@ -232,6 +232,6 @@ def test_rag_provider_is_wired_with_ollama_strategies(monkeypatch):
     assert isinstance(ai_support, RagAiSupport)
     assert ai_support.embedder.model == "bge-m3"
     assert ai_support.embedder.dimension == 1024
-    assert ai_support.chat_model.model == "qwen2.5:3b"
-    assert ai_support.chat_model.max_tokens == 300
+    assert ai_support.llm.model == "qwen2.5:3b"
+    assert ai_support.llm.max_tokens == 300
     assert ai_support.confidence == SimilarityConfidence(floor=0.50, ceiling=0.64)

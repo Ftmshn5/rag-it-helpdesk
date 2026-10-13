@@ -59,9 +59,9 @@ ADMIN = User(id=4, full_name="Can", email="c@x.edu", role=UserRole.ADMIN)
 STRANGER = User(id=5, full_name="Mehmet", email="m@x.edu")
 
 
-def make_ticket() -> Ticket:
+def make_ticket(status: TicketStatus = TicketStatus.OPEN) -> Ticket:
     return Ticket(
-        title="t", description="d", category=TicketCategory.SOFTWARE, requester_id=1, assignee_id=2
+        title="t", description="d", category=TicketCategory.SOFTWARE, requester_id=1, assignee_id=2, status=status
     )
 
 
@@ -80,7 +80,6 @@ def test_who_can_attach(user, allowed):
 
 
 def test_closed_ticket_does_not_accept_contributions():
-    ticket = make_ticket()
-    ticket.status = TicketStatus.CLOSED
+    ticket = make_ticket(TicketStatus.CLOSED)
     with pytest.raises(DomainError, match="Kapanmış talebe"):
         ticket.ensure_open_for_contributions()

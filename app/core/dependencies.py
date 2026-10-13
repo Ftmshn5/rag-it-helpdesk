@@ -59,7 +59,7 @@ from app.core.config import get_settings
 from app.core.event_subscriptions import register_subscribers, submit_auto_answer
 from app.domain.enums import TicketStatus
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
-from app.infrastructure.ai.ollama import OllamaChatModel, OllamaEmbeddingProvider
+from app.infrastructure.ai.ollama import OllamaLlmProvider, OllamaEmbeddingProvider
 from app.infrastructure.ai.rag_ai_support import RagAiSupport, SimilarityConfidence
 from app.infrastructure.ai.retriever import PgVectorRetriever
 from app.infrastructure.db.models import EMBEDDING_DIMENSION
@@ -93,7 +93,7 @@ def get_ai_support() -> AiSupportFacade:
             timeout_seconds=settings.ollama_timeout_seconds,
         ),
         retriever=PgVectorRetriever(SessionLocal),
-        chat_model=OllamaChatModel(
+        llm=OllamaLlmProvider(
             settings.ollama_base_url,
             settings.llm_model,
             timeout_seconds=settings.ollama_timeout_seconds,

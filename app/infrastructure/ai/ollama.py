@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from app.infrastructure.ai.providers import AiProviderError, ChatModel, EmbeddingProvider
+from app.infrastructure.ai.providers import AiProviderError, LlmProvider, EmbeddingProvider
 
 
 class _OllamaClient:
@@ -78,7 +78,7 @@ class OllamaEmbeddingProvider(_OllamaClient, EmbeddingProvider):
         return embeddings
 
 
-class OllamaChatModel(_OllamaClient, ChatModel):
+class OllamaLlmProvider(_OllamaClient, LlmProvider):
     def __init__(
         self,
         base_url: str,

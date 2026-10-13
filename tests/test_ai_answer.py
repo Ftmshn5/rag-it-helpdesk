@@ -126,7 +126,7 @@ class TrackingAiSupport(AiSupportFacade):
         if self.change_ticket_to:
             # AI düşünürken başka bir istek talebi değiştirdi
             changed = self.uow.tickets.get(ticket.id)
-            changed.status = self.change_ticket_to
+            changed.escalate()  # örn. kullanıcı beklemeden eskale etti
             self.uow.tickets.update(changed)
         return AutoAnswer(answer="Yeniden başlatın.", confidence=0.9, sources=[])
 

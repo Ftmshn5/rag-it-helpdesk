@@ -4,11 +4,11 @@ Davranış ekleyen decorator'lar ticket_behavior.py'de, durum geçişleri (State
 ticket_state.py'dedir.
 """
 
-from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.domain.clock import utc_now
-from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus, UserRole
+from app.domain.entity import Entity
+from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus
 from app.domain.errors import (
     AiAnswerAlreadyEvaluatedError,
     InvalidAssigneeError,
@@ -19,20 +19,40 @@ from app.domain.ticket_state import STATES, TicketState
 from app.domain.user import User
 
 
-@dataclass(kw_only=True)
-class Ticket:
-    id: int | None = None
-    title: str
-    description: str
-    category: TicketCategory
-    status: TicketStatus = TicketStatus.OPEN
-    requester_id: int
-    assignee_id: int | None = None
-    device_id: int | None = None
-    # Decorator nesneleri değil, yalnızca hangi decorator'ların uygulanacağı saklanır
-    modifiers: list[TicketModifier] = field(default_factory=list)
-    created_at: datetime = field(default_factory=utc_now)
-    resolved_at: datetime | None = None
+class Ticket(Entity):
+    """Arıza kaydı. State deseni — Context: durum geçişlerini mevcut durum nesnesine sorar.
+
+    Alanlar korumalıdır; durum, atanan teknisyen ve çözülme zamanı yalnızca
+    geçiş metotlarıyla (escalate, assign_to, resolve …) değişir.
+    """
+
+    def __init__(
+        self,
+        *,
+        id: int | None = None,
+        title: str,
+        description: str,
+        category: TicketCategory,
+        requester_id: int,
+        status: TicketStatus = TicketStatus.OPEN,
+        assignee_id: int | None = None,
+        device_id: int | None = None,
+        modifiers: list[TicketModifier] | None = None,
+        created_at: datetime | None = None,
+        resolved_at: datetime | None = None,
+    ) -> None:
+        super().__init__(id)
+        self._title = title
+        self._description = description
+        self._category = category
+        self._requester_id = requester_id
+        self._status = status
+        self._assignee_id = assignee_id
+        self._device_id = device_id
+        # Decorator nesneleri değil, yalnızca hangi decorator'ların uygulanacağı saklanır
+        self._modifiers = list(modifiers or [])
+        self._created_at = created_at or utc_now()
+        self._resolved_at = resolved_at
 
     @classmethod
     def open(
@@ -45,7 +65,7 @@ class Ticket:
         is_urgent: bool = False,
         device_id: int | None = None,
     ) -> "Ticket":
-        """Yeni talep oluşturur; modifier'ların kaynağı burada belirlenir.
+        """Factory Method: yeni talep oluşturur; modifier'ların kaynağı burada belirlenir (iş kuralı 11).
 
         - VIP: talep sahibinin is_vip alanından otomatik gelir (kullanıcı seçemez).
         - URGENT: kullanıcı talep açarken işaretler.
@@ -64,14 +84,57 @@ class Ticket:
             modifiers=modifiers,
         )
 
+    # --- Okuma ---
+
+    @property
+    def title(self) -> str:
+        return self._title
+
+    @property
+    def description(self) -> str:
+        return self._description
+
+    @property
+    def category(self) -> TicketCategory:
+        return self._category
+
+    @property
+    def requester_id(self) -> int:
+        return self._requester_id
+
+    @property
+    def status(self) -> TicketStatus:
+        return self._status
+
+    @property
+    def assignee_id(self) -> int | None:
+        return self._assignee_id
+
+    @property
+    def device_id(self) -> int | None:
+        return self._device_id
+
+    @property
+    def modifiers(self) -> list[TicketModifier]:
+        """Kopya döner: listeyi dışarıdan değiştirmek talebi etkilemez."""
+        return list(self._modifiers)
+
+    @property
+    def created_at(self) -> datetime:
+        return self._created_at
+
+    @property
+    def resolved_at(self) -> datetime | None:
+        return self._resolved_at
+
     @property
     def state(self) -> TicketState:
         """Veritabanındaki status alanına karşılık gelen durum nesnesi (State deseni)."""
-        return STATES[self.status]
+        return STATES[self._status]
 
     @property
     def is_urgent(self) -> bool:
-        return TicketModifier.URGENT in self.modifiers
+        return TicketModifier.URGENT in self._modifiers
 
     # --- İş kuralı 4 ---
 
@@ -101,34 +164,46 @@ class Ticket:
         else:
             self.escalate()
 
-    # --- Durum geçişleri: kararı mevcut durum nesnesi verir ---
+    # --- Durum geçişleri: kararı mevcut durum nesnesi verir, uygulamayı Ticket yapar ---
 
     def record_ai_answer(self) -> None:
-        self.state.record_ai_answer(self)
+        self._move_to(self.state.record_ai_answer())
 
     def accept_ai_answer(self) -> None:
-        self.state.accept_ai_answer(self)
+        self._move_to(self.state.accept_ai_answer())
 
     def escalate(self) -> None:
-        self.state.escalate(self)
+        self._move_to(self.state.escalate())
 
-    def assign(self, technician: User) -> None:
+    def assign_to(self, technician: User) -> None:
+        """Talebi teknisyene atar veya başka teknisyene devreder (UC-10)."""
         # İş kuralı 3: durumdan bağımsız, her atamada geçerli
         if not technician.is_technician:
             raise InvalidAssigneeError()
-        self.state.assign(self, technician.id)
+        self._move_to(self.state.assign())
+        self._assignee_id = technician.id
 
     def start_work(self) -> None:
-        self.state.start_work(self)
+        self._move_to(self.state.start_work())
 
     def resolve(self) -> None:
-        self.state.resolve(self)
+        self._move_to(self.state.resolve())
 
     def close(self) -> None:
-        self.state.close(self)
+        self._move_to(self.state.close())
 
     def reopen(self) -> None:
-        self.state.reopen(self)
+        self._move_to(self.state.reopen())
+
+    def _move_to(self, new_status: TicketStatus) -> None:
+        """Geçişi uygular. Çözülme zamanı durum nesnesinin `is_resolved` bilgisinden türetilir:
+        çözülmüş duruma ilk girişte yazılır, çözülmemiş duruma dönüşte (yeniden açma) silinir."""
+        was_resolved = self.state.is_resolved
+        self._status = new_status
+        if self.state.is_resolved and not was_resolved:
+            self._resolved_at = utc_now()
+        elif not self.state.is_resolved:
+            self._resolved_at = None
 
     # --- Durumdan etkilenen diğer kurallar ---
 
@@ -137,7 +212,7 @@ class Ticket:
 
         Ek (ekran görüntüsü) yükleyebilir ve not ekleyebilirler.
         """
-        return user.id in (self.requester_id, self.assignee_id) or user.role == UserRole.ADMIN
+        return user.id in (self._requester_id, self._assignee_id) or user.is_admin
 
     def ensure_open_for_contributions(self) -> None:
         if not self.state.accepts_contributions:
@@ -148,39 +223,122 @@ class Ticket:
         if not self.state.allows_urgency_change:
             raise UrgencyChangeNotAllowedError()
         if is_urgent and not self.is_urgent:
-            self.modifiers.append(TicketModifier.URGENT)
+            self._modifiers.append(TicketModifier.URGENT)
         elif not is_urgent and self.is_urgent:
-            self.modifiers.remove(TicketModifier.URGENT)
+            self._modifiers.remove(TicketModifier.URGENT)
 
 
-@dataclass(kw_only=True)
-class TicketAttachment:
-    id: int | None = None
-    ticket_id: int
-    file_path: str
-    mime_type: str
-    uploaded_at: datetime = field(default_factory=utc_now)
+class TicketAttachment(Entity):
+    """Talebe eklenen ekran görüntüsü. Oluşturulduktan sonra değişmez."""
+
+    def __init__(
+        self,
+        *,
+        id: int | None = None,
+        ticket_id: int,
+        file_path: str,
+        mime_type: str,
+        uploaded_at: datetime | None = None,
+    ) -> None:
+        super().__init__(id)
+        self._ticket_id = ticket_id
+        self._file_path = file_path
+        self._mime_type = mime_type
+        self._uploaded_at = uploaded_at or utc_now()
+
+    @property
+    def ticket_id(self) -> int:
+        return self._ticket_id
+
+    @property
+    def file_path(self) -> str:
+        return self._file_path
+
+    @property
+    def mime_type(self) -> str:
+        return self._mime_type
+
+    @property
+    def uploaded_at(self) -> datetime:
+        return self._uploaded_at
 
 
-@dataclass(kw_only=True)
-class TicketComment:
-    id: int | None = None
-    ticket_id: int
-    author_id: int
-    content: str
-    created_at: datetime = field(default_factory=utc_now)
+class TicketComment(Entity):
+    """Talebe eklenen not. Oluşturulduktan sonra değişmez."""
+
+    def __init__(
+        self,
+        *,
+        id: int | None = None,
+        ticket_id: int,
+        author_id: int,
+        content: str,
+        created_at: datetime | None = None,
+    ) -> None:
+        super().__init__(id)
+        self._ticket_id = ticket_id
+        self._author_id = author_id
+        self._content = content
+        self._created_at = created_at or utc_now()
+
+    @property
+    def ticket_id(self) -> int:
+        return self._ticket_id
+
+    @property
+    def author_id(self) -> int:
+        return self._author_id
+
+    @property
+    def content(self) -> str:
+        return self._content
+
+    @property
+    def created_at(self) -> datetime:
+        return self._created_at
 
 
-@dataclass(kw_only=True)
-class AIResponse:
-    id: int | None = None
-    ticket_id: int
-    answer: str
-    confidence: float
-    sources: list[str] = field(default_factory=list)
-    user_feedback: AiFeedback | None = None
+class AIResponse(Entity):
+    """AI asistanın talebe ürettiği yanıt; yalnızca kullanıcı geri bildirimi sonradan eklenir."""
+
+    def __init__(
+        self,
+        *,
+        id: int | None = None,
+        ticket_id: int,
+        answer: str,
+        confidence: float,
+        sources: list[str] | None = None,
+        user_feedback: AiFeedback | None = None,
+    ) -> None:
+        super().__init__(id)
+        self._ticket_id = ticket_id
+        self._answer = answer
+        self._confidence = confidence
+        self._sources = list(sources or [])
+        self._user_feedback = user_feedback
+
+    @property
+    def ticket_id(self) -> int:
+        return self._ticket_id
+
+    @property
+    def answer(self) -> str:
+        return self._answer
+
+    @property
+    def confidence(self) -> float:
+        return self._confidence
+
+    @property
+    def sources(self) -> list[str]:
+        return list(self._sources)
+
+    @property
+    def user_feedback(self) -> AiFeedback | None:
+        return self._user_feedback
 
     def record_feedback(self, is_helpful: bool) -> None:
-        if self.user_feedback is not None:
+        if self._user_feedback is not None:
             raise AiAnswerAlreadyEvaluatedError()
-        self.user_feedback = AiFeedback.HELPFUL if is_helpful else AiFeedback.NOT_HELPFUL
+        self._user_feedback = AiFeedback.HELPFUL if is_helpful else AiFeedback.NOT_HELPFUL

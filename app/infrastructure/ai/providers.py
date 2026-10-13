@@ -2,7 +2,7 @@
 
 RAG iki ayrı modele ihtiyaç duyar:
 - EmbeddingProvider: metni vektöre çevirir (bilgi bankası parçaları ve talep metni).
-- ChatModel: bulunan parçalara dayanarak yanıt metnini üretir.
+- LlmProvider: bulunan parçalara dayanarak yanıt metnini üretir.
 
 Her biri bir "strateji" arayüzüdür; somut sağlayıcı (bugün Ollama, yarın başka
 bir yerel/bulut servis) çalışma zamanında, kompozisyon kökünde seçilir. RAG
@@ -26,7 +26,7 @@ class EmbeddingProvider(ABC):
         """Her metin için bir vektör döndürür (girdiyle aynı sırada)."""
 
 
-class ChatModel(ABC):
+class LlmProvider(ABC):
     @abstractmethod
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         """Sistem talimatı ve kullanıcı istemiyle yanıt metni üretir."""

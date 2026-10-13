@@ -26,7 +26,7 @@ from app.application.commands.tickets import (
     SetTicketUrgencyHandler,
 )
 from app.domain.enums import TicketCategory, TicketModifier, TicketStatus, UserRole
-from app.domain.ticket_behavior import TicketBehaviorFactory, UrgentTicket
+from app.domain.ticket_behavior import TicketComponentFactory, UrgentTicket
 from app.domain.user import User
 from app.infrastructure.storage.local_file_storage import LocalFileStorage
 
@@ -47,7 +47,7 @@ def test_modifiers_round_trip_and_factory_rebuilds_behavior(sqlalchemy_uow):
         )
     )
     with uow:
-        behavior = TicketBehaviorFactory.create(uow.tickets.get(ticket_id))
+        behavior = TicketComponentFactory.create(uow.tickets.get(ticket_id))
     assert behavior.sla_hours() == 24
 
     SetTicketUrgencyHandler(uow).handle(
@@ -55,7 +55,7 @@ def test_modifiers_round_trip_and_factory_rebuilds_behavior(sqlalchemy_uow):
     )
     with uow:
         ticket = uow.tickets.get(ticket_id)
-        behavior = TicketBehaviorFactory.create(ticket)
+        behavior = TicketComponentFactory.create(ticket)
 
     assert ticket.modifiers == [TicketModifier.VIP, TicketModifier.URGENT]
     assert isinstance(behavior, UrgentTicket)

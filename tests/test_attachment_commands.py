@@ -74,8 +74,10 @@ def test_invalid_file_is_rejected_before_writing(uow, storage):
 
 def test_closed_ticket_rejects_attachment(uow, storage):
     ticket = uow.tickets.get(1)
-    ticket.status = TicketStatus.CLOSED
-    uow.tickets.update(ticket)
+    uow.tickets.update(
+        Ticket(id=ticket.id, title=ticket.title, description=ticket.description, category=ticket.category,
+               requester_id=ticket.requester_id, assignee_id=ticket.assignee_id, status=TicketStatus.CLOSED)
+    )
 
     with pytest.raises(DomainError, match="Kapanmış talebe"):
         attach(uow, storage)

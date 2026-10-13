@@ -7,7 +7,7 @@ from app.domain.ticket import Ticket
 from app.domain.ticket_behavior import (
     BasicTicket,
     NotificationChannel,
-    TicketBehaviorFactory,
+    TicketComponentFactory,
     UrgentTicket,
     VipTicket,
 )
@@ -86,7 +86,7 @@ def test_decorators_expose_the_same_underlying_ticket():
     ],
 )
 def test_factory_wraps_ticket_according_to_modifiers(modifiers, expected_type, sla, score):
-    behavior = TicketBehaviorFactory.create(make_ticket(modifiers))
+    behavior = TicketComponentFactory.create(make_ticket(modifiers))
 
     assert type(behavior) is expected_type
     assert behavior.sla_hours() == sla
@@ -95,7 +95,7 @@ def test_factory_wraps_ticket_according_to_modifiers(modifiers, expected_type, s
 
 def test_factory_applies_decorators_in_canonical_order():
     """Liste sırasından bağımsız olarak VIP içte, Acil dışta: bildirim sırası hep aynı."""
-    behavior = TicketBehaviorFactory.create(make_ticket([URGENT, VIP]))
+    behavior = TicketComponentFactory.create(make_ticket([URGENT, VIP]))
 
     assert [n.recipient for n in behavior.notify()] == [
         "technicians",

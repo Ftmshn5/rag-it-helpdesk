@@ -107,6 +107,8 @@ infrastructure/
 ### Repository
 - Command handler'lar veritabanına doğrudan değil, `application/interfaces` içindeki repository arayüzleri üzerinden erişir.
 - Testlerde in-memory sahte repository kullanılabilir.
+- Domain varlıkları `Entity` tabanından türer (`domain/entity.py`); alanları korumalıdır (`_`), `@property` ile okunur, yalnızca iş metotlarıyla değişir. Kimliği repository kaydedince `bind_id` ile bağlar.
+- Domain ↔ ORM çevirisi her varlık için ayrı bir mapper sınıfındadır (`infrastructure/db/mappers.py`, Data Mapper).
 
 ---
 
@@ -166,6 +168,7 @@ Bu bölüm eklenmeden önce yazılmış kod varsa, bir sonraki adıma geçmeden 
 - **State:** Ticket yaşam döngüsü (`domain/`).
 - **Observer:** Event bus; bildirim ve read model güncelleme.
 - **Repository:** Veri erişim soyutlaması.
+- **Data Mapper:** Domain varlığı ↔ SQLAlchemy modeli çevirisi (`infrastructure/db/mappers.py`); domain sınıfları veritabanını bilmez.
 - **Unit of Work:** Bir command'ın tüm değişikliklerini tek transaction'da toplar (`with uow: ... uow.commit()`). Domain olayları `uow.add_event()` ile eklenir ve yalnızca başarılı commit'ten sonra event bus'a yayınlanır; rollback'te atılır.
 - **Factory:** Decorator'lı ticket nesnesi üretimi.
 - **Strategy:** LLM sağlayıcısını değiştirilebilir yapmak.
@@ -280,6 +283,8 @@ erDiagram
 ### Ticket durumları
 `OPEN → AI_ANSWERED → (RESOLVED | ESCALATED) → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`
 
+Durum nesneleri yalnızca karar verir (izinliyse hedef durumu döndürür); geçişi `Ticket` kendisi uygular, böylece talebin alanlarına dışarıdan dokunulmaz.
+
 Ek geçişler (State deseni, `domain/ticket_state.py`):
 - `OPEN → ESCALATED`: AI güveni eşiğin altında (iş kuralı 4).
 - `ASSIGNED / IN_PROGRESS → ASSIGNED`: başka teknisyene devir.
@@ -329,7 +334,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [ ] **OOP uyumu (hocanın şartı, 12'den önce):** mevcut kodun "Nesne yönelimli programlama kuralları"na göre düzenlenmesi
   - [x] R1. Domain hata hiyerarşisi: `DomainError` tabanı ve kurala özgü hata sınıfları
   - [x] R2. `CommandHandler` / `QueryHandler` temel sınıfları; command/query nesneleri (`*Command`, `*Query`)
-  - [ ] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
+  - [x] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
   - [ ] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
   - [ ] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
 - [ ] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler

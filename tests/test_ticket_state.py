@@ -20,7 +20,7 @@ ACTIONS = {
     "record_ai_answer": lambda t: t.record_ai_answer(),
     "accept_ai_answer": lambda t: t.accept_ai_answer(),
     "escalate": lambda t: t.escalate(),
-    "assign": lambda t: t.assign(TECHNICIAN),
+    "assign": lambda t: t.assign_to(TECHNICIAN),
     "start_work": lambda t: t.start_work(),
     "resolve": lambda t: t.resolve(),
     "close": lambda t: t.close(),
@@ -87,7 +87,7 @@ def test_happy_path_technician_solves_the_problem():
 
     ticket.record_ai_answer()
     ticket.escalate()  # kullanıcı: çözülmedi
-    ticket.assign(TECHNICIAN)
+    ticket.assign_to(TECHNICIAN)
     ticket.start_work()
     ticket.resolve()
     ticket.close()
@@ -105,7 +105,7 @@ def test_low_confidence_goes_straight_to_escalation():
 
 def test_reopen_clears_resolution_time_and_keeps_previous_technician():
     ticket = make_ticket(S.ESCALATED)
-    ticket.assign(TECHNICIAN)
+    ticket.assign_to(TECHNICIAN)
     ticket.start_work()
     ticket.resolve()
 
@@ -118,10 +118,10 @@ def test_reopen_clears_resolution_time_and_keeps_previous_technician():
 
 def test_reassigning_in_progress_ticket_returns_it_to_assigned():
     ticket = make_ticket(S.ESCALATED)
-    ticket.assign(TECHNICIAN)
+    ticket.assign_to(TECHNICIAN)
     ticket.start_work()
 
-    ticket.assign(OTHER_TECHNICIAN)
+    ticket.assign_to(OTHER_TECHNICIAN)
 
     assert ticket.status == S.ASSIGNED
     assert ticket.assignee_id == OTHER_TECHNICIAN.id
@@ -136,7 +136,7 @@ def test_ticket_can_only_be_assigned_to_technician(role):
     not_technician = User(id=20, full_name="X", email="x@x.edu", role=role)
 
     with pytest.raises(DomainError, match="yalnızca teknisyen"):
-        ticket.assign(not_technician)
+        ticket.assign_to(not_technician)
 
     assert ticket.status == S.ESCALATED
     assert ticket.assignee_id is None

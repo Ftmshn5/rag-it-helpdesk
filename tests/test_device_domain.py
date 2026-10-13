@@ -4,7 +4,12 @@ import pytest
 
 from app.domain.enums import DeviceStatus
 from app.domain.errors import DomainError
+from app.domain.enums import UserRole
 from app.domain.inventory import Assignment, Device
+from app.domain.user import User
+
+HOLDER = User(id=2, full_name="Zimmet Sahibi", email="z@x.edu")
+ADMIN = User(id=3, full_name="Yönetici", email="y@x.edu", role=UserRole.ADMIN)
 
 
 def make_device(status: DeviceStatus = DeviceStatus.IN_STOCK) -> Device:
@@ -46,8 +51,10 @@ def test_retired_device_cannot_be_retired_again():
 
 def test_in_stock_device_can_be_assigned():
     device = make_device()
-    device.assign()
+    assignment = device.assign_to(HOLDER, assigned_by=ADMIN)
     assert device.status == DeviceStatus.ASSIGNED
+    # Zimmet kaydını cihaz üretir: kim, kime, aktif
+    assert (assignment.user_id, assignment.assigned_by, assignment.is_active) == (2, 3, True)
 
 
 @pytest.mark.parametrize(
@@ -61,20 +68,24 @@ def test_in_stock_device_can_be_assigned():
 def test_only_in_stock_device_can_be_assigned(status, message):
     device = make_device(status)
     with pytest.raises(DomainError, match=message):
-        device.assign()
+        device.assign_to(HOLDER, assigned_by=ADMIN)
     assert device.status == status
 
 
 def test_assigned_device_returns_to_stock():
-    device = make_device(DeviceStatus.ASSIGNED)
-    device.mark_returned()
+    device = make_device()
+    assignment = device.assign_to(HOLDER, assigned_by=ADMIN)
+    device.return_from(assignment)
     assert device.status == DeviceStatus.IN_STOCK
+    assert not assignment.is_active  # zimmet kaydı da cihazla birlikte kapandı
 
 
 def test_device_in_repair_cannot_be_returned():
     device = make_device(DeviceStatus.IN_REPAIR)
+    assignment = Assignment(device_id=device.id, user_id=2, assigned_by=3)
     with pytest.raises(DomainError, match="Önce bakımı tamamlayın"):
-        device.mark_returned()
+        device.return_from(assignment)
+    assert assignment.is_active
 
 
 def test_assignment_cannot_be_closed_twice():

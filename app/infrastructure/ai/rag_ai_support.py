@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.domain.ticket import Ticket
 from app.infrastructure.ai.prompting import PromptBuilder, is_no_answer
-from app.infrastructure.ai.providers import ChatModel, EmbeddingProvider
+from app.infrastructure.ai.providers import LlmProvider, EmbeddingProvider
 from app.infrastructure.ai.retriever import KnowledgeRetriever, RetrievedChunk
 
 logger = logging.getLogger(__name__)
@@ -61,14 +61,14 @@ class RagAiSupport(AiSupportFacade):
         *,
         embedder: EmbeddingProvider,
         retriever: KnowledgeRetriever,
-        chat_model: ChatModel,
+        llm: LlmProvider,
         confidence: SimilarityConfidence,
         prompt_builder: PromptBuilder | None = None,
         top_k: int = 4,
     ) -> None:
         self.embedder = embedder
         self.retriever = retriever
-        self.chat_model = chat_model
+        self.llm = llm
         self.confidence = confidence
         self.prompt_builder = prompt_builder or PromptBuilder()
         self.top_k = top_k
@@ -87,7 +87,7 @@ class RagAiSupport(AiSupportFacade):
             return AutoAnswer(answer=NO_ANSWER_TEXT, confidence=0.0, sources=[])
 
         system_prompt, user_prompt = self.prompt_builder.build(ticket, chunks)
-        answer = self.chat_model.generate(system_prompt, user_prompt)
+        answer = self.llm.generate(system_prompt, user_prompt)
         sources = _unique_sources(chunks)
 
         if is_no_answer(answer):

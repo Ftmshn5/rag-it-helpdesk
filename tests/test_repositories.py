@@ -5,7 +5,6 @@ ve gerçek PostgreSQL ile. İkisi de geçiyorsa, handler testlerinde sahteyi
 kullanmak güvenlidir.
 """
 
-from datetime import UTC, datetime
 
 import pytest
 
@@ -60,7 +59,7 @@ def test_changes_are_not_persisted_without_update(uow):
 
     with uow:
         loaded = uow.devices.get(device.id)
-        loaded.status = DeviceStatus.RETIRED  # update() çağrılmadı
+        loaded.retire()  # update() çağrılmadı
         uow.commit()
 
     with uow:
@@ -73,8 +72,8 @@ def test_update_persists_changes(uow):
         uow.commit()
 
     with uow:
-        device.status = DeviceStatus.RETIRED
-        device.location = "Hurda Deposu"
+        device.retire()
+        device.update_details(location="Hurda Deposu")
         uow.devices.update(device)
         uow.commit()
 
@@ -96,7 +95,7 @@ def test_active_assignment_disappears_after_return(uow):
     with uow:
         assert uow.assignments.get_active_for_device(device.id).id == assignment.id
 
-        assignment.returned_at = datetime.now(UTC)
+        assignment.close()
         uow.assignments.update(assignment)
         uow.commit()
 

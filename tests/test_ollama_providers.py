@@ -10,7 +10,7 @@ import json
 import httpx
 import pytest
 
-from app.infrastructure.ai.ollama import OllamaChatModel, OllamaEmbeddingProvider
+from app.infrastructure.ai.ollama import OllamaLlmProvider, OllamaEmbeddingProvider
 from app.infrastructure.ai.providers import AiProviderError
 
 BASE_URL = "http://ollama.test"
@@ -24,8 +24,8 @@ def embedder(handler, dimension: int = 3) -> OllamaEmbeddingProvider:
     return OllamaEmbeddingProvider(BASE_URL, "bge-m3", dimension=dimension, client=client_with(handler))
 
 
-def chat_model(handler) -> OllamaChatModel:
-    return OllamaChatModel(BASE_URL, "qwen2.5:3b", client=client_with(handler))
+def llm(handler) -> OllamaLlmProvider:
+    return OllamaLlmProvider(BASE_URL, "qwen2.5:3b", client=client_with(handler))
 
 
 # --- Embedding ---
@@ -79,7 +79,7 @@ def test_generate_sends_system_and_user_messages_without_streaming():
         requests.append(request)
         return httpx.Response(200, json={"message": {"role": "assistant", "content": "  Yanıt.  "}})
 
-    answer = chat_model(handler).generate("Sistem talimatı", "Soru")
+    answer = llm(handler).generate("Sistem talimatı", "Soru")
 
     assert answer == "Yanıt."
     body = json.loads(requests[0].content)
@@ -100,8 +100,8 @@ def test_generate_sends_token_limit_only_when_configured():
         bodies.append(json.loads(request.content))
         return httpx.Response(200, json={"message": {"content": "Yanıt."}})
 
-    OllamaChatModel(BASE_URL, "m", max_tokens=300, client=client_with(handler)).generate("s", "u")
-    OllamaChatModel(BASE_URL, "m", client=client_with(handler)).generate("s", "u")
+    OllamaLlmProvider(BASE_URL, "m", max_tokens=300, client=client_with(handler)).generate("s", "u")
+    OllamaLlmProvider(BASE_URL, "m", client=client_with(handler)).generate("s", "u")
 
     assert bodies[0]["options"]["num_predict"] == 300
     assert "num_predict" not in bodies[1]["options"]
@@ -112,7 +112,7 @@ def test_generate_rejects_empty_answer():
         return httpx.Response(200, json={"message": {"content": "   "}})
 
     with pytest.raises(AiProviderError, match="boş yanıt"):
-        chat_model(handler).generate("s", "u")
+        llm(handler).generate("s", "u")
 
 
 # --- Ortak hata çevirisi ---
@@ -123,7 +123,7 @@ def test_http_error_includes_ollama_message():
         return httpx.Response(404, json={"error": 'model "qwen2.5:3b" not found, try pulling it first'})
 
     with pytest.raises(AiProviderError, match="404.*not found"):
-        chat_model(handler).generate("s", "u")
+        llm(handler).generate("s", "u")
 
 
 def test_connection_error_becomes_provider_error():
@@ -139,7 +139,7 @@ def test_timeout_becomes_provider_error():
         raise httpx.ReadTimeout("yavaş", request=request)
 
     with pytest.raises(AiProviderError, match="zaman aşımı"):
-        chat_model(handler).generate("s", "u")
+        llm(handler).generate("s", "u")
 
 
 def test_invalid_json_becomes_provider_error():
@@ -147,4 +147,4 @@ def test_invalid_json_becomes_provider_error():
         return httpx.Response(200, text="<html>")
 
     with pytest.raises(AiProviderError, match="geçersiz JSON"):
-        chat_model(handler).generate("s", "u")
+        llm(handler).generate("s", "u")

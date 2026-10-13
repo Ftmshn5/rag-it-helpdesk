@@ -5,6 +5,7 @@ eklenen bir handler temel sınıftan türemezse veya command/query adı düzene
 uymazsa test kırılır.
 """
 
+import dataclasses
 import importlib
 import inspect
 import pkgutil
@@ -16,6 +17,12 @@ import app.application.commands as commands_package
 import app.application.queries as queries_package
 from app.application.commands.base import Command, CommandHandler
 from app.application.queries.base import Query, QueryHandler
+from app.domain.entity import Entity
+from app.domain.enums import DeviceStatus, MaintenanceType, TicketCategory
+from app.domain.inventory import Assignment, Device, MaintenanceRecord
+from app.domain.knowledge import KnowledgeChunk, KnowledgeDocument
+from app.domain.ticket import AIResponse, Ticket, TicketAttachment, TicketComment
+from app.domain.user import User
 
 
 def modules_of(package: ModuleType) -> list[ModuleType]:
@@ -60,6 +67,35 @@ def test_commands_and_queries_are_immutable():
     ]
     assert data_classes
     assert all(c.__dataclass_params__.frozen for c in data_classes)
+
+
+ENTITY_SAMPLES = [
+    User(full_name="A", email="a@x.edu"),
+    Device(asset_tag="PC-1", type="PC", brand="B", model="M", serial_number="S"),
+    Assignment(device_id=1, user_id=2, assigned_by=3),
+    MaintenanceRecord(
+        device_id=1, technician_id=2, type=MaintenanceType.REPAIR, description="-", previous_device_status=DeviceStatus.IN_STOCK
+    ),
+    Ticket(title="t", description="d", category=TicketCategory.HARDWARE, requester_id=1),
+    TicketAttachment(ticket_id=1, file_path="f.png", mime_type="image/png"),
+    TicketComment(ticket_id=1, author_id=1, content="not"),
+    AIResponse(ticket_id=1, answer="a", confidence=0.9),
+    KnowledgeDocument(title="t", file_path="knowledge/t.md"),
+    KnowledgeChunk(document_id=1, content="c"),
+]
+
+
+@pytest.mark.parametrize("entity", ENTITY_SAMPLES, ids=lambda e: type(e).__name__)
+def test_domain_entities_are_encapsulated(entity):
+    """Kapsülleme: varlıklar Entity'den türer, dataclass değildir, tüm alanları korumalıdır
+    ve hiçbir özelliğin setter'ı yoktur (durum yalnızca iş metotlarıyla değişir)."""
+    cls = type(entity)
+    assert isinstance(entity, Entity)
+    assert not dataclasses.is_dataclass(cls)
+    assert all(name.startswith("_") for name in vars(entity)), vars(entity).keys()
+    properties = {name: attr for klass in cls.__mro__ for name, attr in vars(klass).items() if isinstance(attr, property)}
+    assert properties, "okuma özellikleri olmalı"
+    assert all(prop.fset is None for prop in properties.values())
 
 
 def test_handlers_have_no_module_level_helper_functions():

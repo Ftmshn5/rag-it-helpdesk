@@ -18,7 +18,7 @@ import time
 from app.core.config import get_settings
 from app.domain.enums import TicketCategory
 from app.domain.ticket import Ticket
-from app.infrastructure.ai.ollama import OllamaChatModel, OllamaEmbeddingProvider
+from app.infrastructure.ai.ollama import OllamaLlmProvider, OllamaEmbeddingProvider
 from app.infrastructure.ai.rag_ai_support import RagAiSupport, SimilarityConfidence
 from app.infrastructure.ai.retriever import PgVectorRetriever
 from app.infrastructure.db.models import EMBEDDING_DIMENSION
@@ -88,7 +88,7 @@ def main() -> int:
         rag = RagAiSupport(
             embedder=embedder,
             retriever=retriever,
-            chat_model=OllamaChatModel(
+            llm=OllamaLlmProvider(
                 settings.ollama_base_url,
                 settings.llm_model,
                 timeout_seconds=settings.ollama_timeout_seconds,

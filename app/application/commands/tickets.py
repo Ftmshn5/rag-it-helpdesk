@@ -1,6 +1,6 @@
 """Ticket command'ları (UC-01: arıza kaydı oluştur; acil işaretini değiştir).
 
-Factory burada iş akışına bağlanır: kaydedilen ticket TicketBehaviorFactory ile
+Factory burada iş akışına bağlanır: kaydedilen ticket TicketComponentFactory ile
 decorator'larla sarılır ve SLA / öncelik puanı olaya eklenir.
 """
 
@@ -10,7 +10,7 @@ from app.application.commands.base import ActorCommand, CommandHandler
 from app.domain.enums import TicketCategory, UserRole
 from app.domain.events import TicketCreated, TicketUrgencyChanged
 from app.domain.ticket import Ticket
-from app.domain.ticket_behavior import TicketBehaviorFactory
+from app.domain.ticket_behavior import TicketComponentFactory
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -41,7 +41,7 @@ class CreateTicketHandler(CommandHandler[CreateTicketCommand, int]):
                 )
             )
 
-            behavior = TicketBehaviorFactory.create(ticket)
+            behavior = TicketComponentFactory.create(ticket)
             self._uow.add_event(
                 TicketCreated(
                     ticket_id=ticket.id,
@@ -72,7 +72,7 @@ class SetTicketUrgencyHandler(CommandHandler[SetTicketUrgencyCommand, None]):
             ticket.set_urgent(command.is_urgent)
 
             self._uow.tickets.update(ticket)
-            behavior = TicketBehaviorFactory.create(ticket)
+            behavior = TicketComponentFactory.create(ticket)
             self._uow.add_event(
                 TicketUrgencyChanged(
                     ticket_id=ticket.id,

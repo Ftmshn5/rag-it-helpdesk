@@ -40,7 +40,7 @@ class InMemoryRepository(Generic[E]):
         return deepcopy(item) if item else None
 
     def add(self, entity: E) -> E:
-        entity.id = self._next_id
+        entity.bind_id(self._next_id)
         self._next_id += 1
         self.items[entity.id] = deepcopy(entity)
         return entity

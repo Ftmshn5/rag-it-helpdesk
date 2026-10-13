@@ -84,14 +84,14 @@ def test_default_message_is_turkish_and_can_be_overridden():
 )
 def test_assigning_unavailable_device_raises_status_specific_error(status, error_class):
     with pytest.raises(error_class):
-        device(status).assign()
+        device(status).assign_to(User(id=2, full_name="Z", email="z@x"), assigned_by=User(id=3, full_name="Y", email="y@x"))
 
 
 def test_device_rule_errors():
     with pytest.raises(DeviceInMaintenanceError):
-        device(DeviceStatus.IN_REPAIR).mark_returned()
+        device(DeviceStatus.IN_REPAIR).return_from(Assignment(device_id=1, user_id=2, assigned_by=3))
     with pytest.raises(DeviceNotAssignedError):
-        device(DeviceStatus.IN_STOCK).mark_returned()
+        device(DeviceStatus.IN_STOCK).return_from(Assignment(device_id=1, user_id=2, assigned_by=3))
     with pytest.raises(DeviceNotInStockError):
         device(DeviceStatus.ASSIGNED).retire()
     with pytest.raises(DeviceNotInMaintenanceError):
@@ -113,7 +113,7 @@ def test_ticket_rule_errors():
     with pytest.raises(InvalidTicketTransitionError):
         ticket(TicketStatus.OPEN).close()
     with pytest.raises(InvalidAssigneeError):
-        ticket(TicketStatus.ESCALATED).assign(User(id=5, full_name="A", email="a@x", role=UserRole.USER))
+        ticket(TicketStatus.ESCALATED).assign_to(User(id=5, full_name="A", email="a@x", role=UserRole.USER))
     with pytest.raises(TicketClosedError):
         ticket(TicketStatus.CLOSED).ensure_open_for_contributions()
     with pytest.raises(UrgencyChangeNotAllowedError):
