@@ -86,13 +86,19 @@ class OllamaChatModel(_OllamaClient, ChatModel):
         *,
         timeout_seconds: float = 120.0,
         temperature: float = 0.1,
+        max_tokens: int | None = None,
         client: httpx.Client | None = None,
     ) -> None:
         super().__init__(base_url, model, timeout_seconds, client)
         # Düşük sıcaklık: yanıt bilgi bankasına sadık kalsın, "yaratıcı" olmasın
         self.temperature = temperature
+        # CPU'da süre üretilen token sayısıyla doğru orantılı; üst sınır süreyi de sınırlar
+        self.max_tokens = max_tokens
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
+        options: dict[str, Any] = {"temperature": self.temperature}
+        if self.max_tokens is not None:
+            options["num_predict"] = self.max_tokens
         data = self._post(
             "/api/chat",
             {
@@ -102,7 +108,7 @@ class OllamaChatModel(_OllamaClient, ChatModel):
                     {"role": "user", "content": user_prompt},
                 ],
                 "stream": False,
-                "options": {"temperature": self.temperature},
+                "options": options,
             },
         )
         content = (data.get("message") or {}).get("content")

@@ -11,7 +11,12 @@ from app.core.config import Settings
 from app.domain.enums import TicketCategory
 from app.domain.ticket import Ticket
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
-from app.infrastructure.ai.prompting import NO_ANSWER_MARKER, SYSTEM_PROMPT, PromptBuilder
+from app.infrastructure.ai.prompting import (
+    NO_ANSWER_MARKER,
+    SYSTEM_PROMPT,
+    PromptBuilder,
+    is_no_answer,
+)
 from app.infrastructure.ai.providers import AiProviderError, ChatModel, EmbeddingProvider
 from app.infrastructure.ai.rag_ai_support import (
     NO_ANSWER_CONFIDENCE,
@@ -162,6 +167,26 @@ def test_llm_no_answer_marker_lowers_confidence_below_threshold():
     assert answer.answer == NO_ANSWER_TEXT
 
 
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("BILGI_YOK", True),
+        ("Bilgi_YOK\n\nParçalarda otopark izni yok.", True),  # qwen2.5:3b'de gözlendi
+        ("BİLGİ YOK", True),
+        ("bilgiyok", True),
+        ("1. Yazıcıyı kapatın.\n2. Sıkışan kağıdı çıkarın.", False),
+        ("Bilgilerinizi kontrol edin.", False),
+    ],
+)
+def test_no_answer_marker_is_recognized_in_its_variants(text, expected):
+    assert is_no_answer(text) is expected
+
+
+def test_marker_variant_from_llm_also_lowers_confidence():
+    rag = make_rag([chunk("knowledge/yazici.md", 0.74)], FakeChatModel(answer="Bilgi_YOK\n\nİlgili bilgi yok."))
+    assert rag.try_auto_resolve(TICKET).confidence == NO_ANSWER_CONFIDENCE
+
+
 def test_provider_errors_propagate_so_the_handler_can_escalate():
     rag = make_rag([chunk("knowledge/yazici.md", 0.7)], embedder=FakeEmbedder(fail=True))
 
@@ -208,4 +233,5 @@ def test_rag_provider_is_wired_with_ollama_strategies(monkeypatch):
     assert ai_support.embedder.model == "bge-m3"
     assert ai_support.embedder.dimension == 1024
     assert ai_support.chat_model.model == "qwen2.5:3b"
-    assert ai_support.confidence == SimilarityConfidence(floor=0.45, ceiling=0.75)
+    assert ai_support.chat_model.max_tokens == 300
+    assert ai_support.confidence == SimilarityConfidence(floor=0.50, ceiling=0.64)

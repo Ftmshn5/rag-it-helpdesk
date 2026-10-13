@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.domain.ticket import Ticket
-from app.infrastructure.ai.prompting import NO_ANSWER_MARKER, PromptBuilder
+from app.infrastructure.ai.prompting import PromptBuilder, is_no_answer
 from app.infrastructure.ai.providers import ChatModel, EmbeddingProvider
 from app.infrastructure.ai.retriever import KnowledgeRetriever, RetrievedChunk
 
@@ -90,7 +90,7 @@ class RagAiSupport(AiSupportFacade):
         answer = self.chat_model.generate(system_prompt, user_prompt)
         sources = _unique_sources(chunks)
 
-        if NO_ANSWER_MARKER in answer:
+        if is_no_answer(answer):
             logger.info("Talep %s: LLM bilgi bankasını yetersiz buldu", ticket.id)
             return AutoAnswer(answer=NO_ANSWER_TEXT, confidence=NO_ANSWER_CONFIDENCE, sources=sources)
 

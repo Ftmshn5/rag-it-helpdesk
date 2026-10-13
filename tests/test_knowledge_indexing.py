@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from app.infrastructure.ai.indexing import KnowledgeIndexer
 from app.infrastructure.ai.providers import AiProviderError, EmbeddingProvider
@@ -26,6 +26,13 @@ class FakeEmbedder(EmbeddingProvider):
         if self.fail:
             raise AiProviderError("Ollama'ya ulaşılamadı")
         return [[float(len(text) % 7 + 1)] + [0.0] * (EMBEDDING_DIMENSION - 1) for text in texts]
+
+
+@pytest.fixture(autouse=True)
+def empty_knowledge_base(session_factory):
+    """Geliştirme veritabanındaki gerçek indeks testi etkilemesin (sonda geri alınır)."""
+    with session_factory() as session, session.begin():
+        session.execute(delete(KnowledgeDocumentModel))
 
 
 def write(directory: Path, name: str, text: str) -> Path:

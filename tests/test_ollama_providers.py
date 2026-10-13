@@ -93,6 +93,20 @@ def test_generate_sends_system_and_user_messages_without_streaming():
     assert body["options"]["temperature"] == pytest.approx(0.1)
 
 
+def test_generate_sends_token_limit_only_when_configured():
+    bodies = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "Yanıt."}})
+
+    OllamaChatModel(BASE_URL, "m", max_tokens=300, client=client_with(handler)).generate("s", "u")
+    OllamaChatModel(BASE_URL, "m", client=client_with(handler)).generate("s", "u")
+
+    assert bodies[0]["options"]["num_predict"] == 300
+    assert "num_predict" not in bodies[1]["options"]
+
+
 def test_generate_rejects_empty_answer():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"message": {"content": "   "}})

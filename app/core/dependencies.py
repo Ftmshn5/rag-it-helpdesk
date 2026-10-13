@@ -97,6 +97,7 @@ def get_ai_support() -> AiSupportFacade:
             settings.ollama_base_url,
             settings.llm_model,
             timeout_seconds=settings.ollama_timeout_seconds,
+            max_tokens=settings.llm_max_tokens,
         ),
         confidence=SimilarityConfidence(
             floor=settings.rag_similarity_floor, ceiling=settings.rag_similarity_ceiling

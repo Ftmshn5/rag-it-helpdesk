@@ -5,6 +5,8 @@ yetmiyorsa uydurmak yerine sabit bir işaret (NO_ANSWER_MARKER) yazması istenir
 facade bu işareti görünce güven skorunu düşürür ve talep teknisyene gider.
 """
 
+import re
+
 from app.domain.enums import TicketCategory
 from app.domain.ticket import Ticket
 from app.infrastructure.ai.retriever import RetrievedChunk
@@ -18,15 +20,24 @@ CATEGORY_NAMES = {
     TicketCategory.ACCOUNT: "Hesap / Şifre",
 }
 
-SYSTEM_PROMPT = f"""Sen bir üniversite fakültesinin Bilgi İşlem destek asistanısın.
-Kullanıcının arıza kaydına, YALNIZCA aşağıda verilen bilgi bankası parçalarına dayanarak Türkçe yanıt ver.
+# Not (qwen2.5:3b ile ölçüldü): "bilgi yetmiyorsa işaret yaz" gibi geniş bir kural
+# küçük modelde cevaplanabilir taleplerde bile işarete yol açıyordu. Bu yüzden
+# işaret yalnızca parçalar "hiç ilgisiz" olduğunda istenir ve ilgili adım varsa
+# yanıt vermesi açıkça söylenir. İlgisiz taleplere karşı asıl koruma zaten
+# retrieval tabanlı güven skorudur (düşük güvenli yanıt kullanıcıya gösterilmez).
+SYSTEM_PROMPT = f"""Sen bir üniversite fakültesinin Bilgi İşlem destek asistanısın. Kullanıcıların arıza kayıtlarına, bilgi bankasına dayanarak Türkçe çözüm önerirsin.
 
 Kurallar:
-- Bilgi bankasında olmayan bilgi, adres, telefon veya adım uydurma.
-- Yanıtı kısa tut: kullanıcının kendisinin uygulayabileceği en fazla 5 adım.
+- Yalnızca verilen bilgi bankası parçalarındaki bilgileri kullan; adres, telefon veya adım uydurma.
+- Doğrudan kullanıcıya hitap et ve kısa yaz: kullanıcının kendisinin uygulayabileceği en fazla 5 numaralı adım.
 - Kullanıcıdan asla şifresini isteme.
-- Cihazdan duman, yanık kokusu, aşırı ısınma veya şişmiş batarya gibi tehlikeli bir durum varsa yalnızca cihazı kapatıp fişini çekmesini ve teknisyeni beklemesini söyle.
-- Verilen parçalar bu sorunu çözmeye yetmiyorsa başka hiçbir şey yazmadan yalnızca {NO_ANSWER_MARKER} yaz."""
+- Duman, yanık kokusu, aşırı ısınma veya şişmiş batarya varsa yalnızca cihazı kapatıp fişini çekmesini ve teknisyeni beklemesini söyle.
+- Parçalar bu sorunla HİÇ ilgili değilse (bambaşka bir konudan bahsediyorsa) yalnızca {NO_ANSWER_MARKER} yaz. Parçalarda sorunla ilgili herhangi bir adım varsa mutlaka o adımlarla yanıt ver."""
+
+
+def is_no_answer(text: str) -> bool:
+    """Model işareti farklı yazabiliyor ("Bilgi_YOK", "BİLGİ YOK"); harf ve ayraç duyarsız tanınır."""
+    return re.search(r"b[iıİI]lg[iıİI][\s_]*yok", text, flags=re.IGNORECASE) is not None
 
 
 class PromptBuilder:
@@ -42,7 +53,7 @@ class PromptBuilder:
             f"Kategori: {CATEGORY_NAMES[ticket.category]}\n"
             f"Başlık: {ticket.title}\n"
             f"Açıklama: {ticket.description}\n\n"
-            f"Yanıtın:"
+            f"Yukarıdaki parçalara dayanarak kullanıcıya çözüm adımlarını yaz."
         )
         return SYSTEM_PROMPT, user_prompt
 

@@ -38,13 +38,16 @@ class Settings(BaseSettings):
     embedding_model: str = "bge-m3"
     llm_model: str = "qwen2.5:3b"
     # CPU'da çalışan model yavaş olabilir; aşılırsa AI hatası sayılır ve talep eskale edilir
-    ollama_timeout_seconds: float = 120.0
+    ollama_timeout_seconds: float = 180.0
+    # Yanıt uzunluğu üst sınırı (token). CPU'da süreyi asıl belirleyen üretilen token sayısıdır
+    llm_max_tokens: int = 300
     # Retriever'ın LLM'e verdiği en fazla parça sayısı
     rag_top_k: int = 4
     # Güven skoru = kosinüs benzerliğinin [floor, ceiling] aralığına doğrusal izdüşümü.
-    # floor altındaki parçalar ilgisiz sayılır. Gerçek modelle ölçülerek ayarlanır.
-    rag_similarity_floor: float = 0.45
-    rag_similarity_ceiling: float = 0.75
+    # floor altındaki parçalar ilgisiz sayılır. bge-m3 ile ölçüldü (calibrate.py):
+    # cevaplanabilir talepler 0.617-0.755, kapsam dışı 0.413-0.542 → eşik 0.6 ≈ benzerlik 0.58.
+    rag_similarity_floor: float = 0.50
+    rag_similarity_ceiling: float = 0.64
 
     # Frontend'in (Vite geliştirme sunucusu) API'ye tarayıcıdan erişebileceği adresler
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]

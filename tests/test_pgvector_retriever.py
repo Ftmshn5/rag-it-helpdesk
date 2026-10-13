@@ -7,6 +7,7 @@ benzerlikleri elle hesaplanabilir.
 import math
 
 import pytest
+from sqlalchemy import delete
 
 from app.infrastructure.ai.retriever import PgVectorRetriever
 from app.infrastructure.db.models import (
@@ -23,6 +24,9 @@ def vector(x: float, y: float) -> list[float]:
 @pytest.fixture
 def knowledge(session_factory):
     with session_factory() as session, session.begin():
+        # Geliştirme veritabanında gerçek indeks olabilir; test kendi verisiyle yalıtılır
+        # (test transaction'ı sonunda geri alındığı için gerçek indeks etkilenmez)
+        session.execute(delete(KnowledgeDocumentModel))
         printer = KnowledgeDocumentModel(title="Yazıcı", file_path="knowledge/test-yazici.md")
         vpn = KnowledgeDocumentModel(title="VPN", file_path="knowledge/test-vpn.md")
         session.add_all([printer, vpn])
@@ -38,8 +42,7 @@ def knowledge(session_factory):
 
 
 def test_returns_nearest_chunks_by_cosine_similarity(session_factory, knowledge):
-    results = PgVectorRetriever(session_factory).search(vector(1, 0), limit=3)
-    ours = [r for r in results if r.file_path.startswith("knowledge/test-")]
+    ours = PgVectorRetriever(session_factory).search(vector(1, 0), limit=3)
 
     assert [r.content for r in ours] == ["aynı yön", "45 derece", "dik"]
     assert ours[0].similarity == pytest.approx(1.0)
