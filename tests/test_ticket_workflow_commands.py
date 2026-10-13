@@ -18,7 +18,7 @@ from app.application.commands.ticket_workflow import (
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.domain.enums import TicketCategory, TicketStatus, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.events import TicketCommentAdded, TicketStatusChanged
 from app.domain.ticket import Ticket
 from app.domain.user import User
@@ -82,7 +82,7 @@ def test_admin_assigns_escalated_ticket_to_technician(uow):
 def test_assigning_to_non_technician_violates_rule_3(uow):
     ticket_id = add_ticket(uow)
 
-    with pytest.raises(BusinessRuleViolation, match="yalnızca teknisyen"):
+    with pytest.raises(DomainError, match="yalnızca teknisyen"):
         AssignTicketHandler(uow).handle(
             AssignTicket(actor_id=ADMIN, ticket_id=ticket_id, technician_id=STRANGER)
         )
@@ -109,7 +109,7 @@ def test_only_admin_can_assign(uow):
 def test_open_ticket_cannot_be_assigned_before_ai(uow):
     """State kuralı handler üzerinden de geçerli: önce AI, sonra teknisyen."""
     ticket_id = add_ticket(uow, status=S.OPEN)
-    with pytest.raises(BusinessRuleViolation, match="'Açık' durumundaki"):
+    with pytest.raises(DomainError, match="'Açık' durumundaki"):
         AssignTicketHandler(uow).handle(
             AssignTicket(actor_id=ADMIN, ticket_id=ticket_id, technician_id=TECH)
         )
@@ -174,7 +174,7 @@ def test_only_requester_can_reopen(uow, actor_id):
 
 def test_closed_ticket_cannot_be_reopened(uow):
     ticket_id = add_ticket(uow, status=S.CLOSED)
-    with pytest.raises(BusinessRuleViolation, match="'Kapandı' durumundaki"):
+    with pytest.raises(DomainError, match="'Kapandı' durumundaki"):
         ReopenTicketHandler(uow).handle(ReopenTicket(actor_id=REQUESTER, ticket_id=ticket_id))
 
 
@@ -205,7 +205,7 @@ def test_non_participant_cannot_comment(uow):
 
 def test_closed_ticket_rejects_comment(uow):
     ticket_id = add_ticket(uow, status=S.CLOSED, assignee_id=TECH)
-    with pytest.raises(BusinessRuleViolation, match="Kapanmış talebe"):
+    with pytest.raises(DomainError, match="Kapanmış talebe"):
         AddCommentHandler(uow).handle(
             AddComment(actor_id=REQUESTER, ticket_id=ticket_id, content="x")
         )

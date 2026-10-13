@@ -10,7 +10,7 @@ from app.application.commands.maintenance import (
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.events import MaintenanceCompleted, MaintenanceStarted
 from app.domain.inventory import Device
 from app.domain.user import User
@@ -73,7 +73,7 @@ def test_second_open_maintenance_is_rejected(uow):
     device = add_device(uow)
     start(uow, device.id)
 
-    with pytest.raises(BusinessRuleViolation, match="zaten açık bir bakım"):
+    with pytest.raises(DomainError, match="zaten açık bir bakım"):
         start(uow, device.id)
     assert len(uow.maintenance_records.items) == 1
 

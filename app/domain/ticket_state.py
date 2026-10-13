@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 
 from app.domain.clock import utc_now
 from app.domain.enums import TicketStatus
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import InvalidTicketTransitionError
 
 if TYPE_CHECKING:
     from app.domain.ticket import Ticket
@@ -47,8 +47,8 @@ class TicketState(ABC):
     accepts_contributions = True
     allows_urgency_change = True
 
-    def _not_allowed(self, action: str) -> BusinessRuleViolation:
-        return BusinessRuleViolation(
+    def _not_allowed(self, action: str) -> InvalidTicketTransitionError:
+        return InvalidTicketTransitionError(
             f"'{STATUS_LABELS[self.status]}' durumundaki talep için {action} yapılamaz."
         )
 

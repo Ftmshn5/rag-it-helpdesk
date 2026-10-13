@@ -23,7 +23,7 @@ from app.application.errors import NotFoundError, PermissionDeniedError
 from app.core.dependencies import get_unit_of_work
 from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import AiFeedback, TicketCategory, TicketStatus, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.events import AiFeedbackGiven, TicketStatusChanged
 from app.domain.ticket import AIResponse, Ticket
 from app.domain.user import User
@@ -103,7 +103,7 @@ def test_answer_cannot_be_evaluated_twice(uow):
     ticket_id = add_answered_ticket(uow)
     evaluate(uow, ticket_id, is_helpful=False)
 
-    with pytest.raises(BusinessRuleViolation):
+    with pytest.raises(DomainError):
         evaluate(uow, ticket_id, is_helpful=True)
     assert uow.tickets.get(ticket_id).status == S.ESCALATED
 
@@ -112,7 +112,7 @@ def test_low_confidence_ticket_has_nothing_to_evaluate(uow):
     """İş kuralı 4 ile eskale edilen talepte yanıt kullanıcıya gösterilmedi; değerlendirme yok."""
     ticket_id = add_answered_ticket(uow, status=S.ESCALATED)
 
-    with pytest.raises(BusinessRuleViolation, match="'Eskale edildi' durumundaki"):
+    with pytest.raises(DomainError, match="'Eskale edildi' durumundaki"):
         evaluate(uow, ticket_id, is_helpful=True)
     assert uow.ai_responses.get_by_ticket(ticket_id).user_feedback is None
 

@@ -15,7 +15,7 @@ from datetime import date
 from app.application.commands.common import get_device_or_raise, require_role
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.domain.enums import UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DuplicateDeviceError
 from app.domain.events import DeviceDetailsUpdated, DeviceRegistered, DeviceRetired
 from app.domain.inventory import Device
 
@@ -42,11 +42,11 @@ class RegisterDeviceHandler:
             require_role(self.uow, command.actor_id, UserRole.ADMIN)
 
             if self.uow.devices.get_by_asset_tag(command.asset_tag):
-                raise BusinessRuleViolation(
+                raise DuplicateDeviceError(
                     f"'{command.asset_tag}' demirbaş numarası zaten kayıtlı."
                 )
             if self.uow.devices.get_by_serial_number(command.serial_number):
-                raise BusinessRuleViolation(
+                raise DuplicateDeviceError(
                     f"'{command.serial_number}' seri numaralı cihaz zaten kayıtlı."
                 )
 
@@ -116,7 +116,7 @@ class RetireDeviceHandler:
             require_role(self.uow, command.actor_id, UserRole.ADMIN)
             device = get_device_or_raise(self.uow, command.device_id)
 
-            device.retire()  # kural ihlalinde BusinessRuleViolation → commit olmaz
+            device.retire()  # kural ihlalinde DomainError (örn. DeviceNotInStockError) → commit olmaz
 
             self.uow.devices.update(device)
             self.uow.add_event(DeviceRetired(device_id=device.id))

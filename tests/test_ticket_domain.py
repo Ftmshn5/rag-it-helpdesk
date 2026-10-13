@@ -1,7 +1,7 @@
 import pytest
 
 from app.domain.enums import TicketCategory, TicketModifier, TicketStatus
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.ticket import Ticket
 from app.domain.user import User
 
@@ -57,5 +57,5 @@ def test_finished_ticket_urgency_cannot_change(status):
     ticket = open_ticket()
     ticket.status = status
 
-    with pytest.raises(BusinessRuleViolation, match="aciliyeti değiştirilemez"):
+    with pytest.raises(DomainError, match="aciliyeti değiştirilemez"):
         ticket.set_urgent(True)

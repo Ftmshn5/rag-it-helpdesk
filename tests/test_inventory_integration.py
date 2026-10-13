@@ -18,7 +18,7 @@ from app.application.commands.maintenance import (
     StartMaintenanceHandler,
 )
 from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.inventory import Device
 from app.domain.user import User
 
@@ -77,7 +77,7 @@ def test_assigned_device_maintenance_cycle_on_real_database(sqlalchemy_uow):
         )
     )
 
-    with pytest.raises(BusinessRuleViolation, match="bakımda"):
+    with pytest.raises(DomainError, match="bakımda"):
         ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin.id, device_id=device.id))
 
     CompleteMaintenanceHandler(uow).handle(

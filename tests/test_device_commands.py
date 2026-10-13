@@ -12,7 +12,7 @@ from app.application.commands.devices import (
 )
 from app.application.errors import AuthenticationError, NotFoundError, PermissionDeniedError
 from app.domain.enums import DeviceStatus, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.events import DeviceDetailsUpdated, DeviceRegistered, DeviceRetired
 from app.domain.inventory import Device
 from app.domain.user import User
@@ -98,7 +98,7 @@ def test_duplicate_asset_tag_or_serial_is_rejected(uow, overrides, message):
     RegisterDeviceHandler(uow).handle(register_command())
     uow.event_bus.published.clear()
 
-    with pytest.raises(BusinessRuleViolation, match=message):
+    with pytest.raises(DomainError, match=message):
         RegisterDeviceHandler(uow).handle(register_command(**overrides))
 
     assert len(uow.devices.items) == 1
@@ -143,7 +143,7 @@ def test_admin_retires_device_in_stock(uow):
 def test_assigned_device_cannot_be_retired_and_nothing_is_saved(uow):
     device = add_device(uow, status=DeviceStatus.ASSIGNED)
 
-    with pytest.raises(BusinessRuleViolation):
+    with pytest.raises(DomainError):
         RetireDeviceHandler(uow).handle(RetireDevice(actor_id=ADMIN_ID, device_id=device.id))
 
     assert uow.devices.get(device.id).status == DeviceStatus.ASSIGNED

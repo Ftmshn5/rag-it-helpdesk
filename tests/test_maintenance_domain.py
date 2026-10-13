@@ -3,7 +3,7 @@
 import pytest
 
 from app.domain.enums import DeviceStatus, MaintenanceType
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.inventory import Device, MaintenanceRecord
 
 
@@ -42,7 +42,7 @@ def test_device_returns_to_its_previous_status_after_maintenance(initial_status)
 )
 def test_maintenance_cannot_be_opened(status, message):
     device = make_device(status)
-    with pytest.raises(BusinessRuleViolation, match=message):
+    with pytest.raises(DomainError, match=message):
         open_record(device)
     assert device.status == status
 
@@ -52,6 +52,6 @@ def test_maintenance_cannot_be_completed_twice():
     record = open_record(device)
     record.complete(device)
 
-    with pytest.raises(BusinessRuleViolation, match="zaten tamamlanmış"):
+    with pytest.raises(DomainError, match="zaten tamamlanmış"):
         record.complete(device)
     assert device.status == DeviceStatus.IN_STOCK

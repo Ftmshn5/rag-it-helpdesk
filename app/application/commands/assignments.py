@@ -10,7 +10,7 @@ from app.application.commands.common import get_device_or_raise, require_role
 from app.application.errors import NotFoundError
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.domain.enums import UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DeviceAlreadyAssignedError, DeviceNotAssignedError
 from app.domain.events import DeviceAssigned, DeviceReturned
 from app.domain.inventory import Assignment
 
@@ -40,7 +40,7 @@ class AssignDeviceHandler:
             # zimmet kayıtları bir şekilde çelişirse devreye giren ikinci güvencedir.
             device.assign()
             if self.uow.assignments.get_active_for_device(device.id):
-                raise BusinessRuleViolation("Cihazın zaten aktif bir zimmeti var.")
+                raise DeviceAlreadyAssignedError("Cihazın zaten aktif bir zimmeti var.")
 
             assignment = self.uow.assignments.add(
                 Assignment(device_id=device.id, user_id=command.user_id, assigned_by=admin.id)
@@ -72,7 +72,7 @@ class ReturnDeviceHandler:
 
             assignment = self.uow.assignments.get_active_for_device(device.id)
             if assignment is None:
-                raise BusinessRuleViolation("Cihazın aktif bir zimmeti yok.")
+                raise DeviceNotAssignedError("Cihazın aktif bir zimmeti yok.")
 
             device.mark_returned()
             assignment.close()

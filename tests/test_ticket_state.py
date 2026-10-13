@@ -8,7 +8,7 @@ durumu değiştirmemeli.
 import pytest
 
 from app.domain.enums import TicketCategory, TicketStatus, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.ticket import Ticket
 from app.domain.user import User
 
@@ -60,7 +60,7 @@ def test_transition_matrix(status, action):
     expected = ALLOWED_TRANSITIONS.get((status, action))
 
     if expected is None:
-        with pytest.raises(BusinessRuleViolation, match="yapılamaz"):
+        with pytest.raises(DomainError, match="yapılamaz"):
             ACTIONS[action](ticket)
         assert ticket.status == status  # yasak geçiş durumu bozmaz
     else:
@@ -135,7 +135,7 @@ def test_ticket_can_only_be_assigned_to_technician(role):
     ticket = make_ticket(S.ESCALATED)
     not_technician = User(id=20, full_name="X", email="x@x.edu", role=role)
 
-    with pytest.raises(BusinessRuleViolation, match="yalnızca teknisyen"):
+    with pytest.raises(DomainError, match="yalnızca teknisyen"):
         ticket.assign(not_technician)
 
     assert ticket.status == S.ESCALATED
@@ -147,7 +147,7 @@ def test_ticket_can_only_be_assigned_to_technician(role):
 
 def test_error_message_names_the_current_status_in_turkish():
     ticket = make_ticket(S.CLOSED)
-    with pytest.raises(BusinessRuleViolation) as error:
+    with pytest.raises(DomainError) as error:
         ticket.reopen()
     assert str(error.value) == "'Kapandı' durumundaki talep için yeniden açma yapılamaz."
 

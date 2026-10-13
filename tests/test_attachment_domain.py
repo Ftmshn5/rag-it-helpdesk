@@ -4,7 +4,7 @@ import pytest
 
 from app.domain.attachments import JPEG, PNG, validate_screenshot
 from app.domain.enums import TicketCategory, TicketStatus, UserRole
-from app.domain.errors import BusinessRuleViolation, InvalidFileError
+from app.domain.errors import DomainError, InvalidFileError
 from app.domain.ticket import Ticket
 from app.domain.user import User
 
@@ -82,5 +82,5 @@ def test_who_can_attach(user, allowed):
 def test_closed_ticket_does_not_accept_contributions():
     ticket = make_ticket()
     ticket.status = TicketStatus.CLOSED
-    with pytest.raises(BusinessRuleViolation, match="Kapanmış talebe"):
+    with pytest.raises(DomainError, match="Kapanmış talebe"):
         ticket.ensure_open_for_contributions()

@@ -11,7 +11,7 @@ from app.application.commands.common import get_device_or_raise, require_role
 from app.application.errors import NotFoundError
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.domain.enums import MaintenanceType, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import MaintenanceAlreadyOpenError
 from app.domain.events import MaintenanceCompleted, MaintenanceStarted
 from app.domain.inventory import MaintenanceRecord
 
@@ -46,7 +46,7 @@ class StartMaintenanceHandler:
             )
             # İkinci güvence (DB'de de koşullu benzersiz indeks var): tek açık bakım
             if self.uow.maintenance_records.get_open_for_device(device.id):
-                raise BusinessRuleViolation("Cihazın zaten açık bir bakım kaydı var.")
+                raise MaintenanceAlreadyOpenError()
 
             record = self.uow.maintenance_records.add(record)
             self.uow.devices.update(device)

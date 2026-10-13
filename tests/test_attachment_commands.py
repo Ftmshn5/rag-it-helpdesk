@@ -5,7 +5,7 @@ import pytest
 from app.application.commands.attachments import AttachScreenshot, AttachScreenshotHandler
 from app.application.errors import PermissionDeniedError
 from app.domain.enums import TicketCategory, TicketStatus, UserRole
-from app.domain.errors import BusinessRuleViolation, InvalidFileError
+from app.domain.errors import DomainError, InvalidFileError
 from app.domain.events import ScreenshotAttached
 from app.domain.ticket import Ticket
 from app.domain.user import User
@@ -77,7 +77,7 @@ def test_closed_ticket_rejects_attachment(uow, storage):
     ticket.status = TicketStatus.CLOSED
     uow.tickets.update(ticket)
 
-    with pytest.raises(BusinessRuleViolation, match="Kapanmış talebe"):
+    with pytest.raises(DomainError, match="Kapanmış talebe"):
         attach(uow, storage)
     assert storage.files == {}
 

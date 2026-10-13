@@ -9,7 +9,12 @@ from datetime import datetime
 
 from app.domain.clock import utc_now
 from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import (
+    AiAnswerAlreadyEvaluatedError,
+    InvalidAssigneeError,
+    TicketClosedError,
+    UrgencyChangeNotAllowedError,
+)
 from app.domain.ticket_state import STATES, TicketState
 from app.domain.user import User
 
@@ -110,7 +115,7 @@ class Ticket:
     def assign(self, technician: User) -> None:
         # İş kuralı 3: durumdan bağımsız, her atamada geçerli
         if not technician.is_technician:
-            raise BusinessRuleViolation("Talep yalnızca teknisyen rolündeki kullanıcıya atanabilir.")
+            raise InvalidAssigneeError()
         self.state.assign(self, technician.id)
 
     def start_work(self) -> None:
@@ -136,12 +141,12 @@ class Ticket:
 
     def ensure_open_for_contributions(self) -> None:
         if not self.state.accepts_contributions:
-            raise BusinessRuleViolation("Kapanmış talebe ek veya not eklenemez.")
+            raise TicketClosedError()
 
     def set_urgent(self, is_urgent: bool) -> None:
         """Acil işaretini değiştirir (yönetici). VIP işaretine dokunmaz."""
         if not self.state.allows_urgency_change:
-            raise BusinessRuleViolation("Çözülmüş veya kapanmış talebin aciliyeti değiştirilemez.")
+            raise UrgencyChangeNotAllowedError()
         if is_urgent and not self.is_urgent:
             self.modifiers.append(TicketModifier.URGENT)
         elif not is_urgent and self.is_urgent:
@@ -177,5 +182,5 @@ class AIResponse:
 
     def record_feedback(self, is_helpful: bool) -> None:
         if self.user_feedback is not None:
-            raise BusinessRuleViolation("Bu AI yanıtı zaten değerlendirilmiş.")
+            raise AiAnswerAlreadyEvaluatedError()
         self.user_feedback = AiFeedback.HELPFUL if is_helpful else AiFeedback.NOT_HELPFUL

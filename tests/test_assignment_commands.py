@@ -10,7 +10,7 @@ from app.application.commands.assignments import (
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.domain.enums import DeviceStatus, UserRole
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import DomainError
 from app.domain.events import DeviceAssigned, DeviceReturned
 from app.domain.inventory import Assignment, Device
 from app.domain.user import User
@@ -58,7 +58,7 @@ def test_assigned_device_cannot_be_assigned_again(uow):
     handler = AssignDeviceHandler(uow)
     handler.handle(AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id))
 
-    with pytest.raises(BusinessRuleViolation, match="zaten zimmetli"):
+    with pytest.raises(DomainError, match="zaten zimmetli"):
         handler.handle(AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id))
 
     assert len(uow.assignments.items) == 1
@@ -69,7 +69,7 @@ def test_active_assignment_record_blocks_assignment_even_if_status_is_inconsiste
     admin_id, user_id, device_id = setup_data(uow)
     uow.assignments.add(Assignment(device_id=device_id, user_id=user_id, assigned_by=admin_id))
 
-    with pytest.raises(BusinessRuleViolation, match="aktif bir zimmeti var"):
+    with pytest.raises(DomainError, match="aktif bir zimmeti var"):
         AssignDeviceHandler(uow).handle(
             AssignDevice(actor_id=admin_id, device_id=device_id, user_id=user_id)
         )
@@ -112,7 +112,7 @@ def test_return_closes_assignment_and_puts_device_back_in_stock(uow):
 def test_return_without_active_assignment_is_rejected(uow):
     admin_id, _, device_id = setup_data(uow)
 
-    with pytest.raises(BusinessRuleViolation, match="aktif bir zimmeti yok"):
+    with pytest.raises(DomainError, match="aktif bir zimmeti yok"):
         ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin_id, device_id=device_id))
 
 
@@ -125,7 +125,7 @@ def test_device_in_repair_cannot_be_returned_and_assignment_stays_active(uow):
     device.status = DeviceStatus.IN_REPAIR  # bakım akışı 4c'de; burada durumu elle kuruyoruz
     uow.devices.update(device)
 
-    with pytest.raises(BusinessRuleViolation, match="bakımda"):
+    with pytest.raises(DomainError, match="bakımda"):
         ReturnDeviceHandler(uow).handle(ReturnDevice(actor_id=admin_id, device_id=device_id))
 
     assert uow.assignments.get(assignment_id).is_active

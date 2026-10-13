@@ -5,13 +5,26 @@ from datetime import date, datetime
 
 from app.domain.clock import utc_now
 from app.domain.enums import DeviceStatus, MaintenanceType
-from app.domain.errors import BusinessRuleViolation
+from app.domain.errors import (
+    AssignmentAlreadyClosedError,
+    DeviceAlreadyAssignedError,
+    DeviceError,
+    DeviceInMaintenanceError,
+    DeviceNotAssignedError,
+    DeviceNotInMaintenanceError,
+    DeviceNotInStockError,
+    DeviceRetiredError,
+    MaintenanceAlreadyCompletedError,
+    MaintenanceAlreadyOpenError,
+    MaintenanceDeviceMismatchError,
+)
 
 
-UNAVAILABLE_FOR_ASSIGNMENT = {
-    DeviceStatus.ASSIGNED: "Cihaz zaten zimmetli. Önce iade alınmalı.",
-    DeviceStatus.IN_REPAIR: "Cihaz bakımda, zimmetlenemez.",
-    DeviceStatus.RETIRED: "Hurdaya ayrılmış cihaz zimmetlenemez.",
+# Zimmetlenemeyen her durumun kendi hata sınıfı ve duruma özgü mesajı
+UNAVAILABLE_FOR_ASSIGNMENT: dict[DeviceStatus, tuple[type[DeviceError], str]] = {
+    DeviceStatus.ASSIGNED: (DeviceAlreadyAssignedError, "Cihaz zaten zimmetli. Önce iade alınmalı."),
+    DeviceStatus.IN_REPAIR: (DeviceInMaintenanceError, "Cihaz bakımda, zimmetlenemez."),
+    DeviceStatus.RETIRED: (DeviceRetiredError, "Hurdaya ayrılmış cihaz zimmetlenemez."),
 }
 
 
@@ -60,23 +73,24 @@ class Device:
     def assign(self) -> None:
         """Cihazı zimmetli duruma geçirir. Yalnızca depodaki cihaz zimmetlenebilir."""
         if self.status != DeviceStatus.IN_STOCK:
-            raise BusinessRuleViolation(UNAVAILABLE_FOR_ASSIGNMENT[self.status])
+            error_class, message = UNAVAILABLE_FOR_ASSIGNMENT[self.status]
+            raise error_class(message)
         self.status = DeviceStatus.ASSIGNED
 
     def mark_returned(self) -> None:
         if self.status == DeviceStatus.IN_REPAIR:
             # İade edilirse bakım bitince cihaz "önceki durum" olan ASSIGNED'a
             # döner ama ortada zimmet kalmaz; tutarsızlığı baştan engelliyoruz.
-            raise BusinessRuleViolation("Cihaz bakımda. Önce bakımı tamamlayın, sonra iade alın.")
+            raise DeviceInMaintenanceError("Cihaz bakımda. Önce bakımı tamamlayın, sonra iade alın.")
         if self.status != DeviceStatus.ASSIGNED:
-            raise BusinessRuleViolation("Cihaz zimmetli değil.")
+            raise DeviceNotAssignedError()
         self.status = DeviceStatus.IN_STOCK
 
     def retire(self) -> None:
         if self.status == DeviceStatus.RETIRED:
-            raise BusinessRuleViolation("Cihaz zaten hurdaya ayrılmış.")
+            raise DeviceRetiredError("Cihaz zaten hurdaya ayrılmış.")
         if self.status != DeviceStatus.IN_STOCK:
-            raise BusinessRuleViolation(
+            raise DeviceNotInStockError(
                 "Yalnızca depodaki cihazlar hurdaya ayrılabilir. "
                 "Önce zimmeti iade alın veya bakımı tamamlayın."
             )
@@ -89,16 +103,16 @@ class Device:
         önceki durum mutlaka bakım kaydına yazılır.
         """
         if self.status == DeviceStatus.RETIRED:
-            raise BusinessRuleViolation("Hurdaya ayrılmış cihaza bakım kaydı açılamaz.")
+            raise DeviceRetiredError("Hurdaya ayrılmış cihaza bakım kaydı açılamaz.")
         if self.status == DeviceStatus.IN_REPAIR:
-            raise BusinessRuleViolation("Cihazın zaten açık bir bakım kaydı var.")
+            raise MaintenanceAlreadyOpenError()
         previous_status = self.status
         self.status = DeviceStatus.IN_REPAIR
         return previous_status
 
     def finish_maintenance(self, restore_to: DeviceStatus) -> None:
         if self.status != DeviceStatus.IN_REPAIR:
-            raise BusinessRuleViolation("Cihaz bakımda değil.")
+            raise DeviceNotInMaintenanceError()
         self.status = restore_to
 
 
@@ -120,7 +134,7 @@ class Assignment:
     def close(self) -> None:
         """Zimmeti iade alınmış olarak kapatır. Kayıt silinmez; geçmiş korunur."""
         if not self.is_active:
-            raise BusinessRuleViolation("Bu zimmet zaten iade alınmış.")
+            raise AssignmentAlreadyClosedError()
         self.returned_at = utc_now()
 
 
@@ -173,8 +187,8 @@ class MaintenanceRecord:
     def complete(self, device: Device) -> None:
         """İş kuralı 2'nin ikinci yarısı: cihaz bakım öncesi durumuna döner."""
         if not self.is_open:
-            raise BusinessRuleViolation("Bu bakım kaydı zaten tamamlanmış.")
+            raise MaintenanceAlreadyCompletedError()
         if device.id != self.device_id:
-            raise ValueError("Bakım kaydı bu cihaza ait değil.")
+            raise MaintenanceDeviceMismatchError()
         device.finish_maintenance(restore_to=self.previous_device_status)
         self.completed_at = utc_now()

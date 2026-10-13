@@ -4,19 +4,23 @@ Handler'lar HTTP'yi bilmez, yalnızca anlamlı hatalar fırlatır; durum koduna
 karar vermek API katmanının işidir.
 """
 
+from collections.abc import Awaitable, Callable
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.application.errors import AuthenticationError, NotFoundError, PermissionDeniedError
-from app.domain.errors import BusinessRuleViolation, InvalidFileError
+from app.domain.errors import DomainError, InvalidFileError
 
 ERROR_STATUS_CODES: dict[type[Exception], int] = {
     AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     PermissionDeniedError: status.HTTP_403_FORBIDDEN,
     NotFoundError: status.HTTP_404_NOT_FOUND,
-    # 409 Conflict: istek geçerli ama kaynağın mevcut durumuyla çelişiyor
-    BusinessRuleViolation: status.HTTP_409_CONFLICT,
+    # 409 Conflict: istek geçerli ama kaynağın mevcut durumuyla çelişiyor.
+    # Tüm domain hataları tek taban sınıftan türediği için tek satır yeterli;
+    # yeni bir kural hatası eklemek bu dosyayı değiştirmez (açık/kapalı ilkesi).
+    DomainError: status.HTTP_409_CONFLICT,
     # Alt sınıf: geçersiz dosya bir durum çatışması değil, geçersiz veridir.
     # Starlette en özel (alt) sınıfın handler'ını seçer.
     InvalidFileError: status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -30,7 +34,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _validation_error_handler)
 
 
-def _make_handler(status_code: int):
+def _make_handler(status_code: int) -> Callable[[Request, Exception], Awaitable[JSONResponse]]:
     async def handler(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=status_code, content={"detail": str(exc)})
 
