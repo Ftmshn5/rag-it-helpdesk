@@ -25,6 +25,7 @@ from app.application.commands.tickets import (
     SetTicketUrgencyCommand,
     SetTicketUrgencyHandler,
 )
+from app.domain.attachments import ScreenshotValidator
 from app.domain.enums import TicketCategory, TicketModifier, TicketStatus, UserRole
 from app.domain.ticket_behavior import TicketComponentFactory, UrgentTicket
 from app.domain.user import User
@@ -126,7 +127,7 @@ def test_screenshot_is_stored_on_disk_and_recorded_in_database(sqlalchemy_uow, t
     )
     png = b"\x89PNG\r\n\x1a\n" + b"\x01" * 50
 
-    attachment_id = AttachScreenshotHandler(uow, LocalFileStorage(tmp_path), 1024).handle(
+    attachment_id = AttachScreenshotHandler(uow, LocalFileStorage(tmp_path), ScreenshotValidator(1024)).handle(
         AttachScreenshotCommand(actor_id=user.id, ticket_id=ticket_id, content=png)
     )
 

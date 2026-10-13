@@ -14,7 +14,7 @@ from app.application.commands.base import ActorCommand, CommandHandler
 from app.application.errors import PermissionDeniedError
 from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.unit_of_work import UnitOfWork
-from app.domain.attachments import validate_screenshot
+from app.domain.attachments import ScreenshotValidator
 from app.domain.events import ScreenshotAttached
 from app.domain.ticket import TicketAttachment
 
@@ -26,10 +26,10 @@ class AttachScreenshotCommand(ActorCommand):
 
 
 class AttachScreenshotHandler(CommandHandler[AttachScreenshotCommand, int]):
-    def __init__(self, uow: UnitOfWork, storage: FileStorage, max_size_bytes: int) -> None:
+    def __init__(self, uow: UnitOfWork, storage: FileStorage, validator: ScreenshotValidator) -> None:
         super().__init__(uow)
         self._storage = storage
-        self._max_size_bytes = max_size_bytes
+        self._validator = validator
 
     def handle(self, command: AttachScreenshotCommand) -> int:
         with self._uow:
@@ -38,7 +38,7 @@ class AttachScreenshotHandler(CommandHandler[AttachScreenshotCommand, int]):
             if not ticket.is_participant(actor):
                 raise PermissionDeniedError("Bu talebe ek yükleme yetkiniz yok.")
             ticket.ensure_open_for_contributions()
-            image_type = validate_screenshot(command.content, self._max_size_bytes)
+            image_type = self._validator.validate(command.content)
 
             file_path = self._storage.save(
                 command.content, folder=f"tickets/{ticket.id}", extension=image_type.extension

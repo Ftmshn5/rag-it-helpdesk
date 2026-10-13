@@ -90,6 +90,8 @@ infrastructure/
   - `write` şeması: normalize tablolar, iş kuralları burada uygulanır.
   - `read` şeması: raporlar için denormalize read model tabloları (örn. `ticket_summary`, `inventory_report`, `failure_stats`).
 - Read model'ler, yazma işleminden sonra **uygulama içi event bus** (Observer) ile aynı istekte güncellenir. Mesaj kuyruğu (RabbitMQ vb.) kullanılmayacak.
+- Dinleyiciler `EventHandler` soyut sınıfından türer: `EventLogger`, `AutoAnswerScheduler` (`application/event_handlers.py`) ve projektörler (her projektör `source_events` ile hangi olayları dinlediğini kendisi bildirir). Abonelikler tek yerde: `core/event_subscriptions.py` (`EventSubscriptions`).
+- Veritabanı bağlantısı global değildir: `Database` sınıfının tek nesnesi kompozisyon kökünde (`get_database`) kurulur; sınıflara oturum fabrikası enjekte edilir.
 - Uygulanan read model'ler: `read.ticket_summary` (talep listeleri), `read.device_inventory` (envanter raporu, zimmetli cihazlarım).
 - Projektörler (`infrastructure/db/projections.py`) olay geldiğinde ilgili satırı **write tablolarından yeniden hesaplar** (idempotent, sıradan bağımsız). Olay üretmeden yapılan değişikliklerden sonra (seed, elle SQL) yeniden kurma: `python -m app.infrastructure.db.projections` (seed scripti bunu kendisi çağırır).
 - Okuma tarafı karma: çok tabloyu birleştiren listeler read model'den; tek tablodan gelen veriler (bakım geçmişi, talep notları/ekleri) write tablolarından salt okunur sorguyla. Query handler'lar domain nesnesi/repository kullanmaz, DTO döner.
@@ -335,7 +337,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
   - [x] R1. Domain hata hiyerarşisi: `DomainError` tabanı ve kurala özgü hata sınıfları
   - [x] R2. `CommandHandler` / `QueryHandler` temel sınıfları; command/query nesneleri (`*Command`, `*Query`)
   - [x] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
-  - [ ] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
+  - [x] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
   - [ ] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
 - [ ] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler
 - [ ] **13. Kalite ve CV:** GitHub Actions CI, test kapsamı, ekran görüntülü ve mimari diyagramlı README, GitHub'a yükleme

@@ -33,19 +33,19 @@ class _OllamaClient:
 
         if response.status_code != 200:
             # Örn. 404: model indirilmemiş ("ollama pull <model>" gerekir)
-            detail = _error_detail(response)
+            detail = self._error_detail(response)
             raise AiProviderError(f"Ollama hata döndürdü ({response.status_code}): {detail}")
         try:
             return response.json()
         except ValueError as error:
             raise AiProviderError("Ollama geçersiz JSON döndürdü.") from error
 
-
-def _error_detail(response: httpx.Response) -> str:
-    try:
-        return str(response.json().get("error", response.text))
-    except ValueError:
-        return response.text
+    @staticmethod
+    def _error_detail(response: httpx.Response) -> str:
+        try:
+            return str(response.json().get("error", response.text))
+        except ValueError:
+            return response.text
 
 
 class OllamaEmbeddingProvider(_OllamaClient, EmbeddingProvider):

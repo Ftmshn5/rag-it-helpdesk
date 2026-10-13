@@ -18,11 +18,12 @@ import time
 from app.core.config import get_settings
 from app.domain.enums import TicketCategory
 from app.domain.ticket import Ticket
-from app.infrastructure.ai.ollama import OllamaLlmProvider, OllamaEmbeddingProvider
+from app.infrastructure.ai.ollama import OllamaEmbeddingProvider, OllamaLlmProvider
+from app.infrastructure.ai.providers import EmbeddingProvider
 from app.infrastructure.ai.rag_ai_support import RagAiSupport, SimilarityConfidence
-from app.infrastructure.ai.retriever import PgVectorRetriever
+from app.infrastructure.ai.retriever import KnowledgeRetriever, PgVectorRetriever
 from app.infrastructure.db.models import EMBEDDING_DIMENSION
-from app.infrastructure.db.session import SessionLocal
+from app.infrastructure.db.session import Database
 
 ANSWERABLE = [
     ("Şifremi unuttum", "Öğrenci bilgi sistemine giriş yapamıyorum, şifremi hatırlamıyorum.", TicketCategory.ACCOUNT),
@@ -47,63 +48,75 @@ OUT_OF_SCOPE = [
 ]
 
 
-def make_ticket(title: str, description: str, category: TicketCategory) -> Ticket:
-    return Ticket(id=0, title=title, description=description, category=category, requester_id=0)
+class SimilarityCalibrator:
+    """Örnek taleplerle retrieval benzerliğini ölçer; güven aralığını seçmeye yardım eder."""
+
+    def __init__(
+        self, embedder: EmbeddingProvider, retriever: KnowledgeRetriever, confidence: SimilarityConfidence
+    ) -> None:
+        self._embedder = embedder
+        self._retriever = retriever
+        self._confidence = confidence
+
+    def measure(self, groups: dict[str, list[tuple[str, str, TicketCategory]]]) -> dict[str, list[float]]:
+        """Her grup için örneklerin en iyi parça benzerliklerini yazdırır ve döndürür."""
+        best: dict[str, list[float]] = {}
+        for group, samples in groups.items():
+            print(f"== {group}")
+            best[group] = []
+            texts = [f"{title}\n\n{description}" for title, description, _ in samples]
+            for (title, _, _), vector in zip(samples, self._embedder.embed(texts), strict=True):
+                top = self._retriever.search(vector, 1)
+                similarity = top[0].similarity if top else 0.0
+                best[group].append(similarity)
+                source = top[0].file_path if top else "-"
+                print(f"  {similarity:.3f}  güven {self._confidence.score(similarity):.2f}  {title:<32} → {source}")
+            print()
+        return best
+
+    @staticmethod
+    def run_end_to_end(rag: RagAiSupport, samples: list[tuple[str, str, TicketCategory]]) -> None:
+        print("\n== UÇTAN UCA RAG")
+        for title, description, category in samples:
+            started = time.perf_counter()
+            answer = rag.try_auto_resolve(SimilarityCalibrator.sample_ticket(title, description, category))
+            elapsed = time.perf_counter() - started
+            print(f"\n--- {title}  ({elapsed:.1f} sn, güven {answer.confidence:.2f}, kaynak {answer.sources})")
+            print(answer.answer)
+
+    @staticmethod
+    def sample_ticket(title: str, description: str, category: TicketCategory) -> Ticket:
+        return Ticket(id=0, title=title, description=description, category=category, requester_id=0)
 
 
 def main() -> int:
+    # Komut satırı giriş noktası: bağımlılıklar burada kurulur
     settings = get_settings()
-    with_llm = "--with-llm" in sys.argv
     embedder = OllamaEmbeddingProvider(
         settings.ollama_base_url,
         settings.embedding_model,
         dimension=EMBEDDING_DIMENSION,
         timeout_seconds=settings.ollama_timeout_seconds,
     )
-    retriever = PgVectorRetriever(SessionLocal)
-    confidence = SimilarityConfidence(
-        floor=settings.rag_similarity_floor, ceiling=settings.rag_similarity_ceiling
-    )
+    retriever = PgVectorRetriever(Database(settings.database_url).session_factory)
+    confidence = SimilarityConfidence(floor=settings.rag_similarity_floor, ceiling=settings.rag_similarity_ceiling)
+    calibrator = SimilarityCalibrator(embedder, retriever, confidence)
 
     print(f"Ayar: floor={confidence.floor}  ceiling={confidence.ceiling}  eşik={settings.ai_confidence_threshold}\n")
-    groups = {"CEVAPLANABİLİR": ANSWERABLE, "KAPSAM DIŞI": OUT_OF_SCOPE}
-    best: dict[str, list[float]] = {}
-    for group, samples in groups.items():
-        print(f"== {group}")
-        best[group] = []
-        texts = [f"{title}\n\n{description}" for title, description, _ in samples]
-        for (title, _, _), vector in zip(samples, embedder.embed(texts), strict=True):
-            top = retriever.search(vector, 1)
-            similarity = top[0].similarity if top else 0.0
-            best[group].append(similarity)
-            source = top[0].file_path if top else "-"
-            print(f"  {similarity:.3f}  güven {confidence.score(similarity):.2f}  {title:<32} → {source}")
-        print()
-
+    best = calibrator.measure({"CEVAPLANABİLİR": ANSWERABLE, "KAPSAM DIŞI": OUT_OF_SCOPE})
     answerable, out_of_scope = best["CEVAPLANABİLİR"], best["KAPSAM DIŞI"]
     print(f"Cevaplanabilir: en düşük {min(answerable):.3f}, ortalama {sum(answerable) / len(answerable):.3f}")
     print(f"Kapsam dışı:    en yüksek {max(out_of_scope):.3f}, ortalama {sum(out_of_scope) / len(out_of_scope):.3f}")
 
-    if with_llm:
-        rag = RagAiSupport(
-            embedder=embedder,
-            retriever=retriever,
-            llm=OllamaLlmProvider(
-                settings.ollama_base_url,
-                settings.llm_model,
-                timeout_seconds=settings.ollama_timeout_seconds,
-                max_tokens=settings.llm_max_tokens,
-            ),
-            confidence=confidence,
-            top_k=settings.rag_top_k,
+    if "--with-llm" in sys.argv:
+        llm = OllamaLlmProvider(
+            settings.ollama_base_url,
+            settings.llm_model,
+            timeout_seconds=settings.ollama_timeout_seconds,
+            max_tokens=settings.llm_max_tokens,
         )
-        print("\n== UÇTAN UCA RAG")
-        for title, description, category in [ANSWERABLE[3], ANSWERABLE[9], OUT_OF_SCOPE[0]]:
-            started = time.perf_counter()
-            answer = rag.try_auto_resolve(make_ticket(title, description, category))
-            elapsed = time.perf_counter() - started
-            print(f"\n--- {title}  ({elapsed:.1f} sn, güven {answer.confidence:.2f}, kaynak {answer.sources})")
-            print(answer.answer)
+        rag = RagAiSupport(embedder=embedder, retriever=retriever, llm=llm, confidence=confidence, top_k=settings.rag_top_k)
+        calibrator.run_end_to_end(rag, [ANSWERABLE[3], ANSWERABLE[9], OUT_OF_SCOPE[0]])
     return 0
 
 

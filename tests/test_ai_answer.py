@@ -5,7 +5,6 @@ import pytest
 from app.application.commands.ai_answers import AutoAnswerTicketCommand, AutoAnswerTicketHandler
 from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
-from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import TicketCategory, TicketStatus
 from app.domain.events import AiAnswerRecorded, TicketStatusChanged
 from app.domain.ticket import Ticket
@@ -13,7 +12,7 @@ from app.domain.user import User
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
-from tests.fakes import FakeUnitOfWork
+from tests.fakes import FakeUnitOfWork, subscribe_all
 
 THRESHOLD = 0.6
 
@@ -169,9 +168,7 @@ def test_answer_is_discarded_if_ticket_changed_while_ai_was_thinking():
 
 
 def wire(bus, uow, ai_support) -> None:
-    register_subscribers(
-        bus, make_auto_answer_handler=lambda: AutoAnswerTicketHandler(uow, ai_support, THRESHOLD)
-    )
+    subscribe_all(bus, lambda: AutoAnswerTicketHandler(uow, ai_support, THRESHOLD))
 
 
 @pytest.mark.parametrize(
@@ -215,11 +212,9 @@ def test_create_ticket_handler_does_not_know_about_ai():
 
 def test_ai_flow_on_real_database(session_factory):
     bus = InMemoryEventBus()
-    register_subscribers(
+    subscribe_all(
         bus,
-        make_auto_answer_handler=lambda: AutoAnswerTicketHandler(
-            SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), THRESHOLD
-        ),
+        lambda: AutoAnswerTicketHandler(SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), THRESHOLD),
     )
     uow = SqlAlchemyUnitOfWork(bus, session_factory)
     with uow:

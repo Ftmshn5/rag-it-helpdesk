@@ -4,7 +4,7 @@ import pytest
 
 from app.domain.events import DomainEvent
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
-from tests.fakes import FakeUnitOfWork
+from tests.fakes import CallbackHandler, FakeUnitOfWork
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -23,8 +23,8 @@ class SomethingElseHappened(DomainEvent):
 def test_subscribers_receive_published_event_in_order():
     bus = InMemoryEventBus()
     calls = []
-    bus.subscribe(SomethingHappened, lambda e: calls.append(("first", e.value)))
-    bus.subscribe(SomethingHappened, lambda e: calls.append(("second", e.value)))
+    bus.subscribe(SomethingHappened, CallbackHandler(lambda e: calls.append(("first", e.value))))
+    bus.subscribe(SomethingHappened, CallbackHandler(lambda e: calls.append(("second", e.value))))
 
     bus.publish(SomethingHappened(value=42))
 
@@ -34,7 +34,7 @@ def test_subscribers_receive_published_event_in_order():
 def test_subscriber_does_not_receive_other_event_types():
     bus = InMemoryEventBus()
     calls = []
-    bus.subscribe(SomethingHappened, calls.append)
+    bus.subscribe(SomethingHappened, CallbackHandler(calls.append))
 
     bus.publish(SomethingElseHappened())
 
@@ -44,7 +44,7 @@ def test_subscriber_does_not_receive_other_event_types():
 def test_base_class_subscriber_receives_all_events():
     bus = InMemoryEventBus()
     calls = []
-    bus.subscribe(DomainEvent, lambda e: calls.append(type(e).__name__))
+    bus.subscribe(DomainEvent, CallbackHandler(lambda e: calls.append(type(e).__name__)))
 
     bus.publish(SomethingHappened(value=1))
     bus.publish(SomethingElseHappened())
@@ -61,8 +61,8 @@ def test_general_subscribers_run_before_specific_ones():
         calls.append("özel")
         bus.publish(SomethingElseHappened())  # iç içe olay
 
-    bus.subscribe(SomethingHappened, react)
-    bus.subscribe(DomainEvent, lambda e: calls.append(f"log:{type(e).__name__}"))
+    bus.subscribe(SomethingHappened, CallbackHandler(react))
+    bus.subscribe(DomainEvent, CallbackHandler(lambda e: calls.append(f"log:{type(e).__name__}")))
 
     bus.publish(SomethingHappened(value=1))
 
@@ -76,8 +76,8 @@ def test_failing_subscriber_does_not_stop_others(caplog):
     def broken(_event):
         raise ValueError("bozuk dinleyici")
 
-    bus.subscribe(SomethingHappened, broken)
-    bus.subscribe(SomethingHappened, lambda e: calls.append(e.value))
+    bus.subscribe(SomethingHappened, CallbackHandler(broken))
+    bus.subscribe(SomethingHappened, CallbackHandler(lambda e: calls.append(e.value)))
 
     bus.publish(SomethingHappened(value=7))
 
@@ -92,7 +92,7 @@ def test_events_are_published_only_after_commit():
     bus = InMemoryEventBus()
     uow = FakeUnitOfWork(bus)
     committed_at_publish_time = []
-    bus.subscribe(SomethingHappened, lambda e: committed_at_publish_time.append(uow.committed))
+    bus.subscribe(SomethingHappened, CallbackHandler(lambda e: committed_at_publish_time.append(uow.committed)))
 
     with uow:
         uow.add_event(SomethingHappened(value=1))

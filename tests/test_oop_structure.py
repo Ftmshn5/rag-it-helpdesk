@@ -5,10 +5,12 @@ eklenen bir handler temel sınıftan türemezse veya command/query adı düzene
 uymazsa test kırılır.
 """
 
+import ast
 import dataclasses
 import importlib
 import inspect
 import pkgutil
+from pathlib import Path
 from types import ModuleType
 
 import pytest
@@ -96,6 +98,29 @@ def test_domain_entities_are_encapsulated(entity):
     properties = {name: attr for klass in cls.__mro__ for name, attr in vars(klass).items() if isinstance(attr, property)}
     assert properties, "okuma özellikleri olmalı"
     assert all(prop.fset is None for prop in properties.values())
+
+
+APP_DIR = Path(__file__).resolve().parents[1] / "app"
+# Çerçevenin giriş noktaları bilinçli olarak fonksiyondur (iş mantığı içermezler):
+# FastAPI router'ları ve Depends sağlayıcıları, uygulama fabrikası, CLI main()'leri.
+FRAMEWORK_ENTRY_POINTS = ("api/", "core/", "main.py")
+CLI_ENTRY_POINT = "main"
+
+
+def test_no_module_level_functions_outside_framework_entry_points():
+    """'Global değişken ve modül seviyesinde iş mantığı yok' kuralı: yardımcılar sınıflardadır."""
+    offenders = []
+    for path in APP_DIR.rglob("*.py"):
+        relative = path.relative_to(APP_DIR).as_posix()
+        if relative.startswith(FRAMEWORK_ENTRY_POINTS):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        offenders += [
+            f"{relative}: {node.name}"
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name != CLI_ENTRY_POINT
+        ]
+    assert offenders == []
 
 
 def test_handlers_have_no_module_level_helper_functions():

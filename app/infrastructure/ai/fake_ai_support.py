@@ -62,17 +62,17 @@ FALLBACK = AutoAnswer(
 )
 
 
-def normalize(text: str) -> str:
-    # Türkçe büyük "İ" küçük harfe çevrilince "i̇" (noktalı) olur; önce düzeltilir
-    return text.replace("İ", "i").replace("I", "ı").lower()
-
-
 class FakeAiSupport(AiSupportFacade):
     def try_auto_resolve(self, ticket: Ticket) -> AutoAnswer:
-        text = normalize(f"{ticket.title} {ticket.description}")
+        text = self._normalize(f"{ticket.title} {ticket.description}")
         for canned in CANNED_ANSWERS:
             if any(keyword in text for keyword in canned.keywords):
                 return AutoAnswer(
                     answer=canned.answer, confidence=canned.confidence, sources=[canned.source]
                 )
         return FALLBACK
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        # Türkçe büyük "İ" küçük harfe çevrilince "i̇" (noktalı) olur; önce düzeltilir
+        return text.replace("İ", "i").replace("I", "ı").lower()

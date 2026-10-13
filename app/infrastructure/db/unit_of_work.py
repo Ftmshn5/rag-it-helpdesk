@@ -5,6 +5,7 @@ paylaştığı için yaptıkları değişiklikler tek transaction'da toplanır.
 """
 
 from collections.abc import Callable
+from types import TracebackType
 from typing import Self
 
 from sqlalchemy.orm import Session
@@ -21,36 +22,38 @@ from app.infrastructure.db.repositories import (
     SqlAlchemyTicketRepository,
     SqlAlchemyUserRepository,
 )
-from app.infrastructure.db.session import SessionLocal
 
 
 class SqlAlchemyUnitOfWork(UnitOfWork):
-    def __init__(
-        self,
-        event_bus: EventBus,
-        session_factory: Callable[[], Session] = SessionLocal,
-    ) -> None:
+    """Unit of Work deseni — SQLAlchemy implementasyonu (Template Method: _commit/_rollback)."""
+
+    def __init__(self, event_bus: EventBus, session_factory: Callable[[], Session]) -> None:
         super().__init__(event_bus)
-        self.session_factory = session_factory
+        self._session_factory = session_factory
 
     def __enter__(self) -> Self:
-        self.session = self.session_factory()
-        self.users = SqlAlchemyUserRepository(self.session)
-        self.devices = SqlAlchemyDeviceRepository(self.session)
-        self.assignments = SqlAlchemyAssignmentRepository(self.session)
-        self.maintenance_records = SqlAlchemyMaintenanceRecordRepository(self.session)
-        self.tickets = SqlAlchemyTicketRepository(self.session)
-        self.ticket_attachments = SqlAlchemyTicketAttachmentRepository(self.session)
-        self.ticket_comments = SqlAlchemyTicketCommentRepository(self.session)
-        self.ai_responses = SqlAlchemyAIResponseRepository(self.session)
+        self._session = self._session_factory()
+        self.users = SqlAlchemyUserRepository(self._session)
+        self.devices = SqlAlchemyDeviceRepository(self._session)
+        self.assignments = SqlAlchemyAssignmentRepository(self._session)
+        self.maintenance_records = SqlAlchemyMaintenanceRecordRepository(self._session)
+        self.tickets = SqlAlchemyTicketRepository(self._session)
+        self.ticket_attachments = SqlAlchemyTicketAttachmentRepository(self._session)
+        self.ticket_comments = SqlAlchemyTicketCommentRepository(self._session)
+        self.ai_responses = SqlAlchemyAIResponseRepository(self._session)
         return super().__enter__()
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         super().__exit__(exc_type, exc_value, traceback)
-        self.session.close()
+        self._session.close()
 
     def _commit(self) -> None:
-        self.session.commit()
+        self._session.commit()
 
     def _rollback(self) -> None:
-        self.session.rollback()
+        self._session.rollback()

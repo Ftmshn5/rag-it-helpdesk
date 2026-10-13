@@ -23,7 +23,7 @@ from app.application.queries.tickets import (
     TicketSummaryView,
 )
 from app.application.queries.users import UserQueries, UserView
-from app.domain.clock import utc_now
+from app.domain.clock import Clock
 from app.domain.enums import AiFeedback, DeviceStatus, TicketCategory, TicketStatus
 from app.infrastructure.db.models import (
     AIResponseModel,
@@ -43,33 +43,6 @@ WORK_QUEUE_ORDER = (
     TicketSummaryModel.priority_score.desc(),
     TicketSummaryModel.due_at.asc(),
 )
-
-
-def to_summary_view(row: TicketSummaryModel) -> TicketSummaryView:
-    return TicketSummaryView(
-        ticket_id=row.ticket_id,
-        title=row.title,
-        category=TicketCategory(row.category),
-        status=TicketStatus(row.status),
-        requester_id=row.requester_id,
-        requester_name=row.requester_name,
-        assignee_id=row.assignee_id,
-        assignee_name=row.assignee_name,
-        device_asset_tag=row.device_asset_tag,
-        is_vip=row.is_vip,
-        is_urgent=row.is_urgent,
-        sla_hours=row.sla_hours,
-        priority_score=row.priority_score,
-        due_at=row.due_at,
-        # Zamana bağlı olduğu için saklanmaz, okurken hesaplanır
-        is_overdue=row.status not in FINISHED and row.due_at < utc_now(),
-        ai_confidence=row.ai_confidence,
-        ai_feedback=AiFeedback(row.ai_feedback) if row.ai_feedback else None,
-        comment_count=row.comment_count,
-        attachment_count=row.attachment_count,
-        created_at=row.created_at,
-        resolved_at=row.resolved_at,
-    )
 
 
 class SqlTicketQueries(TicketQueries):
@@ -98,7 +71,7 @@ class SqlTicketQueries(TicketQueries):
     def _list(self, statement, status: TicketStatus | None) -> list[TicketSummaryView]:
         if status is not None:
             statement = statement.where(TicketSummaryModel.status == status.value)
-        return [to_summary_view(row) for row in self.session.scalars(statement)]
+        return [self._to_summary_view(row) for row in self.session.scalars(statement)]
 
     def get_detail(self, ticket_id: int) -> TicketDetailView | None:
         summary = self.session.get(TicketSummaryModel, ticket_id)
@@ -120,7 +93,7 @@ class SqlTicketQueries(TicketQueries):
             .order_by(TicketAttachmentModel.uploaded_at)
         )
         return TicketDetailView(
-            summary=to_summary_view(summary),
+            summary=self._to_summary_view(summary),
             description=description,
             ai_answer=AiAnswerView(
                 answer=ai.answer,
@@ -163,6 +136,33 @@ class SqlTicketQueries(TicketQueries):
         ).first()
         return AttachmentFileView(*row) if row else None
 
+    @staticmethod
+    def _to_summary_view(row: TicketSummaryModel) -> TicketSummaryView:
+        return TicketSummaryView(
+            ticket_id=row.ticket_id,
+            title=row.title,
+            category=TicketCategory(row.category),
+            status=TicketStatus(row.status),
+            requester_id=row.requester_id,
+            requester_name=row.requester_name,
+            assignee_id=row.assignee_id,
+            assignee_name=row.assignee_name,
+            device_asset_tag=row.device_asset_tag,
+            is_vip=row.is_vip,
+            is_urgent=row.is_urgent,
+            sla_hours=row.sla_hours,
+            priority_score=row.priority_score,
+            due_at=row.due_at,
+            # Zamana bağlı olduğu için saklanmaz, okurken hesaplanır
+            is_overdue=row.status not in FINISHED and row.due_at < Clock.now(),
+            ai_confidence=row.ai_confidence,
+            ai_feedback=AiFeedback(row.ai_feedback) if row.ai_feedback else None,
+            comment_count=row.comment_count,
+            attachment_count=row.attachment_count,
+            created_at=row.created_at,
+            resolved_at=row.resolved_at,
+        )
+
 
 class SqlUserQueries(UserQueries):
     def __init__(self, session: Session) -> None:
@@ -188,27 +188,6 @@ class SqlUserQueries(UserQueries):
         )
 
 
-def to_inventory_view(row: DeviceInventoryModel) -> DeviceInventoryView:
-    return DeviceInventoryView(
-        device_id=row.device_id,
-        asset_tag=row.asset_tag,
-        type=row.type,
-        brand=row.brand,
-        model=row.model,
-        serial_number=row.serial_number,
-        status=DeviceStatus(row.status),
-        location=row.location,
-        purchase_date=row.purchase_date,
-        holder_id=row.holder_id,
-        holder_name=row.holder_name,
-        holder_department=row.holder_department,
-        assigned_at=row.assigned_at,
-        has_open_maintenance=row.has_open_maintenance,
-        maintenance_count=row.maintenance_count,
-        last_maintenance_at=row.last_maintenance_at,
-    )
-
-
 class SqlInventoryQueries(InventoryQueries):
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -219,7 +198,7 @@ class SqlInventoryQueries(InventoryQueries):
             statement = statement.where(DeviceInventoryModel.status == status.value)
         if device_type is not None:
             statement = statement.where(DeviceInventoryModel.type == device_type)
-        return [to_inventory_view(row) for row in self.session.scalars(statement)]
+        return [self._to_inventory_view(row) for row in self.session.scalars(statement)]
 
     def list_held_by(self, user_id):
         statement = (
@@ -227,7 +206,7 @@ class SqlInventoryQueries(InventoryQueries):
             .where(DeviceInventoryModel.holder_id == user_id)
             .order_by(DeviceInventoryModel.asset_tag)
         )
-        return [to_inventory_view(row) for row in self.session.scalars(statement)]
+        return [self._to_inventory_view(row) for row in self.session.scalars(statement)]
 
     def device_exists(self, device_id):
         return self.session.get(DeviceModel, device_id) is not None
@@ -253,3 +232,24 @@ class SqlInventoryQueries(InventoryQueries):
             )
             for record, technician_name in rows
         ]
+
+    @staticmethod
+    def _to_inventory_view(row: DeviceInventoryModel) -> DeviceInventoryView:
+        return DeviceInventoryView(
+            device_id=row.device_id,
+            asset_tag=row.asset_tag,
+            type=row.type,
+            brand=row.brand,
+            model=row.model,
+            serial_number=row.serial_number,
+            status=DeviceStatus(row.status),
+            location=row.location,
+            purchase_date=row.purchase_date,
+            holder_id=row.holder_id,
+            holder_name=row.holder_name,
+            holder_department=row.holder_department,
+            assigned_at=row.assigned_at,
+            has_open_maintenance=row.has_open_maintenance,
+            maintenance_count=row.maintenance_count,
+            last_maintenance_at=row.last_maintenance_at,
+        )

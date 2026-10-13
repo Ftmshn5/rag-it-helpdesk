@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domain.attachments import JPEG, PNG, validate_screenshot
+from app.domain.attachments import ScreenshotValidator
 from app.domain.enums import TicketCategory, TicketStatus, UserRole
 from app.domain.errors import DomainError, InvalidFileError
 from app.domain.ticket import Ticket
@@ -14,8 +14,8 @@ LIMIT = 1024
 
 
 def test_png_and_jpeg_are_detected_by_content():
-    assert validate_screenshot(PNG_BYTES, LIMIT) == PNG
-    assert validate_screenshot(JPEG_BYTES, LIMIT) == JPEG
+    assert ScreenshotValidator(LIMIT).validate(PNG_BYTES) == ScreenshotValidator.PNG
+    assert ScreenshotValidator(LIMIT).validate(JPEG_BYTES) == ScreenshotValidator.JPEG
 
 
 @pytest.mark.parametrize(
@@ -29,25 +29,25 @@ def test_png_and_jpeg_are_detected_by_content():
 )
 def test_other_types_are_rejected_regardless_of_file_name(content):
     with pytest.raises(InvalidFileError, match="Yalnızca PNG veya JPG"):
-        validate_screenshot(content, LIMIT)
+        ScreenshotValidator(LIMIT).validate(content)
 
 
 def test_empty_file_is_rejected():
     with pytest.raises(InvalidFileError, match="boş"):
-        validate_screenshot(b"", LIMIT)
+        ScreenshotValidator(LIMIT).validate(b"")
 
 
 def test_file_over_limit_is_rejected_and_limit_itself_is_allowed():
     exactly_limit = PNG_BYTES + b"\x00" * (LIMIT - len(PNG_BYTES))
-    assert validate_screenshot(exactly_limit, LIMIT) == PNG
+    assert ScreenshotValidator(LIMIT).validate(exactly_limit) == ScreenshotValidator.PNG
 
     with pytest.raises(InvalidFileError, match="en fazla"):
-        validate_screenshot(exactly_limit + b"\x00", LIMIT)
+        ScreenshotValidator(LIMIT).validate(exactly_limit + b"\x00")
 
 
 def test_size_message_shows_megabytes():
     with pytest.raises(InvalidFileError, match="en fazla 5 MB"):
-        validate_screenshot(PNG_BYTES + b"\x00" * (5 * 1024 * 1024), 5 * 1024 * 1024)
+        ScreenshotValidator(5 * 1024 * 1024).validate(PNG_BYTES + b"\x00" * (5 * 1024 * 1024))
 
 
 # --- Kim ek yükleyebilir? ---

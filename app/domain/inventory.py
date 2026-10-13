@@ -8,7 +8,7 @@ assign_to / return_from / start_maintenance / finish_maintenance / retire.
 
 from datetime import date, datetime
 
-from app.domain.clock import utc_now
+from app.domain.clock import Clock
 from app.domain.entity import Entity
 from app.domain.enums import DeviceStatus, MaintenanceType
 from app.domain.errors import (
@@ -49,7 +49,7 @@ class Assignment(Entity):
         self._device_id = device_id
         self._user_id = user_id
         self._assigned_by = assigned_by
-        self._assigned_at = assigned_at or utc_now()
+        self._assigned_at = assigned_at or Clock.now()
         self._returned_at = returned_at
 
     @property
@@ -80,7 +80,7 @@ class Assignment(Entity):
         """Zimmeti iade alınmış olarak kapatır. Kayıt silinmez; geçmiş korunur."""
         if not self.is_active:
             raise AssignmentAlreadyClosedError()
-        self._returned_at = utc_now()
+        self._returned_at = Clock.now()
 
 
 # Zimmetlenemeyen her durumun kendi hata sınıfı ve duruma özgü mesajı
@@ -261,7 +261,7 @@ class MaintenanceRecord(Entity):
         self._type = type
         self._description = description
         self._previous_device_status = previous_device_status
-        self._performed_at = performed_at or utc_now()
+        self._performed_at = performed_at or Clock.now()
         self._completed_at = completed_at
 
     @classmethod
@@ -331,4 +331,4 @@ class MaintenanceRecord(Entity):
         if device.id != self._device_id:
             raise MaintenanceDeviceMismatchError()
         device.finish_maintenance(restore_to=self._previous_device_status)
-        self._completed_at = utc_now()
+        self._completed_at = Clock.now()

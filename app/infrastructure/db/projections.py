@@ -15,6 +15,11 @@ Bedeli her olayda birkaç küçük sorgu çalışmasıdır; bu ölçekte önemsi
 refresh/rebuild akışı her projektörde aynıdır (Template Method: Projector);
 alt sınıflar yalnızca hangi kayıtların ve satırın nasıl hesaplanacağını tanımlar.
 
+Projektörler aynı zamanda olay dinleyicisidir (Observer: EventHandler): hangi
+olaylara abone olacaklarını `source_events`, olaydan hangi kaydın etkilendiğini
+`key_of` ile kendileri bildirir. Yeni bir read model eklemek abonelik kodunu
+değiştirmez.
+
 Elle yeniden kurma:  python -m app.infrastructure.db.projections
 """
 
@@ -27,8 +32,28 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.domain.clock import utc_now
+from app.application.interfaces.event_bus import EventHandler
+from app.domain.clock import Clock
 from app.domain.enums import TicketModifier
+from app.domain.events import (
+    AiAnswerRecorded,
+    AiFeedbackGiven,
+    DeviceAssigned,
+    DeviceDetailsUpdated,
+    DeviceEvent,
+    DeviceRegistered,
+    DeviceRetired,
+    DeviceReturned,
+    DomainEvent,
+    MaintenanceCompleted,
+    MaintenanceStarted,
+    ScreenshotAttached,
+    TicketCommentAdded,
+    TicketCreated,
+    TicketEvent,
+    TicketStatusChanged,
+    TicketUrgencyChanged,
+)
 from app.domain.ticket_behavior import TicketComponentFactory
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.models import (
@@ -43,19 +68,29 @@ from app.infrastructure.db.models import (
 )
 from app.infrastructure.db.read_models import DeviceInventoryModel, TicketSummaryModel
 from app.infrastructure.db.repositories import SqlAlchemyTicketRepository
-from app.infrastructure.db.session import SessionLocal
+from app.infrastructure.db.session import Database
 
 
-class Projector(ABC):
+class Projector(EventHandler[DomainEvent], ABC):
+    """Template Method deseni — Abstract Class: refresh/rebuild akışı sabit,
+    `all_keys` / `build_row` / `key_of` adımları alt sınıflarda.
+
+    Observer deseni — Concrete Observer: `source_events` olaylarında satırı yeniler.
+    """
+
     read_model: type[Base]
     key_column: str  # read model'in birincil anahtarı (örn. "ticket_id")
+    source_events: tuple[type[DomainEvent], ...]  # bu read model'i etkileyen olaylar
 
-    def __init__(self, session_factory: Callable[[], Session] = SessionLocal) -> None:
-        self.session_factory = session_factory
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
+        self._session_factory = session_factory
+
+    def handle(self, event: DomainEvent) -> None:
+        self.refresh(self.key_of(event))
 
     def refresh(self, key: int) -> None:
         """Tek bir kaydın satırını kaynaktan yeniden hesaplar (upsert ya da silme)."""
-        with self.session_factory() as session:
+        with self._session_factory() as session:
             row = self.build_row(session, key)
             if row is None:  # kaynak kayıt silinmiş
                 session.execute(
@@ -70,7 +105,7 @@ class Projector(ABC):
 
     def rebuild(self) -> int:
         """Tabloyu tamamen siler ve tüm kayıtlar için yeniden üretir."""
-        with self.session_factory() as session:
+        with self._session_factory() as session:
             session.execute(delete(self.read_model))
             keys = self.all_keys(session)
             for key in keys:
@@ -79,20 +114,38 @@ class Projector(ABC):
             return len(keys)
 
     @abstractmethod
+    def key_of(self, event: DomainEvent) -> int:
+        """Olaydan, satırı yenilenecek kaydın anahtarını çıkarır."""
+
+    @abstractmethod
     def all_keys(self, session: Session) -> list[int]: ...
 
     @abstractmethod
     def build_row(self, session: Session, key: int) -> dict[str, Any] | None: ...
 
-
-def count_where(session: Session, model, **filters) -> int:
-    statement = select(func.count()).select_from(model).filter_by(**filters)
-    return session.scalar(statement)
+    @staticmethod
+    def _count_where(session: Session, model: type[Base], **filters: object) -> int:
+        statement = select(func.count()).select_from(model).filter_by(**filters)
+        return session.scalar(statement)
 
 
 class TicketSummaryProjector(Projector):
+    """Template Method — Concrete Class: read.ticket_summary (talep listeleri)."""
+
     read_model = TicketSummaryModel
     key_column = "ticket_id"
+    source_events = (
+        TicketCreated,
+        TicketStatusChanged,
+        TicketUrgencyChanged,
+        AiAnswerRecorded,
+        AiFeedbackGiven,
+        TicketCommentAdded,
+        ScreenshotAttached,
+    )
+
+    def key_of(self, event: TicketEvent) -> int:
+        return event.ticket_id
 
     def all_keys(self, session: Session) -> list[int]:
         return list(session.scalars(select(TicketModel.id)))
@@ -129,17 +182,31 @@ class TicketSummaryProjector(Projector):
             "ai_feedback": ai_response.user_feedback.value
             if ai_response and ai_response.user_feedback
             else None,
-            "comment_count": count_where(session, TicketCommentModel, ticket_id=key),
-            "attachment_count": count_where(session, TicketAttachmentModel, ticket_id=key),
+            "comment_count": self._count_where(session, TicketCommentModel, ticket_id=key),
+            "attachment_count": self._count_where(session, TicketAttachmentModel, ticket_id=key),
             "created_at": ticket.created_at,
             "resolved_at": ticket.resolved_at,
-            "refreshed_at": utc_now(),
+            "refreshed_at": Clock.now(),
         }
 
 
 class DeviceInventoryProjector(Projector):
+    """Template Method — Concrete Class: read.device_inventory (envanter raporu, zimmetli cihazlarım)."""
+
     read_model = DeviceInventoryModel
     key_column = "device_id"
+    source_events = (
+        DeviceRegistered,
+        DeviceDetailsUpdated,
+        DeviceRetired,
+        DeviceAssigned,
+        DeviceReturned,
+        MaintenanceStarted,
+        MaintenanceCompleted,
+    )
+
+    def key_of(self, event: DeviceEvent) -> int:
+        return event.device_id
 
     def all_keys(self, session: Session) -> list[int]:
         return list(session.scalars(select(DeviceModel.id)))
@@ -175,21 +242,40 @@ class DeviceInventoryProjector(Projector):
             "holder_name": holder.full_name if holder else None,
             "holder_department": holder.department if holder else None,
             "assigned_at": active.assigned_at if active else None,
-            "has_open_maintenance": count_where(
+            "has_open_maintenance": self._count_where(
                 session, MaintenanceRecordModel, device_id=key, completed_at=None
             )
             > 0,
-            "maintenance_count": count_where(session, MaintenanceRecordModel, device_id=key),
+            "maintenance_count": self._count_where(session, MaintenanceRecordModel, device_id=key),
             "last_maintenance_at": last_maintenance_at,
-            "refreshed_at": utc_now(),
+            "refreshed_at": Clock.now(),
         }
 
 
-def rebuild_all(session_factory: Callable[[], Session] = SessionLocal) -> None:
-    for projector_class in (TicketSummaryProjector, DeviceInventoryProjector):
-        count = projector_class(session_factory).rebuild()
-        print(f"{projector_class.read_model.__tablename__}: {count} satır yeniden üretildi.")
+class ReadModelRebuilder:
+    """Tüm read model'leri write tablolarından sıfırdan kurar (seed sonrası, elle SQL sonrası)."""
+
+    PROJECTORS: tuple[type[Projector], ...] = (TicketSummaryProjector, DeviceInventoryProjector)
+
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
+        self._session_factory = session_factory
+
+    def rebuild_all(self) -> dict[str, int]:
+        """Tablo adı → üretilen satır sayısı."""
+        return {
+            projector_class.read_model.__tablename__: projector_class(self._session_factory).rebuild()
+            for projector_class in self.PROJECTORS
+        }
+
+
+def main() -> None:
+    # Komut satırı giriş noktası: bağımlılıklar burada kurulur
+    from app.core.config import get_settings
+
+    counts = ReadModelRebuilder(Database(get_settings().database_url).session_factory).rebuild_all()
+    for table, count in counts.items():
+        print(f"{table}: {count} satır yeniden üretildi.")
 
 
 if __name__ == "__main__":
-    rebuild_all()
+    main()

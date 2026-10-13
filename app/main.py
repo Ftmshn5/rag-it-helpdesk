@@ -8,10 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import devices, health, maintenance, queries, tickets
-from app.api.errors import register_exception_handlers
+from app.api.errors import HttpErrorMapper
+from app.application.interfaces.task_runner import TaskRunner
 from app.core.config import get_settings
 from app.core.dependencies import create_event_bus, resume_pending_auto_answers
-from app.infrastructure.events.task_runner import BackgroundTaskRunner, TaskRunner
+from app.infrastructure.events.task_runner import BackgroundTaskRunner
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def create_app(task_runner: TaskRunner | None = None) -> FastAPI:
         allow_headers=["*"],  # X-User-Id dahil
     )
     app.state.event_bus = event_bus
-    register_exception_handlers(app)
+    HttpErrorMapper().register(app)
     app.include_router(health.router)
     app.include_router(devices.router)
     app.include_router(maintenance.router)

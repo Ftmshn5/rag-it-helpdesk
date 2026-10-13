@@ -3,7 +3,7 @@
 Event bus senkrondur: read model'ler aynı istekte güncellenir (CQRS kararı).
 Ama yavaş işler (gerçek LLM ile AI yanıtı, saniyeler sürer) kullanıcının
 isteğini bekletmemeli. Bu yüzden dinleyici, işini doğrudan değil bir
-TaskRunner üzerinden çalıştırır; hangi yürütücünün kullanılacağına kompozisyon
+TaskRunner (application/interfaces) üzerinden çalıştırır; hangi yürütücünün kullanılacağına kompozisyon
 kökü karar verir:
 
 - InlineTaskRunner: hemen, aynı thread'de (testler; deterministik).
@@ -19,44 +19,39 @@ açılışta yanıt bekleyen (OPEN) talepler yeniden kuyruğa alınır (bkz. mai
 """
 
 import logging
-from abc import ABC, abstractmethod
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+
+from app.application.interfaces.task_runner import TaskRunner
 
 logger = logging.getLogger(__name__)
 
 
-class TaskRunner(ABC):
-    @abstractmethod
-    def submit(self, task: Callable[[], None], description: str) -> None: ...
-
-    def shutdown(self) -> None:
-        """Uygulama kapanırken çağrılır."""
-
-
 class InlineTaskRunner(TaskRunner):
+    """İşi hemen, aynı thread'de çalıştırır (testler; deterministik)."""
+
     def submit(self, task: Callable[[], None], description: str) -> None:
         task()
 
 
 class BackgroundTaskRunner(TaskRunner):
+    """İşi tek işçili thread havuzunda, istek yanıtlandıktan sonra çalıştırır."""
+
     def __init__(self, max_workers: int = 1, thread_name_prefix: str = "background") -> None:
-        self._executor = ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix=thread_name_prefix
-        )
+        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix=thread_name_prefix)
 
     def submit(self, task: Callable[[], None], description: str) -> None:
-        self._executor.submit(_logged, task, description)
+        self._executor.submit(self._run_logged, task, description)
 
     def shutdown(self) -> None:
         # Kuyrukta bekleyenler iptal edilir (açılışta yeniden kuyruğa alınırlar);
         # çalışan iş bitmeden beklenmez, kapanma takılmasın
         self._executor.shutdown(wait=False, cancel_futures=True)
 
-
-def _logged(task: Callable[[], None], description: str) -> None:
-    # Arka plandaki hata kimseye dönmez; en azından loglanmalı
-    try:
-        task()
-    except Exception:
-        logger.exception("Arka plan işi başarısız: %s", description)
+    @staticmethod
+    def _run_logged(task: Callable[[], None], description: str) -> None:
+        # Arka plandaki hata kimseye dönmez; en azından loglanmalı
+        try:
+            task()
+        except Exception:
+            logger.exception("Arka plan işi başarısız: %s", description)

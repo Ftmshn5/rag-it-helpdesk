@@ -22,6 +22,7 @@ için bildirim gönderilmez veya read model güncellenmez.
 """
 
 from abc import ABC, abstractmethod
+from types import TracebackType
 from typing import Self
 
 from app.application.interfaces.event_bus import EventBus
@@ -55,7 +56,12 @@ class UnitOfWork(ABC):
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         # commit edilmiş bir transaction'da rollback etkisizdir; edilmemişse her şey geri alınır
         self.rollback()
 

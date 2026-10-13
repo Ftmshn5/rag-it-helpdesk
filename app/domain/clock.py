@@ -1,6 +1,11 @@
+"""Zaman kaynağı."""
+
 from datetime import UTC, datetime
 
 
-def utc_now() -> datetime:
-    """Tüm zaman damgaları saat dilimi bilgisiyle (UTC) üretilir."""
-    return datetime.now(UTC)
+class Clock:
+    """Tüm zaman damgaları saat dilimi bilgisiyle (UTC) tek bir yerden üretilir."""
+
+    @staticmethod
+    def now() -> datetime:
+        return datetime.now(UTC)

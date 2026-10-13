@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import sessionmaker
 
-from app.infrastructure.db.session import check_database_connection, engine
+from app.core.dependencies import get_database
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from tests.fakes import FakeEventBus, FakeUnitOfWork
 
@@ -13,9 +13,10 @@ def db_connection():
     Dış transaction en sonda rollback edilir. Unit of Work'ün commit'leri bu dış
     transaction içinde yalnızca bir SAVEPOINT'i kapatır, yani kalıcı olmaz.
     """
-    if not check_database_connection():
+    database = get_database()
+    if not database.is_available():
         pytest.skip("Veritabanı çalışmıyor (docker compose up -d)")
-    connection = engine.connect()
+    connection = database.engine.connect()
     transaction = connection.begin()
     yield connection
     transaction.rollback()

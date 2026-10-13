@@ -16,7 +16,6 @@ from app.application.commands.ticket_workflow import (
     AssignTicketHandler,
 )
 from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
-from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import TicketCategory, TicketModifier, TicketStatus, UserRole
 from app.domain.inventory import Device
 from app.domain.ticket import Ticket
@@ -27,7 +26,7 @@ from app.infrastructure.db.projections import TicketSummaryProjector
 from app.infrastructure.db.read_models import TicketSummaryModel
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
-from tests.fakes import FakeEventBus
+from tests.fakes import FakeEventBus, subscribe_all
 
 
 @pytest.fixture
@@ -167,12 +166,10 @@ def test_rebuild_covers_tickets_created_without_events(session_factory, projecto
 def test_read_model_follows_write_side_through_events(session_factory, projector, people):
     dean, tech, admin, _ = people
     bus = InMemoryEventBus()
-    register_subscribers(
+    subscribe_all(
         bus,
-        make_auto_answer_handler=lambda: AutoAnswerTicketHandler(
-            SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), 0.6
-        ),
-        ticket_summary_projector=projector,
+        lambda: AutoAnswerTicketHandler(SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), 0.6),
+        projectors=(projector,),
     )
     uow = SqlAlchemyUnitOfWork(bus, session_factory)
 

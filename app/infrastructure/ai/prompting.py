@@ -35,11 +35,6 @@ Kurallar:
 - Parçalar bu sorunla HİÇ ilgili değilse (bambaşka bir konudan bahsediyorsa) yalnızca {NO_ANSWER_MARKER} yaz. Parçalarda sorunla ilgili herhangi bir adım varsa mutlaka o adımlarla yanıt ver."""
 
 
-def is_no_answer(text: str) -> bool:
-    """Model işareti farklı yazabiliyor ("Bilgi_YOK", "BİLGİ YOK"); harf ve ayraç duyarsız tanınır."""
-    return re.search(r"b[iıİI]lg[iıİI][\s_]*yok", text, flags=re.IGNORECASE) is not None
-
-
 class PromptBuilder:
     def build(self, ticket: Ticket, chunks: list[RetrievedChunk]) -> tuple[str, str]:
         """(sistem talimatı, kullanıcı istemi) döndürür."""
@@ -61,3 +56,8 @@ class PromptBuilder:
     def embedding_query(ticket: Ticket) -> str:
         """Retriever için aranacak metin: başlık ve açıklama birlikte."""
         return f"{ticket.title}\n\n{ticket.description}"
+
+    @staticmethod
+    def is_no_answer(text: str) -> bool:
+        """Model işareti farklı yazabiliyor ("Bilgi_YOK", "BİLGİ YOK"); harf ve ayraç duyarsız tanınır."""
+        return re.search(r"b[iıİI]lg[iıİI][\s_]*yok", text, flags=re.IGNORECASE) is not None

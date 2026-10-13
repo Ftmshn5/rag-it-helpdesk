@@ -42,21 +42,25 @@ from app.infrastructure.db.base import Base
 EMBEDDING_DIMENSION = 1024
 
 
-def enum_column(enum_class: type, name: str) -> Enum:
-    """Enum'u PostgreSQL native ENUM yerine VARCHAR olarak saklar.
+class ColumnFactory:
+    """Model tanımlarında tekrar eden sütun tiplerini üretir."""
 
-    Native ENUM'a yeni değer eklemek migration'da zahmetlidir; VARCHAR + CHECK
-    kısıtında ise kısıtı yeniden tanımlamak yeterlidir. CHECK sayesinde
-    veritabanı geçersiz değerleri yine reddeder.
+    @staticmethod
+    def enum(enum_class: type, name: str) -> Enum:
+        """Enum'u PostgreSQL native ENUM yerine VARCHAR olarak saklar.
 
-    `name` CHECK kısıtının adında kullanılır (örn. ck_devices_status); aynı enum
-    bir tabloda birden fazla sütunda kullanılabildiği için sütun adı verilir.
-    """
-    return Enum(enum_class, name=name, native_enum=False, length=32, create_constraint=True)
+        Native ENUM'a yeni değer eklemek migration'da zahmetlidir; VARCHAR + CHECK
+        kısıtında ise kısıtı yeniden tanımlamak yeterlidir. CHECK sayesinde
+        veritabanı geçersiz değerleri yine reddeder.
 
+        `name` CHECK kısıtının adında kullanılır (örn. ck_devices_status); aynı enum
+        bir tabloda birden fazla sütunda kullanılabildiği için sütun adı verilir.
+        """
+        return Enum(enum_class, name=name, native_enum=False, length=32, create_constraint=True)
 
-def created_at_column() -> Mapped[datetime]:
-    return mapped_column(DateTime(timezone=True), server_default=func.now())
+    @staticmethod
+    def created_at() -> Mapped[datetime]:
+        return mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class UserModel(Base):
@@ -65,7 +69,7 @@ class UserModel(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     full_name: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(255), unique=True)
-    role: Mapped[UserRole] = mapped_column(enum_column(UserRole, "role"))
+    role: Mapped[UserRole] = mapped_column(ColumnFactory.enum(UserRole, "role"))
     department: Mapped[str | None] = mapped_column(String(120))
     is_vip: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
 
@@ -79,7 +83,7 @@ class DeviceModel(Base):
     brand: Mapped[str] = mapped_column(String(80))
     model: Mapped[str] = mapped_column(String(120))
     serial_number: Mapped[str] = mapped_column(String(120), unique=True)
-    status: Mapped[DeviceStatus] = mapped_column(enum_column(DeviceStatus, "status"))
+    status: Mapped[DeviceStatus] = mapped_column(ColumnFactory.enum(DeviceStatus, "status"))
     location: Mapped[str | None] = mapped_column(String(120))
     purchase_date: Mapped[date | None] = mapped_column(Date)
 
@@ -102,7 +106,7 @@ class AssignmentModel(Base):
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     assigned_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    assigned_at: Mapped[datetime] = created_at_column()
+    assigned_at: Mapped[datetime] = ColumnFactory.created_at()
     returned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -122,8 +126,8 @@ class TicketModel(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
-    category: Mapped[TicketCategory] = mapped_column(enum_column(TicketCategory, "category"))
-    status: Mapped[TicketStatus] = mapped_column(enum_column(TicketStatus, "status"), index=True)
+    category: Mapped[TicketCategory] = mapped_column(ColumnFactory.enum(TicketCategory, "category"))
+    status: Mapped[TicketStatus] = mapped_column(ColumnFactory.enum(TicketStatus, "status"), index=True)
     requester_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id"))
@@ -131,7 +135,7 @@ class TicketModel(Base):
     modifiers: Mapped[list[str]] = mapped_column(
         ARRAY(String(32)), server_default=text("'{}'")
     )
-    created_at: Mapped[datetime] = created_at_column()
+    created_at: Mapped[datetime] = ColumnFactory.created_at()
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -152,12 +156,12 @@ class MaintenanceRecordModel(Base):
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
     technician_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"))
-    type: Mapped[MaintenanceType] = mapped_column(enum_column(MaintenanceType, "type"))
+    type: Mapped[MaintenanceType] = mapped_column(ColumnFactory.enum(MaintenanceType, "type"))
     description: Mapped[str] = mapped_column(Text)
     previous_device_status: Mapped[DeviceStatus] = mapped_column(
-        enum_column(DeviceStatus, "previous_device_status")
+        ColumnFactory.enum(DeviceStatus, "previous_device_status")
     )
-    performed_at: Mapped[datetime] = created_at_column()
+    performed_at: Mapped[datetime] = ColumnFactory.created_at()
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -170,7 +174,7 @@ class TicketAttachmentModel(Base):
     )
     file_path: Mapped[str] = mapped_column(String(500))
     mime_type: Mapped[str] = mapped_column(String(50))
-    uploaded_at: Mapped[datetime] = created_at_column()
+    uploaded_at: Mapped[datetime] = ColumnFactory.created_at()
 
 
 class TicketCommentModel(Base):
@@ -182,7 +186,7 @@ class TicketCommentModel(Base):
     )
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = created_at_column()
+    created_at: Mapped[datetime] = ColumnFactory.created_at()
 
 
 class AIResponseModel(Base):
@@ -196,7 +200,7 @@ class AIResponseModel(Base):
     answer: Mapped[str] = mapped_column(Text)
     confidence: Mapped[float] = mapped_column(Float)
     sources: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
-    user_feedback: Mapped[AiFeedback | None] = mapped_column(enum_column(AiFeedback, "user_feedback"))
+    user_feedback: Mapped[AiFeedback | None] = mapped_column(ColumnFactory.enum(AiFeedback, "user_feedback"))
 
 
 class KnowledgeDocumentModel(Base):

@@ -14,10 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 class InMemoryEventBus(EventBus):
+    """Observer deseni — Concrete Subject: aboneleri olay tipine göre tutar ve olayları iletir."""
+
     def __init__(self) -> None:
         self._handlers: dict[type[DomainEvent], list[EventHandler]] = defaultdict(list)
 
-    def subscribe(self, event_type: type[TEvent], handler: EventHandler) -> None:
+    def subscribe(self, event_type: type[TEvent], handler: EventHandler[TEvent]) -> None:
         self._handlers[event_type].append(handler)
 
     def publish(self, event: DomainEvent) -> None:
@@ -28,13 +30,9 @@ class InMemoryEventBus(EventBus):
         for event_type in reversed(type(event).__mro__):
             for handler in self._handlers.get(event_type, []):
                 try:
-                    handler(event)
+                    handler.handle(event)
                 except Exception:
                     # Olay commit'ten sonra yayınlanır: yazma işlemi zaten kalıcı.
                     # Bir dinleyicinin hatası diğer dinleyicileri ve isteği
                     # bozmamalı; hata kaydedilir ve devam edilir.
-                    logger.exception(
-                        "%s olayı işlenirken %s hata verdi",
-                        type(event).__name__,
-                        getattr(handler, "__qualname__", handler),
-                    )
+                    logger.exception("%s olayı işlenirken %s hata verdi", type(event).__name__, type(handler).__name__)

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.domain.ticket import Ticket
-from app.infrastructure.ai.prompting import PromptBuilder, is_no_answer
+from app.infrastructure.ai.prompting import PromptBuilder
 from app.infrastructure.ai.providers import LlmProvider, EmbeddingProvider
 from app.infrastructure.ai.retriever import KnowledgeRetriever, RetrievedChunk
 
@@ -88,9 +88,9 @@ class RagAiSupport(AiSupportFacade):
 
         system_prompt, user_prompt = self.prompt_builder.build(ticket, chunks)
         answer = self.llm.generate(system_prompt, user_prompt)
-        sources = _unique_sources(chunks)
+        sources = self._unique_sources(chunks)
 
-        if is_no_answer(answer):
+        if self.prompt_builder.is_no_answer(answer):
             logger.info("Talep %s: LLM bilgi bankasını yetersiz buldu", ticket.id)
             return AutoAnswer(answer=NO_ANSWER_TEXT, confidence=NO_ANSWER_CONFIDENCE, sources=sources)
 
@@ -100,7 +100,8 @@ class RagAiSupport(AiSupportFacade):
         )
         return AutoAnswer(answer=answer, confidence=confidence, sources=sources)
 
+    @staticmethod
+    def _unique_sources(chunks: list[RetrievedChunk]) -> list[str]:
+        # Aynı dokümandan birden fazla parça gelebilir; kaynak bir kez gösterilir (sıra korunur)
+        return list(dict.fromkeys(chunk.file_path for chunk in chunks))
 
-def _unique_sources(chunks: list[RetrievedChunk]) -> list[str]:
-    # Aynı dokümandan birden fazla parça gelebilir; kaynak bir kez gösterilir (sıra korunur)
-    return list(dict.fromkeys(chunk.file_path for chunk in chunks))

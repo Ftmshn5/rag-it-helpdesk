@@ -1,6 +1,8 @@
 """GET /devices (teknisyen/yönetici) ve ekran görüntüsünü açma (gerçek PostgreSQL)."""
 
 import pytest
+
+from app.domain.attachments import ScreenshotValidator
 from fastapi.testclient import TestClient
 
 from app.application.commands.attachments import AttachScreenshotCommand, AttachScreenshotHandler
@@ -50,7 +52,7 @@ def create_ticket_with_screenshot(uow, storage, requester) -> tuple[int, int]:
             actor_id=requester.id, title="Mavi ekran", description="-", category=TicketCategory.SOFTWARE
         )
     )
-    attachment_id = AttachScreenshotHandler(uow, storage, 1024).handle(
+    attachment_id = AttachScreenshotHandler(uow, storage, ScreenshotValidator(1024)).handle(
         AttachScreenshotCommand(actor_id=requester.id, ticket_id=ticket_id, content=PNG)
     )
     return ticket_id, attachment_id

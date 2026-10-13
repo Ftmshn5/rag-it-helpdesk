@@ -21,7 +21,6 @@ from app.application.commands.ticket_workflow import (
 from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.core.dependencies import get_unit_of_work
-from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import AiFeedback, TicketCategory, TicketStatus, UserRole
 from app.domain.errors import DomainError
 from app.domain.events import AiFeedbackGiven, TicketStatusChanged
@@ -31,7 +30,7 @@ from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
 from app.main import create_app
-from tests.fakes import FakeUnitOfWork
+from tests.fakes import CallbackHandler, FakeUnitOfWork, subscribe_all
 
 S = TicketStatus
 REQUESTER, OTHER_USER, ADMIN = 1, 2, 3
@@ -143,14 +142,12 @@ def test_ai_feedback_endpoint(uow):
 def test_main_flow_end_to_end_on_real_database(session_factory):
     """Talep → AI yanıtı → "çözülmedi" → atama → teknisyen çözer → kullanıcı kapatır."""
     bus = InMemoryEventBus()
-    register_subscribers(
+    subscribe_all(
         bus,
-        make_auto_answer_handler=lambda: AutoAnswerTicketHandler(
-            SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), 0.6
-        ),
+        lambda: AutoAnswerTicketHandler(SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), 0.6),
     )
     statuses: list[TicketStatus] = []
-    bus.subscribe(TicketStatusChanged, lambda e: statuses.append(e.new_status))
+    bus.subscribe(TicketStatusChanged, CallbackHandler(lambda e: statuses.append(e.new_status)))
 
     uow = SqlAlchemyUnitOfWork(bus, session_factory)
     with uow:

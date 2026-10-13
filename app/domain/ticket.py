@@ -6,7 +6,7 @@ ticket_state.py'dedir.
 
 from datetime import datetime
 
-from app.domain.clock import utc_now
+from app.domain.clock import Clock
 from app.domain.entity import Entity
 from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus
 from app.domain.errors import (
@@ -51,7 +51,7 @@ class Ticket(Entity):
         self._device_id = device_id
         # Decorator nesneleri değil, yalnızca hangi decorator'ların uygulanacağı saklanır
         self._modifiers = list(modifiers or [])
-        self._created_at = created_at or utc_now()
+        self._created_at = created_at or Clock.now()
         self._resolved_at = resolved_at
 
     @classmethod
@@ -201,7 +201,7 @@ class Ticket(Entity):
         was_resolved = self.state.is_resolved
         self._status = new_status
         if self.state.is_resolved and not was_resolved:
-            self._resolved_at = utc_now()
+            self._resolved_at = Clock.now()
         elif not self.state.is_resolved:
             self._resolved_at = None
 
@@ -244,7 +244,7 @@ class TicketAttachment(Entity):
         self._ticket_id = ticket_id
         self._file_path = file_path
         self._mime_type = mime_type
-        self._uploaded_at = uploaded_at or utc_now()
+        self._uploaded_at = uploaded_at or Clock.now()
 
     @property
     def ticket_id(self) -> int:
@@ -279,7 +279,7 @@ class TicketComment(Entity):
         self._ticket_id = ticket_id
         self._author_id = author_id
         self._content = content
-        self._created_at = created_at or utc_now()
+        self._created_at = created_at or Clock.now()
 
     @property
     def ticket_id(self) -> int:

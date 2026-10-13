@@ -2,6 +2,8 @@
 
 import pytest
 
+from app.domain.attachments import ScreenshotValidator
+
 from app.application.commands.attachments import AttachScreenshotCommand, AttachScreenshotHandler
 from app.application.errors import PermissionDeniedError
 from app.domain.enums import TicketCategory, TicketStatus, UserRole
@@ -41,7 +43,7 @@ def storage() -> InMemoryFileStorage:
 
 
 def attach(uow, storage, actor_id=REQUESTER_ID, content=PNG_BYTES) -> int:
-    return AttachScreenshotHandler(uow, storage, LIMIT).handle(
+    return AttachScreenshotHandler(uow, storage, ScreenshotValidator(LIMIT)).handle(
         AttachScreenshotCommand(actor_id=actor_id, ticket_id=1, content=content)
     )
 

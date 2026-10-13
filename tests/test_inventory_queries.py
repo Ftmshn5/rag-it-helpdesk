@@ -25,7 +25,6 @@ from app.application.queries.inventory import (
     GetMaintenanceHistoryQuery,
 )
 from app.core.dependencies import get_db_session
-from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
 from app.domain.user import User
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
@@ -35,18 +34,17 @@ from app.infrastructure.db.read_models import DeviceInventoryModel
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
 from app.main import create_app
+from tests.fakes import subscribe_all
 
 
 @pytest.fixture
 def setup(session_factory):
     """Gerçek event bus + envanter projektörü; yönetici, teknisyen ve kullanıcı."""
     bus = InMemoryEventBus()
-    register_subscribers(
+    subscribe_all(
         bus,
-        make_auto_answer_handler=lambda: AutoAnswerTicketHandler(
-            SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), 0.6
-        ),
-        device_inventory_projector=DeviceInventoryProjector(session_factory),
+        lambda: AutoAnswerTicketHandler(SqlAlchemyUnitOfWork(bus, session_factory), FakeAiSupport(), 0.6),
+        projectors=(DeviceInventoryProjector(session_factory),),
     )
     uow = SqlAlchemyUnitOfWork(bus, session_factory)
     with uow:

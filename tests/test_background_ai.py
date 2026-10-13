@@ -6,15 +6,15 @@ import threading
 from app.application.commands.ai_answers import AutoAnswerTicketHandler
 from app.application.commands.tickets import CreateTicketCommand, CreateTicketHandler
 from app.core import dependencies
-from app.core.event_subscriptions import register_subscribers
 from app.domain.enums import TicketCategory, TicketStatus
 from app.domain.user import User
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.db.projections import TicketSummaryProjector
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
-from app.infrastructure.events.task_runner import BackgroundTaskRunner, InlineTaskRunner, TaskRunner
-from tests.fakes import FakeEventBus, FakeUnitOfWork
+from app.application.interfaces.task_runner import TaskRunner
+from app.infrastructure.events.task_runner import BackgroundTaskRunner, InlineTaskRunner
+from tests.fakes import FakeEventBus, FakeUnitOfWork, subscribe_all
 
 
 class RecordingTaskRunner(TaskRunner):
@@ -80,11 +80,7 @@ def test_ticket_creation_returns_before_ai_runs():
     bus = InMemoryEventBus()
     uow = FakeUnitOfWork(bus)
     runner = RecordingTaskRunner()
-    register_subscribers(
-        bus,
-        make_auto_answer_handler=lambda: AutoAnswerTicketHandler(uow, FakeAiSupport(), 0.6),
-        task_runner=runner,
-    )
+    subscribe_all(bus, lambda: AutoAnswerTicketHandler(uow, FakeAiSupport(), 0.6), task_runner=runner)
     requester = uow.users.add(User(full_name="Ayşe", email="a@x.edu"))
 
     ticket_id = CreateTicketHandler(uow).handle(
@@ -101,7 +97,7 @@ def test_ticket_creation_returns_before_ai_runs():
 # --- Açılışta kurtarma ---
 
 
-def test_open_tickets_are_requeued_on_startup(session_factory, monkeypatch):
+def test_open_tickets_are_requeued_on_startup(session_factory):
     uow = SqlAlchemyUnitOfWork(FakeEventBus(), session_factory)  # FakeEventBus: AI tetiklenmez
     with uow:
         requester = uow.users.add(User(full_name="Bekleyen", email="resume@test.edu"))
@@ -110,10 +106,9 @@ def test_open_tickets_are_requeued_on_startup(session_factory, monkeypatch):
         CreateTicketCommand(actor_id=requester.id, title="Yazıcı", description="-", category=TicketCategory.HARDWARE)
     )
     TicketSummaryProjector(session_factory).refresh(open_id)
-    monkeypatch.setattr(dependencies, "SessionLocal", session_factory)
     runner = RecordingTaskRunner()
 
-    count = dependencies.resume_pending_auto_answers(InMemoryEventBus(), runner)
+    count = dependencies.resume_pending_auto_answers(InMemoryEventBus(), runner, session_factory)
 
     descriptions = [description for description, _ in runner.tasks]
     assert f"AI yanıtı (talep {open_id})" in descriptions

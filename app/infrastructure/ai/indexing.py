@@ -22,8 +22,8 @@ from pathlib import Path
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.domain.clock import utc_now
-from app.infrastructure.ai.chunking import parse_markdown
+from app.domain.clock import Clock
+from app.infrastructure.ai.chunking import MarkdownChunker
 from app.infrastructure.ai.providers import AiProviderError, EmbeddingProvider
 from app.infrastructure.db.models import KnowledgeChunkModel, KnowledgeDocumentModel
 
@@ -43,12 +43,14 @@ class KnowledgeIndexer:
         self,
         session_factory: Callable[[], Session],
         embedder: EmbeddingProvider,
+        chunker: MarkdownChunker,
         *,
         batch_size: int = 16,
     ) -> None:
-        self.session_factory = session_factory
-        self.embedder = embedder
-        self.batch_size = batch_size
+        self._session_factory = session_factory
+        self._embedder = embedder
+        self._chunker = chunker
+        self._batch_size = batch_size
 
     def index_directory(self, directory: Path) -> tuple[list[IndexResult], list[str]]:
         """Klasördeki tüm .md dosyalarını indeksler; silinmiş dosyaların kayıtlarını kaldırır.
@@ -61,14 +63,14 @@ class KnowledgeIndexer:
 
     def index_file(self, path: Path) -> IndexResult:
         file_path = SOURCE_PREFIX + path.name
-        document = parse_markdown(path.read_text(encoding="utf-8"), fallback_title=path.stem)
+        document = self._chunker.parse(path.read_text(encoding="utf-8"), fallback_title=path.stem)
 
         # Önce tüm vektörler hesaplanır, sonra tek transaction'da yazılır:
         # Ollama yarıda hata verirse veritabanındaki eski indeks bozulmaz.
         contents = [chunk.content for chunk in document.chunks]
         embeddings = self._embed_in_batches(contents)
 
-        with self.session_factory() as session, session.begin():
+        with self._session_factory() as session, session.begin():
             model = session.scalar(
                 select(KnowledgeDocumentModel).where(KnowledgeDocumentModel.file_path == file_path)
             )
@@ -85,18 +87,18 @@ class KnowledgeIndexer:
                 KnowledgeChunkModel(document_id=model.id, content=content, embedding=embedding)
                 for content, embedding in zip(contents, embeddings, strict=True)
             )
-            model.indexed_at = utc_now()
+            model.indexed_at = Clock.now()
 
         return IndexResult(file_path=file_path, title=document.title, chunk_count=len(contents))
 
     def _embed_in_batches(self, texts: list[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
-        for start in range(0, len(texts), self.batch_size):
-            vectors.extend(self.embedder.embed(texts[start : start + self.batch_size]))
+        for start in range(0, len(texts), self._batch_size):
+            vectors.extend(self._embedder.embed(texts[start : start + self._batch_size]))
         return vectors
 
     def _remove_missing(self, existing_paths: set[str]) -> list[str]:
-        with self.session_factory() as session, session.begin():
+        with self._session_factory() as session, session.begin():
             stale = session.scalars(
                 select(KnowledgeDocumentModel).where(
                     KnowledgeDocumentModel.file_path.startswith(SOURCE_PREFIX),
@@ -113,7 +115,7 @@ def main() -> int:
     from app.core.config import get_settings
     from app.infrastructure.ai.ollama import OllamaEmbeddingProvider
     from app.infrastructure.db.models import EMBEDDING_DIMENSION
-    from app.infrastructure.db.session import SessionLocal
+    from app.infrastructure.db.session import Database
 
     settings = get_settings()
     embedder = OllamaEmbeddingProvider(
@@ -122,7 +124,7 @@ def main() -> int:
         dimension=EMBEDDING_DIMENSION,
         timeout_seconds=settings.ollama_timeout_seconds,
     )
-    indexer = KnowledgeIndexer(SessionLocal, embedder)
+    indexer = KnowledgeIndexer(Database(settings.database_url).session_factory, embedder, MarkdownChunker())
 
     try:
         results, removed = indexer.index_directory(settings.knowledge_dir)

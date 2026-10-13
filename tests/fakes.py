@@ -5,9 +5,12 @@ Handler'lar yalnızca arayüzleri bildiği için gerçek ile sahte arasındaki f
 onlara görünmez — Repository deseninin test edilebilirlik faydası budur.
 """
 
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Generic, TypeVar
 
+from app.application.commands.ai_answers import AutoAnswerTicketHandler
+from app.application.event_handlers import AutoAnswerScheduler
 from app.application.interfaces.event_bus import EventBus, EventHandler
 from app.application.interfaces.file_storage import FileStorage
 from app.application.interfaces.repositories import (
@@ -20,10 +23,14 @@ from app.application.interfaces.repositories import (
     TicketRepository,
     UserRepository,
 )
+from app.application.interfaces.task_runner import TaskRunner
 from app.application.interfaces.unit_of_work import UnitOfWork
+from app.core.event_subscriptions import EventSubscriptions
 from app.domain.events import DomainEvent
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
 from app.domain.ticket import AIResponse
+from app.infrastructure.db.projections import Projector
+from app.infrastructure.events.task_runner import InlineTaskRunner
 
 E = TypeVar("E")
 
@@ -153,3 +160,27 @@ class FakeUnitOfWork(UnitOfWork):
 
     def _rollback(self) -> None:
         pass
+
+
+class CallbackHandler(EventHandler):
+    """Test yardımcısı: bir fonksiyonu EventHandler arayüzüne uyarlar (Adapter)."""
+
+    def __init__(self, callback: Callable[[DomainEvent], None]) -> None:
+        self._callback = callback
+
+    def handle(self, event: DomainEvent) -> None:
+        self._callback(event)
+
+
+def subscribe_all(
+    bus: EventBus,
+    handler_factory: Callable[[], AutoAnswerTicketHandler],
+    *,
+    task_runner: TaskRunner | None = None,
+    projectors: tuple[Projector, ...] = (),
+) -> None:
+    """Uygulamadaki abonelikleri (EventSubscriptions) test bağımlılıklarıyla kurar."""
+    EventSubscriptions(
+        auto_answer=AutoAnswerScheduler(handler_factory, task_runner or InlineTaskRunner()),
+        projectors=projectors,
+    ).register(bus)

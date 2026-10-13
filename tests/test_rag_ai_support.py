@@ -15,7 +15,6 @@ from app.infrastructure.ai.prompting import (
     NO_ANSWER_MARKER,
     SYSTEM_PROMPT,
     PromptBuilder,
-    is_no_answer,
 )
 from app.infrastructure.ai.providers import AiProviderError, LlmProvider, EmbeddingProvider
 from app.infrastructure.ai.rag_ai_support import (
@@ -179,7 +178,7 @@ def test_llm_no_answer_marker_lowers_confidence_below_threshold():
     ],
 )
 def test_no_answer_marker_is_recognized_in_its_variants(text, expected):
-    assert is_no_answer(text) is expected
+    assert PromptBuilder.is_no_answer(text) is expected
 
 
 def test_marker_variant_from_llm_also_lowers_confidence():
