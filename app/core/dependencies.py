@@ -45,6 +45,7 @@ from app.application.queries.inventory import (
     ListDevicesHandler,
     ListMyDevicesHandler,
 )
+from app.application.queries.statistics import GetFailureStatisticsHandler, StatisticsQueries
 from app.application.queries.tickets import (
     GetAttachmentFileHandler,
     GetTicketDetailHandler,
@@ -66,6 +67,7 @@ from app.infrastructure.db.models import EMBEDDING_DIMENSION
 from app.infrastructure.db.projections import DeviceInventoryProjector, TicketSummaryProjector
 from app.infrastructure.db.queries import SqlInventoryQueries, SqlTicketQueries, SqlUserQueries
 from app.infrastructure.db.session import Database
+from app.infrastructure.db.statistics import SqlStatisticsQueries
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
 from app.infrastructure.storage.local_file_storage import LocalFileStorage
@@ -285,6 +287,10 @@ def get_inventory_queries(session: Session = Depends(get_db_session)) -> Invento
     return SqlInventoryQueries(session)
 
 
+def get_statistics_queries(session: Session = Depends(get_db_session)) -> StatisticsQueries:
+    return SqlStatisticsQueries(session)
+
+
 def get_list_users_handler(users: UserQueries = Depends(get_user_queries)) -> ListUsersHandler:
     return ListUsersHandler(users)
 
@@ -343,3 +349,9 @@ def get_maintenance_history_handler(
     inventory: InventoryQueries = Depends(get_inventory_queries), users: UserQueries = Depends(get_user_queries)
 ) -> GetMaintenanceHistoryHandler:
     return GetMaintenanceHistoryHandler(inventory, users)
+
+
+def get_failure_statistics_handler(
+    statistics: StatisticsQueries = Depends(get_statistics_queries), users: UserQueries = Depends(get_user_queries)
+) -> GetFailureStatisticsHandler:
+    return GetFailureStatisticsHandler(statistics, users, get_settings().ai_confidence_threshold)

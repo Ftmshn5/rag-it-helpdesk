@@ -8,7 +8,7 @@ Sabit yollar (/tickets/mine) değişkenli yoldan (/tickets/{ticket_id}) önce
 tanımlanır; aksi halde "mine" bir talep numarası sanılırdı.
 """
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.application.queries.inventory import (
     DeviceInventoryView,
@@ -22,6 +22,11 @@ from app.application.queries.inventory import (
     ListMyDevicesHandler,
     ListMyDevicesQuery,
     MaintenanceRecordView,
+)
+from app.application.queries.statistics import (
+    FailureStatisticsView,
+    GetFailureStatisticsHandler,
+    GetFailureStatisticsQuery,
 )
 from app.application.queries.tickets import (
     GetAttachmentFileHandler,
@@ -41,6 +46,7 @@ from app.application.queries.users import ListUsersHandler, ListUsersQuery, User
 from app.core.dependencies import (
     get_attachment_file_handler,
     get_current_user_id,
+    get_failure_statistics_handler,
     get_inventory_report_handler,
     get_list_all_tickets_handler,
     get_list_assigned_tickets_handler,
@@ -158,3 +164,16 @@ def get_maintenance_history(
     handler: GetMaintenanceHistoryHandler = Depends(get_maintenance_history_handler),
 ) -> list[MaintenanceRecordView]:
     return handler.handle(GetMaintenanceHistoryQuery(actor_id=actor_id, device_id=device_id))
+
+
+# --- İstatistik ---
+
+
+@router.get("/statistics/failures", response_model=FailureStatisticsView)
+def get_failure_statistics(
+    weeks: int = Query(default=8, ge=1, le=52),
+    actor_id: int = Depends(get_current_user_id),
+    handler: GetFailureStatisticsHandler = Depends(get_failure_statistics_handler),
+) -> FailureStatisticsView:
+    """UC-12: yönetici arıza istatistikleri (kategori, zaman, SLA, AI başarısı)."""
+    return handler.handle(GetFailureStatisticsQuery(actor_id=actor_id, weeks=weeks))

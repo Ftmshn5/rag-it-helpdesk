@@ -93,6 +93,7 @@ infrastructure/
 - Dinleyiciler `EventHandler` soyut sınıfından türer: `EventLogger`, `AutoAnswerScheduler` (`application/event_handlers.py`) ve projektörler (her projektör `source_events` ile hangi olayları dinlediğini kendisi bildirir). Abonelikler tek yerde: `core/event_subscriptions.py` (`EventSubscriptions`).
 - Veritabanı bağlantısı global değildir: `Database` sınıfının tek nesnesi kompozisyon kökünde (`get_database`) kurulur; sınıflara oturum fabrikası enjekte edilir.
 - Uygulanan read model'ler: `read.ticket_summary` (talep listeleri), `read.device_inventory` (envanter raporu, zimmetli cihazlarım).
+- Arıza istatistikleri (UC-12) ayrı bir `failure_stats` tablosu yerine `read.ticket_summary` üzerinde toplama sorgularıyla hesaplanır (`infrastructure/db/statistics.py`, PostgreSQL `FILTER`); ikinci bir kopyayı tutarlı tutma maliyeti bu ölçekte gereksiz.
 - Projektörler (`infrastructure/db/projections.py`) olay geldiğinde ilgili satırı **write tablolarından yeniden hesaplar** (idempotent, sıradan bağımsız). Olay üretmeden yapılan değişikliklerden sonra (seed, elle SQL) yeniden kurma: `python -m app.infrastructure.db.projections` (seed scripti bunu kendisi çağırır).
 - Okuma tarafı karma: çok tabloyu birleştiren listeler read model'den; tek tablodan gelen veriler (bakım geçmişi, talep notları/ekleri) write tablolarından salt okunur sorguyla. Query handler'lar domain nesnesi/repository kullanmaz, DTO döner.
 - **Event Sourcing kullanılmayacak.**
