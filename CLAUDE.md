@@ -52,6 +52,7 @@ Bir fakültenin BT departmanı için: cihaz envanteri ve zimmet takibi, bakım g
 - Gerçek RAG hazır olana kadar AI tarafı sahte (fake) implementasyonla çalışır.
 - Ollama modelleri: `ollama pull bge-m3` (embedding, 1024 boyut), `ollama pull qwen2.5:3b` (yanıt).
 - Bilgi bankası (`data/knowledge/*.md`) indeksleme: `python -m app.infrastructure.ai.indexing` (Ollama açık olmalı; tekrar çalıştırılabilir).
+- Güven aralığı kalibrasyonu ve uçtan uca deneme: `python -m app.infrastructure.ai.calibrate [--with-llm]`. Gerçek AI için `.env`'de `AI_PROVIDER=rag`. CPU'da bir yanıt ~45-75 sn sürer (arka planda üretilir).
 
 ---
 
@@ -105,6 +106,44 @@ infrastructure/
 ### Repository
 - Command handler'lar veritabanına doğrudan değil, `application/interfaces` içindeki repository arayüzleri üzerinden erişir.
 - Testlerde in-memory sahte repository kullanılabilir.
+
+---
+
+## Nesne yönelimli programlama kuralları (HOCANIN ŞARTI — ZORUNLU)
+
+Hoca projenin **nesne yönelimli programlamaya (OOP) ve tasarım desenlerine uygun** olmasını şart koştu. Python'da OOP'ye uymayan (fonksiyon ağırlıklı, sözlüklerle çalışan) kod yazmak kolay olduğu için aşağıdaki kurallar **tüm backend kodunda** geçerlidir:
+
+### Dört temel ilke koda açıkça yansımalı
+- **Kapsülleme (Encapsulation):** Domain sınıflarının durumu dışarıdan doğrudan değiştirilemez. Alanlar `_` ile korunur, okuma `@property` ile, değiştirme yalnızca anlamlı metotlarla yapılır (örn. `device.status = ...` yerine `device.assign_to(user)`).
+- **Soyutlama (Abstraction):** Tüm arayüzler `abc.ABC` ve `@abstractmethod` ile tanımlanır (repository'ler, `AiSupportFacade`, `LlmProvider`, `EventHandler`, `TicketComponent`, `TicketState`).
+- **Kalıtım (Inheritance):** Ortak davranış soyut temel sınıflarda toplanır (örn. `TicketDecorator(TicketComponent)`, `TicketState` alt sınıfları, `CommandHandler` / `QueryHandler` temel sınıfları).
+- **Çok biçimlilik (Polymorphism):** `if/elif` ile tür veya durum kontrolü yerine çok biçimli metotlar kullanılır (decorator'lar `sla_hours()`'u, state sınıfları `escalate()` / `resolve()`'u kendi biçimlerinde uygular).
+
+### Zengin domain modeli (Rich Domain Model)
+- Domain varlıkları (`Device`, `Ticket`, `Assignment`, `User`, `MaintenanceRecord`) **davranış içeren sınıflardır**, sadece veri taşıyan yapı değildir.
+- İş kuralları bu sınıfların metotlarında uygulanır. Örnekler: `Device.assign_to(user)`, `Device.return_from(user)`, `Device.start_maintenance()`, `Ticket.escalate()`, `Ticket.assign_to(technician)`, `Ticket.resolve()`.
+- Kural ihlalinde domain'e özgü exception fırlatılır (`DeviceAlreadyAssignedError`, `InvalidTicketTransitionError` vb.), hepsi ortak bir `DomainError` sınıfından türer.
+- **Domain sınıfları SQLAlchemy modellerinden ayrıdır.** SQLAlchemy modelleri `infrastructure/db` içindedir; repository'ler domain nesnesi ↔ ORM modeli dönüşümünü yapar (mapper).
+
+### Sınıf tabanlı katmanlar
+- Her command ve query bir **sınıftır**: veri için bir `@dataclass` (örn. `AssignDeviceCommand`), işleyici için bir handler sınıfı (örn. `AssignDeviceHandler.handle(command)`).
+- FastAPI router fonksiyonları **ince** kalır: isteği alır, command/query nesnesini oluşturur, handler'a verir, sonucu döner. Router'da iş mantığı olmaz.
+- Bağımlılıklar constructor üzerinden enjekte edilir (Dependency Injection); sınıflar bağımlılıklarını kendileri oluşturmaz.
+
+### SOLID
+- **S:** Her sınıfın tek sorumluluğu var (handler bir işi yapar, repository yalnızca veri erişimi yapar).
+- **O:** Yeni özellik mevcut kodu değiştirmeden eklenir (yeni decorator, yeni state, yeni LLM sağlayıcısı = yeni sınıf).
+- **L:** Alt sınıflar üst sınıfın yerine sorunsuz kullanılabilir (her decorator bir `TicketComponent`'tir).
+- **I:** Arayüzler küçük ve amaca özel (tek dev repository yerine varlık başına repository).
+- **D:** Üst katmanlar soyutlamalara bağımlıdır, somut sınıflara değil.
+
+### Kod stili
+- Tüm metot ve fonksiyonlarda **type hint** zorunlu.
+- Her tasarım deseninin uygulandığı sınıfın docstring'inde desenin adı ve rolü yazılır (örn. `"""Decorator deseni — Concrete Decorator: VIP taleplerin SLA süresini kısaltır."""`).
+- Global değişken ve modül seviyesinde iş mantığı yok.
+
+### Mevcut kodun uyumu
+Bu bölüm eklenmeden önce yazılmış kod varsa, bir sonraki adıma geçmeden önce bu kurallara göre gözden geçir ve gerekiyorsa yeniden düzenle (refactor). Neyi neden değiştirdiğini açıkla.
 
 ---
 
@@ -285,9 +324,15 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 - [x] **8. Query tarafı:** `read` şeması, read model'ler + event bus ile güncelleme, kullanıcı/teknisyen listeleri, bakım geçmişi, envanter raporu
 - [x] **9. Frontend kurulumu:** Vite + React + TypeScript, Tailwind + shadcn/ui, React Router, TanStack Query, API client, CORS, rol seçici ve sayfa iskeleti
 - [x] **10. Frontend ekranları:** kullanıcı (talep aç, ekran görüntüsü, AI yanıtını değerlendir, taleplerim), teknisyen (atanan talepler, durum güncelle, bakım kaydı), yönetici (cihazlar, zimmet, atama, envanter raporu)
-- [ ] **11. Gerçek RAG:** Ollama kurulumu, embedding + pgvector, bilgi bankası dokümanları, Facade arkasına bağlama
+- [x] **11. Gerçek RAG:** Ollama kurulumu, embedding + pgvector, bilgi bankası dokümanları, Facade arkasına bağlama
+- [ ] **OOP uyumu (hocanın şartı, 12'den önce):** mevcut kodun "Nesne yönelimli programlama kuralları"na göre düzenlenmesi
+  - [x] R1. Domain hata hiyerarşisi: `DomainError` tabanı ve kurala özgü hata sınıfları
+  - [ ] R2. `CommandHandler` / `QueryHandler` temel sınıfları; command/query nesneleri (`*Command`, `*Query`)
+  - [ ] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
+  - [ ] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
+  - [ ] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
 - [ ] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler
 - [ ] **13. Kalite ve CV:** GitHub Actions CI, test kapsamı, ekran görüntülü ve mimari diyagramlı README, GitHub'a yükleme
-- [ ] **14. Dokümantasyon:** UML sınıf/sekans diyagramları (`docs/`), ders raporu
+- [ ] **14. Dokümantasyon:** UML sınıf/sekans diyagramları (`docs/`; sınıf diyagramları `pyreverse` ile koddan otomatik üretilebilir), her desen ve OOP ilkesi için "nerede, neden" tablosu, ders raporu
 
 Tamamlanan adımları bu listede işaretle.
