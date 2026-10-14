@@ -371,7 +371,15 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
   - [x] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
   - [x] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
   - [x] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
-- [x] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler
+- [ ] **12. Ekler:** her ek, bir tasarım desenini arayüzde görünür kılar. Sıra: E1–E4, ardından (MVP ve gerçek RAG bittikten sonra) E5.
+  - [x] Arıza istatistikleri ve grafikler (yönetici paneli; UC-12)
+  - [x] Eskalasyon zinciri (Chain of Responsibility; UC-07)
+  - [x] Bildirimler (Observer + Strategy)
+  - [ ] **E1. SLA geri sayımı — Decorator:** her talep kartında çözülme süresine kalan zaman geri sayar. Süre decorator'lardan gelen `sla_hours()` değerinden hesaplanır (VIP/Acil daha kısa). Kalan süre %25'in altına inince sarı, süre geçince kırmızı. Detay sayfasında hangi decorator'ların uygulandığı ve SLA'yı nasıl etkilediği (72 → 24 → 4 saat) görünür.
+  - [ ] **E2. Teknisyen Kanban panosu — State:** "Atandı / İşlemde / Çözüldü" sütunları, sürükle-bırak ile durum değişikliği (dnd-kit). Geçişi backend'deki State sınıfları doğrular; geçersiz geçişte kart eski yerine animasyonla döner ve backend'in hata mesajı toast olarak gösterilir. Geçiş kuralı frontend'de tekrar yazılmaz, tek yerde (backend State) kalır.
+  - [ ] **E3. Talep zaman çizelgesi — Observer (+ CQRS okuma tarafı):** talep detayında dikey timeline: oluşturulma, AI yanıtı, kullanıcı geri bildirimi, eskalasyon, atama, durum değişiklikleri, notlar; her adımda saat ve kişi. Veri, event bus'a yayınlanan olaylardan beslenen `read.ticket_timeline` read model'inden okunur.
+  - [ ] **E4. AI cevabında kaynak gösterimi — Facade (RAG):** `AutoAnswer.sources` alanındaki dokümanlar cevabın altında tıklanabilir etiketler olarak görünür; tıklanınca ilgili doküman parçası açılır.
+  - [ ] **E5. Cihaz QR kodu — CQRS okuma tarafı (opsiyonel, en son):** yeni bir desen eklemez; cihaz detayı mevcut `read.device_inventory` read model'inden okunur. Her cihaz için QR etiketi; okutulunca cihaz detay sayfası açılır (zimmet, bakım geçmişi, "Arıza bildir" düğmesi). Yazdırılabilir etiket sayfası.
 - [ ] **13. Kalite ve CV:** GitHub Actions CI, test kapsamı, ekran görüntülü ve mimari diyagramlı README, GitHub'a yükleme
 - [ ] **14. Dokümantasyon:** UML sınıf/sekans diyagramları (`docs/`; sınıf diyagramları `pyreverse` ile koddan otomatik üretilebilir), her desen ve OOP ilkesi için "nerede, neden" tablosu, ders raporu
 
