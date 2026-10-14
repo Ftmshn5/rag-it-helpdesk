@@ -3,6 +3,7 @@
 import type {
   DeviceStatus,
   MaintenanceType,
+  SupportLevel,
   TicketCategory,
   TicketStatus,
 } from '@/types/api'
@@ -35,4 +36,10 @@ export const MAINTENANCE_TYPE_LABELS: Record<MaintenanceType, string> = {
   REPAIR: 'Onarım',
   PERIODIC: 'Periyodik bakım',
   PART_REPLACEMENT: 'Parça değişimi',
+}
+
+export const SUPPORT_LEVEL_LABELS: Record<SupportLevel, string> = {
+  AI: 'AI asistan',
+  TIER_1: 'Teknisyen',
+  TIER_2: 'Kıdemli teknisyen',
 }

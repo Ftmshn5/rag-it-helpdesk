@@ -16,13 +16,14 @@ export function TicketStatusBadge({ status }: { status: TicketStatus }) {
   return <Badge variant={STATUS_VARIANTS[status]}>{TICKET_STATUS_LABELS[status]}</Badge>
 }
 
-/** VIP / Acil / Gecikti işaretleri (Decorator'ların arayüzdeki karşılığı). */
+/** VIP / Acil / Gecikti işaretleri (Decorator'ların arayüzdeki karşılığı) ve üst destek seviyesi. */
 export function TicketFlags({ ticket }: { ticket: TicketSummary }) {
   return (
     <>
       {ticket.is_vip && <Badge variant="outline">VIP</Badge>}
       {ticket.is_urgent && <Badge variant="destructive">Acil</Badge>}
       {ticket.is_overdue && <Badge variant="destructive">Gecikti</Badge>}
+      {ticket.support_level === 'TIER_2' && <Badge variant="secondary">Kıdemli destek</Badge>}
     </>
   )
 }

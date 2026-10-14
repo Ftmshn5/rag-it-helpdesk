@@ -91,6 +91,14 @@ export function useResolveTicket() {
   return useTicketCommand<number>((ticketId) => ({ path: `/tickets/${ticketId}/resolve` }))
 }
 
+/** UC-07: üst seviyeye eskale et (ASSIGNED / IN_PROGRESS → ESCALATED, seviye L1 → L2). */
+export function useEscalateTicket() {
+  return useTicketCommand<{ ticketId: number; reason: string }>(({ ticketId, reason }) => ({
+    path: `/tickets/${ticketId}/escalate`,
+    body: { reason },
+  }))
+}
+
 // --- Yönetici ---
 
 /** UC-10: talebi teknisyene ata. */

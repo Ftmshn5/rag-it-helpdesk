@@ -1,7 +1,8 @@
 """Ticket iş akışı command'ları.
 
 UC-10 (yönetici talebi teknisyene atar), UC-06 (teknisyen durumu günceller,
-not ekler), çözümü onaylama (kapatma) ve yeniden açma.
+not ekler), UC-07 (teknisyen üst seviyeye eskale eder), çözümü onaylama
+(kapatma) ve yeniden açma.
 
 Hangi geçişin hangi durumda mümkün olduğuna State deseni (domain) karar verir.
 Bu modül yalnızca "kim yapabilir" sorusunu cevaplar ve akışı yürütür.
@@ -125,6 +126,38 @@ class ResolveTicketHandler(TicketTransitionHandler):
 
     def apply(self, ticket: Ticket, command: ResolveTicketCommand) -> None:
         ticket.resolve()
+
+
+# --- UC-07: üst seviyeye eskalasyon ---
+
+
+@dataclass(frozen=True, kw_only=True)
+class EscalateTicketCommand(TicketCommand):
+    reason: str
+
+
+class EscalateTicketHandler(TicketTransitionHandler):
+    """Hangi seviyeye çıkılacağına domain'deki zincir (Chain of Responsibility),
+    bu durumda yapılıp yapılamayacağına State karar verir; handler yalnızca
+    yetkiyi denetler ve gerekçeyi kaydeder."""
+
+    def authorize(self, actor: User, ticket: Ticket) -> None:
+        self._ensure_assigned_technician(actor, ticket)
+
+    def apply(self, ticket: Ticket, command: EscalateTicketCommand) -> None:
+        escalated_by = ticket.assignee_id
+        ticket.escalate()  # en üst seviyedeyse veya durum uygun değilse hata → commit yok
+
+        # Gerekçe, talebi üstlenecek kıdemli teknisyen için not olarak kalır.
+        # Eskale eden artık talebin tarafı değildir; not bu yüzden doğrudan eklenir.
+        comment = self._uow.ticket_comments.add(
+            TicketComment(
+                ticket_id=ticket.id,
+                author_id=escalated_by,
+                content=f"Üst seviyeye eskale edildi. Gerekçe: {command.reason}",
+            )
+        )
+        self._uow.add_event(TicketCommentAdded(ticket_id=ticket.id, comment_id=comment.id, author_id=escalated_by))
 
 
 # --- Çözümün onayı / yeniden açma ---

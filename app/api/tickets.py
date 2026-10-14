@@ -13,6 +13,8 @@ from app.application.commands.ticket_workflow import (
     AssignTicketHandler,
     CloseTicketCommand,
     CloseTicketHandler,
+    EscalateTicketCommand,
+    EscalateTicketHandler,
     ReopenTicketCommand,
     ReopenTicketHandler,
     ResolveTicketCommand,
@@ -34,6 +36,7 @@ from app.core.dependencies import (
     get_close_ticket_handler,
     get_create_ticket_handler,
     get_current_user_id,
+    get_escalate_ticket_handler,
     get_evaluate_ai_answer_handler,
     get_reopen_ticket_handler,
     get_resolve_ticket_handler,
@@ -63,6 +66,10 @@ class AssignTicketRequest(BaseModel):
 
 class EvaluateAiAnswerRequest(BaseModel):
     is_helpful: bool
+
+
+class EscalateTicketRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=2000, examples=["Anakart arızası, parça değişimi gerekiyor"])
 
 
 class AddCommentRequest(BaseModel):
@@ -160,6 +167,17 @@ def reopen_ticket(
     handler: ReopenTicketHandler = Depends(get_reopen_ticket_handler),
 ) -> None:
     handler.handle(ReopenTicketCommand(actor_id=actor_id, ticket_id=ticket_id))
+
+
+@router.post("/{ticket_id}/escalate", status_code=status.HTTP_204_NO_CONTENT)
+def escalate_ticket(
+    ticket_id: int,
+    body: EscalateTicketRequest,
+    actor_id: int = Depends(get_current_user_id),
+    handler: EscalateTicketHandler = Depends(get_escalate_ticket_handler),
+) -> None:
+    """UC-07: atanan teknisyen talebi bir üst destek seviyesine eskale eder."""
+    handler.handle(EscalateTicketCommand(actor_id=actor_id, ticket_id=ticket_id, reason=body.reason))
 
 
 # --- Not ---

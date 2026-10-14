@@ -88,7 +88,7 @@ function EscalatedList({ tickets, workload }: { tickets: TicketSummary[]; worklo
                   {ticket.priority_score} · son tarih {formatDateTime(ticket.due_at)}
                 </div>
               </div>
-              <AssignTechnicianForm ticketId={ticket.ticket_id} workload={workload} />
+              <AssignTechnicianForm ticketId={ticket.ticket_id} supportLevel={ticket.support_level} workload={workload} />
             </CardContent>
           </Card>
         </li>

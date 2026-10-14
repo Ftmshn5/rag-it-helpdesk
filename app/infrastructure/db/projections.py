@@ -167,6 +167,7 @@ class TicketSummaryProjector(Projector):
             "title": ticket.title,
             "category": ticket.category.value,
             "status": ticket.status.value,
+            "support_level": ticket.support_level.value,
             "requester_id": ticket.requester_id,
             "requester_name": requester.full_name,
             "assignee_id": ticket.assignee_id,

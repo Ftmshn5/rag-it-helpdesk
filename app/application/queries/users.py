@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.application.queries.base import Query, QueryHandler
-from app.domain.enums import UserRole
+from app.domain.enums import SupportLevel, UserRole
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,7 @@ class UserView:
     role: UserRole
     department: str | None
     is_vip: bool
+    support_level: SupportLevel | None  # yalnızca teknisyenlerde dolu
 
 
 class UserQueries(ABC):

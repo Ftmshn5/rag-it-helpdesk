@@ -9,6 +9,8 @@ from app.application.commands.ticket_workflow import (
     AssignTicketHandler,
     CloseTicketCommand,
     CloseTicketHandler,
+    EscalateTicketCommand,
+    EscalateTicketHandler,
     ReopenTicketCommand,
     ReopenTicketHandler,
     ResolveTicketCommand,
@@ -39,7 +41,7 @@ def uow() -> FakeUnitOfWork:
     return uow
 
 
-def add_ticket(uow, status=S.ESCALATED, assignee_id=None) -> int:
+def add_ticket(uow, status=S.ESCALATED, assignee_id=None, support_level=SupportLevel.TIER_1) -> int:
     ticket = uow.tickets.add(
         Ticket(
             title="Wi-Fi yok",
@@ -48,7 +50,7 @@ def add_ticket(uow, status=S.ESCALATED, assignee_id=None) -> int:
             requester_id=REQUESTER,
             assignee_id=assignee_id,
             status=status,
-            support_level=SupportLevel.TIER_1,  # AI'dan eskale edilmiş talepler L1'dedir
+            support_level=support_level,  # varsayılan L1: AI'dan eskale edilmiş talepler L1'dedir
         )
     )
     return ticket.id
@@ -210,3 +212,44 @@ def test_closed_ticket_rejects_comment(uow):
         AddCommentHandler(uow).handle(
             AddCommentCommand(actor_id=REQUESTER, ticket_id=ticket_id, content="x")
         )
+
+
+# --- UC-07: üst seviyeye eskalasyon ---
+
+
+@pytest.mark.parametrize("status", [S.ASSIGNED, S.IN_PROGRESS])
+def test_assigned_technician_escalates_to_senior_level(uow, status):
+    ticket_id = add_ticket(uow, status=status, assignee_id=TECH)
+
+    EscalateTicketHandler(uow).handle(
+        EscalateTicketCommand(actor_id=TECH, ticket_id=ticket_id, reason="Anakart arızası")
+    )
+
+    ticket = uow.tickets.get(ticket_id)
+    assert (ticket.status, ticket.support_level, ticket.assignee_id) == (S.ESCALATED, SupportLevel.TIER_2, None)
+
+    events = {type(event): event for event in uow.event_bus.published}
+    assert set(events) == {TicketStatusChanged, TicketCommentAdded}
+    changed, commented = events[TicketStatusChanged], events[TicketCommentAdded]
+    assert (changed.old_status, changed.new_status, changed.actor_id) == (status, S.ESCALATED, TECH)
+    # Gerekçe, talebi üstlenecek kıdemli teknisyen için not olarak kalır
+    comment = uow.ticket_comments.get(commented.comment_id)
+    assert (comment.author_id, comment.content) == (TECH, "Üst seviyeye eskale edildi. Gerekçe: Anakart arızası")
+
+
+@pytest.mark.parametrize("actor_id", [OTHER_TECH, ADMIN, REQUESTER])
+def test_only_assigned_technician_can_escalate(uow, actor_id):
+    ticket_id = add_ticket(uow, status=S.IN_PROGRESS, assignee_id=TECH)
+    with pytest.raises(PermissionDeniedError):
+        EscalateTicketHandler(uow).handle(EscalateTicketCommand(actor_id=actor_id, ticket_id=ticket_id, reason="x"))
+    assert status_of(uow, ticket_id) == S.IN_PROGRESS
+
+
+def test_senior_level_ticket_cannot_be_escalated_and_nothing_is_saved(uow):
+    ticket_id = add_ticket(uow, status=S.IN_PROGRESS, assignee_id=TECH, support_level=SupportLevel.TIER_2)
+
+    with pytest.raises(DomainError, match="en üst destek seviyesinde"):
+        EscalateTicketHandler(uow).handle(EscalateTicketCommand(actor_id=TECH, ticket_id=ticket_id, reason="x"))
+
+    assert status_of(uow, ticket_id) == S.IN_PROGRESS
+    assert uow.event_bus.published == []

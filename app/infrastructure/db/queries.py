@@ -24,7 +24,7 @@ from app.application.queries.tickets import (
 )
 from app.application.queries.users import UserQueries, UserView
 from app.domain.clock import Clock
-from app.domain.enums import AiFeedback, DeviceStatus, TicketCategory, TicketStatus
+from app.domain.enums import AiFeedback, DeviceStatus, SupportLevel, TicketCategory, TicketStatus
 from app.infrastructure.db.models import (
     AIResponseModel,
     DeviceModel,
@@ -143,6 +143,7 @@ class SqlTicketQueries(TicketQueries):
             title=row.title,
             category=TicketCategory(row.category),
             status=TicketStatus(row.status),
+            support_level=SupportLevel(row.support_level),
             requester_id=row.requester_id,
             requester_name=row.requester_name,
             assignee_id=row.assignee_id,
@@ -185,6 +186,7 @@ class SqlUserQueries(UserQueries):
             role=user.role,
             department=user.department,
             is_vip=user.is_vip,
+            support_level=user.support_level,
         )
 
 

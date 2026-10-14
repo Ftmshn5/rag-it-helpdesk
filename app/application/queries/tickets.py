@@ -17,7 +17,7 @@ from app.application.errors import NotFoundError, PermissionDeniedError
 from app.application.interfaces.file_storage import FileStorage
 from app.application.queries.base import ActorQuery, QueryHandler, TQuery, TResult
 from app.application.queries.users import UserQueries
-from app.domain.enums import AiFeedback, TicketCategory, TicketStatus, UserRole
+from app.domain.enums import AiFeedback, SupportLevel, TicketCategory, TicketStatus, UserRole
 
 # --- DTO'lar ---
 
@@ -28,6 +28,7 @@ class TicketSummaryView:
     title: str
     category: TicketCategory
     status: TicketStatus
+    support_level: SupportLevel
     requester_id: int
     requester_name: str
     assignee_id: int | None

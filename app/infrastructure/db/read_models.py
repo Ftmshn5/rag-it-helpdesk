@@ -28,6 +28,7 @@ class TicketSummaryModel(Base):
     title: Mapped[str] = mapped_column(String(200))
     category: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(32), index=True)
+    support_level: Mapped[str] = mapped_column(String(32))
 
     requester_id: Mapped[int] = mapped_column(Integer, index=True)
     requester_name: Mapped[str] = mapped_column(String(120))

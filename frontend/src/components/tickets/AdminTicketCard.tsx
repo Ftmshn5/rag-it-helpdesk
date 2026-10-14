@@ -30,7 +30,11 @@ export function AdminTicketCard({ ticket }: { ticket: TicketSummary }) {
             <p className="text-sm text-muted-foreground">
               {ticket.assignee_name ? `Şu an: ${ticket.assignee_name}` : 'Henüz teknisyen atanmadı.'}
             </p>
-            <AssignTechnicianForm ticketId={ticket.ticket_id} currentAssigneeId={ticket.assignee_id} />
+            <AssignTechnicianForm
+              ticketId={ticket.ticket_id}
+              currentAssigneeId={ticket.assignee_id}
+              supportLevel={ticket.support_level}
+            />
           </div>
         )}
         {canChangeUrgency && (

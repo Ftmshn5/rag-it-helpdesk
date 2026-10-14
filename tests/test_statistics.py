@@ -28,7 +28,7 @@ from app.application.queries.statistics import (
 )
 from app.application.queries.users import UserQueries, UserView
 from app.core.dependencies import get_db_session
-from app.domain.enums import TicketCategory, TicketStatus, UserRole
+from app.domain.enums import SupportLevel, TicketCategory, TicketStatus, UserRole
 from app.infrastructure.db.read_models import TicketSummaryModel
 from app.infrastructure.db.statistics import SqlStatisticsQueries
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
@@ -47,7 +47,7 @@ def summary_row(ticket_id: int, category: TicketCategory, status: TicketStatus, 
                 resolved: datetime | None = None, confidence: float | None = None,
                 feedback: str | None = None) -> TicketSummaryModel:
     return TicketSummaryModel(
-        ticket_id=ticket_id, title=f"t{ticket_id}", category=category.value, status=status.value,
+        ticket_id=ticket_id, title=f"t{ticket_id}", category=category.value, status=status.value, support_level=SupportLevel.TIER_1.value,
         requester_id=1, requester_name="A", is_vip=False, is_urgent=False, sla_hours=72, priority_score=10,
         due_at=due, ai_confidence=confidence, ai_feedback=feedback, comment_count=0, attachment_count=0,
         created_at=created, resolved_at=resolved, refreshed_at=NOW,
@@ -135,8 +135,8 @@ class RecordingStatisticsQueries(StatisticsQueries):
 
 class FakeUsers(UserQueries):
     USERS = {
-        1: UserView(1, "Yönetici", "y@x", UserRole.ADMIN, None, False),
-        2: UserView(2, "Teknisyen", "t@x", UserRole.TECHNICIAN, None, False),
+        1: UserView(1, "Yönetici", "y@x", UserRole.ADMIN, None, False, None),
+        2: UserView(2, "Teknisyen", "t@x", UserRole.TECHNICIAN, None, False, SupportLevel.TIER_1),
     }
 
     def get(self, user_id):

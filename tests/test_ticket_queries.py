@@ -23,7 +23,7 @@ from app.application.queries.tickets import (
 )
 from app.application.queries.users import UserQueries, UserView
 from app.core.dependencies import get_db_session
-from app.domain.enums import TicketCategory, TicketModifier, TicketStatus, UserRole
+from app.domain.enums import SupportLevel, TicketCategory, TicketModifier, TicketStatus, UserRole
 from app.domain.ticket import AIResponse, Ticket
 from app.domain.user import User
 from app.infrastructure.db.projections import TicketSummaryProjector
@@ -38,11 +38,11 @@ NOW = datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
 # --- Handler testleri (sahte sorgularla, veritabanı yok) ---
 
 USERS = {
-    1: UserView(1, "Ayşe", "a@x.edu", UserRole.USER, None, False),
-    2: UserView(2, "Ali", "t@x.edu", UserRole.TECHNICIAN, None, False),
-    3: UserView(3, "Can", "c@x.edu", UserRole.ADMIN, None, False),
-    4: UserView(4, "Mehmet", "m@x.edu", UserRole.USER, None, False),
-    5: UserView(5, "Elif", "e@x.edu", UserRole.TECHNICIAN, None, False),
+    1: UserView(1, "Ayşe", "a@x.edu", UserRole.USER, None, False, None),
+    2: UserView(2, "Ali", "t@x.edu", UserRole.TECHNICIAN, None, False, SupportLevel.TIER_1),
+    3: UserView(3, "Can", "c@x.edu", UserRole.ADMIN, None, False, None),
+    4: UserView(4, "Mehmet", "m@x.edu", UserRole.USER, None, False, None),
+    5: UserView(5, "Elif", "e@x.edu", UserRole.TECHNICIAN, None, False, SupportLevel.TIER_1),
 }
 REQUESTER, TECH, ADMIN, STRANGER, OTHER_TECH = 1, 2, 3, 4, 5
 
@@ -61,6 +61,7 @@ def summary(**overrides) -> TicketSummaryView:
         title="t",
         category=TicketCategory.NETWORK,
         status=S.ASSIGNED,
+        support_level=SupportLevel.TIER_1,
         requester_id=REQUESTER,
         requester_name="Ayşe",
         assignee_id=TECH,

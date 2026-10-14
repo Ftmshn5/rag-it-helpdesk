@@ -14,10 +14,11 @@ import { AiAnswerCard } from '@/components/tickets/AiAnswerCard'
 import { AttachmentsCard } from '@/components/tickets/AttachmentsCard'
 import { TicketFlags, TicketStatusBadge } from '@/components/tickets/TicketBadges'
 import { CommentsCard } from '@/components/tickets/CommentsCard'
+import { EscalateTicketCard } from '@/components/tickets/EscalateTicketCard'
 import { TicketActions, type Viewer } from '@/components/tickets/TicketActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/format'
-import { CATEGORY_LABELS } from '@/lib/labels'
+import { CATEGORY_LABELS, SUPPORT_LEVEL_LABELS } from '@/lib/labels'
 import type { TicketDetail } from '@/types/api'
 
 export function TicketDetailPage() {
@@ -65,6 +66,7 @@ export function TicketDetailPage() {
               </div>
               <div className="space-y-4">
                 <TicketActions ticket={ticket.summary} viewer={viewer} />
+                {viewer.isAssignee && <EscalateTicketCard ticket={ticket.summary} />}
                 {viewer.isAdmin && <AdminTicketCard ticket={ticket.summary} />}
                 <AttachmentsCard ticket={ticket} canContribute={canContribute} />
               </div>
@@ -82,6 +84,7 @@ function TicketInfoCard({ ticket }: { ticket: TicketDetail }) {
     ['Kategori', CATEGORY_LABELS[summary.category]],
     ['Talep sahibi', summary.requester_name],
     ['Teknisyen', summary.assignee_name ?? '—'],
+    ['Destek seviyesi', SUPPORT_LEVEL_LABELS[summary.support_level]],
     ['İlgili cihaz', summary.device_asset_tag ?? '—'],
     ['Açılış', formatDateTime(summary.created_at)],
     ['Çözüm hedefi', `${formatDateTime(summary.due_at)} (${summary.sla_hours} saat)`],

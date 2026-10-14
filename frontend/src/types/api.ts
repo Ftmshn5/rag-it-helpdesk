@@ -16,6 +16,9 @@ export type TicketCategory = 'HARDWARE' | 'SOFTWARE' | 'NETWORK' | 'ACCOUNT'
 
 export type AiFeedback = 'HELPFUL' | 'NOT_HELPFUL'
 
+/** Destek seviyesi (backend: Chain of Responsibility, app/domain/support_tier.py). */
+export type SupportLevel = 'AI' | 'TIER_1' | 'TIER_2'
+
 export type DeviceStatus = 'IN_STOCK' | 'ASSIGNED' | 'IN_REPAIR' | 'RETIRED'
 
 export type MaintenanceType = 'REPAIR' | 'PERIODIC' | 'PART_REPLACEMENT'
@@ -27,6 +30,7 @@ export interface User {
   role: UserRole
   department: string | null
   is_vip: boolean
+  support_level: SupportLevel | null // yalnızca teknisyenlerde dolu
 }
 
 export interface TicketSummary {
@@ -34,6 +38,7 @@ export interface TicketSummary {
   title: string
   category: TicketCategory
   status: TicketStatus
+  support_level: SupportLevel
   requester_id: number
   requester_name: string
   assignee_id: number | null
