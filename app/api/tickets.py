@@ -15,6 +15,8 @@ from app.application.commands.ticket_workflow import (
     CloseTicketHandler,
     EscalateTicketCommand,
     EscalateTicketHandler,
+    MoveTicketCommand,
+    MoveTicketHandler,
     ReopenTicketCommand,
     ReopenTicketHandler,
     ResolveTicketCommand,
@@ -38,12 +40,13 @@ from app.core.dependencies import (
     get_current_user_id,
     get_escalate_ticket_handler,
     get_evaluate_ai_answer_handler,
+    get_move_ticket_handler,
     get_reopen_ticket_handler,
     get_resolve_ticket_handler,
     get_set_ticket_urgency_handler,
     get_start_work_handler,
 )
-from app.domain.enums import TicketCategory
+from app.domain.enums import TicketCategory, TicketStatus
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -66,6 +69,10 @@ class AssignTicketRequest(BaseModel):
 
 class EvaluateAiAnswerRequest(BaseModel):
     is_helpful: bool
+
+
+class MoveTicketRequest(BaseModel):
+    status: TicketStatus
 
 
 class EscalateTicketRequest(BaseModel):
@@ -167,6 +174,17 @@ def reopen_ticket(
     handler: ReopenTicketHandler = Depends(get_reopen_ticket_handler),
 ) -> None:
     handler.handle(ReopenTicketCommand(actor_id=actor_id, ticket_id=ticket_id))
+
+
+@router.post("/{ticket_id}/move", status_code=status.HTTP_204_NO_CONTENT)
+def move_ticket(
+    ticket_id: int,
+    body: MoveTicketRequest,
+    actor_id: int = Depends(get_current_user_id),
+    handler: MoveTicketHandler = Depends(get_move_ticket_handler),
+) -> None:
+    """Kanban: talebi hedef duruma taşır; geçersiz geçişte 409 ve State'in mesajı döner."""
+    handler.handle(MoveTicketCommand(actor_id=actor_id, ticket_id=ticket_id, target_status=body.status))
 
 
 @router.post("/{ticket_id}/escalate", status_code=status.HTTP_204_NO_CONTENT)

@@ -18,11 +18,13 @@ import { MyDevicesPage } from '@/pages/user/MyDevicesPage'
 import { MyTicketsPage } from '@/pages/user/MyTicketsPage'
 import { NewTicketPage } from '@/pages/user/NewTicketPage'
 
-// Grafik kütüphanesi (Recharts) büyük ve yalnızca yöneticinin istatistik sayfasında
-// kullanılıyor: sayfa ayrı bir parçaya bölünür ve yalnızca açıldığında indirilir.
+// Büyük kütüphaneler yalnızca kullanıldıkları sayfayla birlikte indirilir (ayrı parça):
+// Recharts → yöneticinin istatistik sayfası, dnd-kit → teknisyenin panosu.
 const StatisticsPage = lazy(() =>
   import('@/pages/admin/StatisticsPage').then((module) => ({ default: module.StatisticsPage })),
 )
+const BoardPage = lazy(() => import('@/pages/technician/BoardPage').then((module) => ({ default: module.BoardPage })))
+const pageFallback = <p className="text-sm text-muted-foreground">Yükleniyor…</p>
 
 export default function App() {
   return (
@@ -39,6 +41,14 @@ export default function App() {
 
         <Route path="technician" element={<RequireRole role="TECHNICIAN" />}>
           <Route path="queue" element={<AssignedTicketsPage />} />
+          <Route
+            path="board"
+            element={
+              <Suspense fallback={pageFallback}>
+                <BoardPage />
+              </Suspense>
+            }
+          />
           <Route path="maintenance" element={<MaintenancePage />} />
         </Route>
 
@@ -49,7 +59,7 @@ export default function App() {
           <Route
             path="statistics"
             element={
-              <Suspense fallback={<p className="text-sm text-muted-foreground">Yükleniyor…</p>}>
+              <Suspense fallback={pageFallback}>
                 <StatisticsPage />
               </Suspense>
             }

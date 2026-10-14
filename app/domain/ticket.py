@@ -13,11 +13,12 @@ from app.domain.errors import (
     AiAnswerAlreadyEvaluatedError,
     InsufficientSupportLevelError,
     InvalidAssigneeError,
+    InvalidTicketTransitionError,
     TicketClosedError,
     UrgencyChangeNotAllowedError,
 )
 from app.domain.support_tier import SUPPORT_CHAIN, SupportTier
-from app.domain.ticket_state import STATES, TicketState
+from app.domain.ticket_state import STATES, STATUS_LABELS, TicketState
 from app.domain.user import User
 
 
@@ -224,6 +225,24 @@ class Ticket(Entity):
 
     def reopen(self) -> None:
         self._move_to(self.state.reopen())
+
+    def move_to(self, target: TicketStatus) -> None:
+        """Kanban panosunda sürükle-bırak: hedef duruma götüren teknisyen geçişini uygular.
+
+        Burada yalnızca hedefin hangi geçişe karşılık geldiği bilinir (İşlemde → çalışmaya
+        başla, Çözüldü → çöz). Geçişin bu durumda yapılıp yapılamayacağına yine State
+        karar verir; kural tek yerde kalır, arayüz onu tekrar etmez.
+        """
+        transitions = {
+            TicketStatus.IN_PROGRESS: self.start_work,
+            TicketStatus.RESOLVED: self.resolve,
+        }
+        transition = transitions.get(target)
+        if transition is None:
+            raise InvalidTicketTransitionError(
+                f"Talep '{STATUS_LABELS[target]}' durumuna sürükleyerek taşınamaz."
+            )
+        transition()
 
     def _move_to(self, new_status: TicketStatus) -> None:
         """Geçişi uygular. Çözülme zamanı durum nesnesinin `is_resolved` bilgisinden türetilir:

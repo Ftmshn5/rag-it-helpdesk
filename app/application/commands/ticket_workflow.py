@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from app.application.commands.base import ActorCommand, CommandHandler
 from app.application.errors import PermissionDeniedError
-from app.domain.enums import UserRole
+from app.domain.enums import TicketStatus, UserRole
 from app.domain.events import TicketCommentAdded, TicketStatusChanged
 from app.domain.ticket import Ticket, TicketComment
 from app.domain.user import User
@@ -126,6 +126,25 @@ class ResolveTicketHandler(TicketTransitionHandler):
 
     def apply(self, ticket: Ticket, command: ResolveTicketCommand) -> None:
         ticket.resolve()
+
+
+# --- UC-06 (Kanban): sürükle-bırak ile durum değişikliği ---
+
+
+@dataclass(frozen=True, kw_only=True)
+class MoveTicketCommand(TicketCommand):
+    target_status: TicketStatus
+
+
+class MoveTicketHandler(TicketTransitionHandler):
+    """Panodaki taşıma, çalışmaya başlama / çözme ile aynı yetkidedir (atanan teknisyen).
+    Geçişin geçerliliğini domain'deki State denetler."""
+
+    def authorize(self, actor: User, ticket: Ticket) -> None:
+        self._ensure_assigned_technician(actor, ticket)
+
+    def apply(self, ticket: Ticket, command: MoveTicketCommand) -> None:
+        ticket.move_to(command.target_status)
 
 
 # --- UC-07: üst seviyeye eskalasyon ---

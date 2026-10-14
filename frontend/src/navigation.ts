@@ -6,6 +6,7 @@ import {
   CirclePlusIcon,
   ClipboardListIcon,
   InboxIcon,
+  KanbanIcon,
   LaptopIcon,
   ListChecksIcon,
   type LucideIcon,
@@ -35,6 +36,7 @@ export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
   ],
   TECHNICIAN: [
     { to: '/technician/queue', label: 'Atanan talepler', icon: ListChecksIcon }, // UC-05
+    { to: '/technician/board', label: 'Pano', icon: KanbanIcon }, // UC-06, E2 (State)
     { to: '/technician/maintenance', label: 'Bakım', icon: WrenchIcon }, // UC-16, UC-17
   ],
   ADMIN: [

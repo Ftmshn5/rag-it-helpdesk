@@ -9,6 +9,7 @@ import { useCurrentUser } from '@/auth/useCurrentUser'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import { Button } from '@/components/ui/button'
+import { Toaster } from '@/components/ui/sonner'
 import { ROLE_LABELS } from '@/navigation'
 import type { User } from '@/types/api'
 
@@ -55,6 +56,7 @@ export function AppLayout() {
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-8 lg:py-8">
           <Outlet />
         </main>
+        <Toaster />
       </div>
     </div>
   )

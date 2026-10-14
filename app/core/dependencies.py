@@ -32,6 +32,7 @@ from app.application.commands.ticket_workflow import (
     AssignTicketHandler,
     CloseTicketHandler,
     EscalateTicketHandler,
+    MoveTicketHandler,
     ReopenTicketHandler,
     ResolveTicketHandler,
     StartWorkHandler,
@@ -286,6 +287,10 @@ def get_reopen_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)) -> Re
 
 def get_escalate_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)) -> EscalateTicketHandler:
     return EscalateTicketHandler(uow)
+
+
+def get_move_ticket_handler(uow: UnitOfWork = Depends(get_unit_of_work)) -> MoveTicketHandler:
+    return MoveTicketHandler(uow)
 
 
 def get_add_comment_handler(uow: UnitOfWork = Depends(get_unit_of_work)) -> AddCommentHandler:

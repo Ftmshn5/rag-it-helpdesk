@@ -9,7 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiRequest } from '@/api/client'
 import { queryKeys } from '@/api/queryKeys'
 import { useCurrentUserId } from '@/auth/currentUser'
-import type { Created, TicketCategory } from '@/types/api'
+import type { Created, TicketCategory, TicketStatus } from '@/types/api'
 
 /**
  * Talep command'ları için ortak hook: isteği seçili kullanıcı adına gönderir,
@@ -84,6 +84,17 @@ export function useAddComment() {
 /** UC-06: çalışmaya başla (ASSIGNED → IN_PROGRESS). */
 export function useStartWork() {
   return useTicketCommand<number>((ticketId) => ({ path: `/tickets/${ticketId}/start` }))
+}
+
+/**
+ * E2 Kanban: talebi hedef duruma taşı. Hangi taşımanın geçerli olduğuna backend (State)
+ * karar verir; geçersizse 409 ve Türkçe mesaj döner (ApiError.message).
+ */
+export function useMoveTicket() {
+  return useTicketCommand<{ ticketId: number; status: TicketStatus }>(({ ticketId, status }) => ({
+    path: `/tickets/${ticketId}/move`,
+    body: { status },
+  }))
 }
 
 /** UC-06: çözüldü olarak işaretle (IN_PROGRESS → RESOLVED). */
