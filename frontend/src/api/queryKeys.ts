@@ -29,6 +29,11 @@ export const queryKeys = {
       ['attachments', ticketId, attachmentId, userId] as const,
   },
 
+  notifications: {
+    all: ['notifications'] as const,
+    mine: (userId: number) => ['notifications', 'mine', userId] as const,
+  },
+
   inventory: {
     all: ['inventory'] as const,
     report: (status?: DeviceStatus, type?: string) => ['inventory', 'report', status, type] as const,

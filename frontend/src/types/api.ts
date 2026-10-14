@@ -167,3 +167,21 @@ export interface FailureStatistics {
   sla: SlaStatistics
   ai: AiStatistics
 }
+
+// --- Bildirimler (backend: app/application/queries/notifications.py) ---
+
+export type NotificationChannel = 'IN_APP' | 'EMAIL' | 'SMS'
+
+export interface NotificationItem {
+  id: number
+  ticket_id: number | null
+  channel: NotificationChannel
+  message: string
+  created_at: string
+  is_read: boolean
+}
+
+export interface MyNotifications {
+  unread_count: number
+  items: NotificationItem[] // en yeniler önce
+}

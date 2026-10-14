@@ -3,6 +3,7 @@
 import type {
   DeviceStatus,
   MaintenanceType,
+  NotificationChannel,
   SupportLevel,
   TicketCategory,
   TicketStatus,
@@ -42,4 +43,10 @@ export const SUPPORT_LEVEL_LABELS: Record<SupportLevel, string> = {
   AI: 'AI asistan',
   TIER_1: 'Teknisyen',
   TIER_2: 'Kıdemli teknisyen',
+}
+
+export const NOTIFICATION_CHANNEL_LABELS: Record<NotificationChannel, string> = {
+  IN_APP: 'Uygulama içi',
+  EMAIL: 'E-posta',
+  SMS: 'SMS',
 }

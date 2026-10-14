@@ -1,8 +1,9 @@
-// Tüm sayfaların ortak çerçevesi: üst menü (rolün sayfaları + kullanıcı seçici) ve içerik alanı.
+// Tüm sayfaların ortak çerçevesi: üst menü (rolün sayfaları, bildirimler, kullanıcı seçici) ve içerik alanı.
 
 import { NavLink, Outlet } from 'react-router'
 
 import { useCurrentUser } from '@/auth/useCurrentUser'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import { UserSwitcher } from '@/components/layout/UserSwitcher'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -38,6 +39,7 @@ export function AppLayout() {
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {user && <NotificationBell />}
             {user && <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>}
             <UserSwitcher />
           </div>

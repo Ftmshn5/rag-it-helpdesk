@@ -350,7 +350,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
   - [x] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
   - [x] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
   - [x] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
-- [ ] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler
+- [x] **12. Ekler:** arıza istatistikleri ve grafikler (yönetici paneli), eskalasyon zinciri, bildirimler
 - [ ] **13. Kalite ve CV:** GitHub Actions CI, test kapsamı, ekran görüntülü ve mimari diyagramlı README, GitHub'a yükleme
 - [ ] **14. Dokümantasyon:** UML sınıf/sekans diyagramları (`docs/`; sınıf diyagramları `pyreverse` ile koddan otomatik üretilebilir), her desen ve OOP ilkesi için "nerede, neden" tablosu, ders raporu
 
