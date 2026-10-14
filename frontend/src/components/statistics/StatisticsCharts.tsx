@@ -26,7 +26,12 @@ export function SummaryCards({ statistics }: { statistics: FailureStatistics }) 
     { label: 'Toplam talep', value: String(statistics.total), hint: `${statistics.open} tanesi açık` },
     {
       label: 'Ortalama çözülme süresi',
-      value: statistics.average_resolution_hours === null ? '—' : `${statistics.average_resolution_hours} saat`,
+      value:
+        statistics.average_resolution_hours === null
+          ? '—'
+          : statistics.average_resolution_hours < 1
+            ? '1 saatten az'
+            : `${statistics.average_resolution_hours} saat`,
       hint: 'açılıştan çözülmeye',
     },
     {

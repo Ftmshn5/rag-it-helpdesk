@@ -11,10 +11,23 @@ uygulanması ve gerekçelendirilmesidir**; bu kurallar otomatik testlerle denetl
 **Teknolojiler:** Python 3.11+ · FastAPI · SQLAlchemy 2 · PostgreSQL 16 + pgvector · Alembic · Ollama ·
 React + TypeScript · TanStack Query · Tailwind + shadcn/ui · pytest · GitHub Actions
 
-<!--
-Ekran görüntüleri: docs/screenshots/ klasörüne eklenip burada gösterilecek.
-Önerilen ekranlar: talep açma + AI yanıtı, teknisyen kuyruğu, yönetici atama kuyruğu, istatistikler, bildirim menüsü.
--->
+![Talep detayı: VIP + Acil talep, Decorator zincirinden gelen SLA, eskalasyon zinciri ve olaylardan beslenen zaman çizelgesi](docs/screenshots/3-talep-sla-zaman-cizelgesi.png)
+
+<details>
+<summary><b>Diğer ekranlar</b> (kullanıcı, teknisyen, yönetici)</summary>
+
+| | |
+|---|---|
+| ![Taleplerim: durum rozetleri ve canlı SLA geri sayımı](docs/screenshots/1-kullanici-taleplerim.png) | ![AI önerisi ve tıklanabilir kaynak: yanıtın dayandığı bilgi bankası bölümleri](docs/screenshots/2-ai-onerisi-kaynaklar.png) |
+| **Kullanıcı:** talepler, durum rozetleri, SLA geri sayımı | **AI önerisi:** güven skoru, tıklanınca açılan kaynak bölümleri |
+| ![Teknisyen Kanban panosu](docs/screenshots/4-teknisyen-kanban.png) | ![Yönetici atama kuyruğu](docs/screenshots/5-yonetici-atama-kuyrugu.png) |
+| **Teknisyen:** sürükle-bırak pano (geçişi backend State doğrular) | **Yönetici:** atama bekleyen talepler, seviyeye uygun teknisyen |
+| ![Arıza istatistikleri](docs/screenshots/6-yonetici-istatistikler.png) | ![Bildirimler](docs/screenshots/7-bildirimler.png) |
+| **Yönetici:** haftalık eğilim, kategori, SLA uyumu, AI başarısı | **Bildirimler:** olaylardan üretilen uygulama içi bildirimler |
+| ![Cihaz sayfası ve QR etiketi](docs/screenshots/8-cihaz-qr.png) | |
+| **Cihaz sayfası:** QR etiketi okutulunca açılır; arıza bildirme, bakım geçmişi | |
+
+</details>
 
 ---
 
@@ -22,12 +35,24 @@ Ekran görüntüleri: docs/screenshots/ klasörüne eklenip burada gösterilecek
 
 | Rol | Yapabildikleri |
 |---|---|
-| **Kullanıcı** | Arıza kaydı açar ve ekran görüntüsü ekler; AI'ın önerisini "çözüldü / çözülmedi" diye değerlendirir; taleplerini ve zimmetli cihazlarını görür |
-| **Teknisyen** | Atanan talepleri öncelik ve SLA'ya göre görür; çalışmaya başlar, not ekler, çözer; talebi kıdemli teknisyene eskale eder; cihaza bakım kaydı girer |
-| **BT yöneticisi** | Cihaz ekler/günceller, zimmetler/iade alır; talebi seviyesine uygun teknisyene atar; envanter raporunu ve arıza istatistiklerini (SLA uyumu, AI başarısı) görür |
-| **AI asistan** | Yeni talebe bilgi bankasından kaynak göstererek yanıt üretir; güveni düşükse talebi doğrudan teknisyene yönlendirir |
+| **Kullanıcı** | Arıza kaydı açar ve ekran görüntüsü ekler; AI'ın önerisini ve dayandığı kaynakları görüp "çözüldü / çözülmedi" diye değerlendirir; taleplerini canlı SLA geri sayımıyla izler; cihaz QR etiketini okutup doğrudan arıza bildirir |
+| **Teknisyen** | Atanan talepleri öncelik ve SLA'ya göre görür; Kanban panosunda sürükleyerek durum değiştirir, not ekler, çözer; talebi kıdemli teknisyene eskale eder; cihaza bakım kaydı girer |
+| **BT yöneticisi** | Cihaz ekler/günceller, zimmetler/iade alır, QR etiketi yazdırır; talebi seviyesine uygun teknisyene atar; envanter raporunu ve arıza istatistiklerini (SLA uyumu, AI başarısı) görür |
+| **AI asistan** | Yeni talebe bilgi bankasından yanıt üretir ve kullandığı bölümleri kaynak olarak saklar; güveni düşükse talebi doğrudan teknisyene yönlendirir |
 
-Her rol, kendisini ilgilendiren olaylarda (atama, çözüm, eskalasyon, VIP/acil talep) uygulama içi bildirim alır.
+Her rol, kendisini ilgilendiren olaylarda (atama, çözüm, eskalasyon, VIP/acil talep) uygulama içi bildirim alır;
+talebin tüm geçmişi detay sayfasındaki zaman çizelgesinde görünür.
+
+### Desenleri görünür kılan ekranlar
+
+| Ekran | Görünür kıldığı desen |
+|---|---|
+| SLA geri sayımı ve "Temel 72 sa → VIP 24 sa → Acil 4 sa" zinciri | **Decorator** (her katman `layers()` ile kendi etkisini raporlar) |
+| Teknisyen Kanban panosu | **State** (geçerli taşımaya backend karar verir; geçersizse kart geri döner, State'in mesajı gösterilir) |
+| Talep zaman çizelgesi | **Observer** (olaylardan beslenen `read.ticket_timeline`) + CQRS okuma tarafı |
+| AI önerisindeki tıklanabilir kaynaklar | **Facade** (RAG alt sistemlerinin bilgisi tek metottan taşınır) |
+| Seviyeye göre teknisyen listesi, "Kıdemli destek" rozeti | **Chain of Responsibility** (AI → teknisyen → kıdemli teknisyen) |
+| Bildirim zili (uygulama içi / e-posta / SMS) | **Observer** + **Strategy** (kanal başına gönderici) |
 
 ---
 
@@ -189,7 +214,7 @@ ruff check app tests migrations
 pytest --cov
 ```
 
-- ~590 test; veritabanı testleri gerçek PostgreSQL'de çalışır ve her test sonunda geri alınır. Veritabanı yoksa
+- 610 test; veritabanı testleri gerçek PostgreSQL'de çalışır ve her test sonunda geri alınır. Veritabanı yoksa
   atlanır (CI'da atlanmaz, başarısız olur).
 - Test kapsamı %93 (dal kapsamı dahil); %90'ın altına düşerse CI başarısız olur.
 - **GitHub Actions** her push'ta: ruff → migration'ları boş veritabanına uygula → modelle migration'lar uyumlu mu
