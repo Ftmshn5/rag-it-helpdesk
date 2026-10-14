@@ -16,6 +16,7 @@ from app.application.queries.inventory import (
 from app.application.queries.notifications import NotificationQueries, NotificationView
 from app.application.queries.tickets import (
     AiAnswerView,
+    AnswerSourceView,
     AttachmentFileView,
     AttachmentView,
     CommentView,
@@ -103,7 +104,10 @@ class SqlTicketQueries(TicketQueries):
             ai_answer=AiAnswerView(
                 answer=ai.answer,
                 confidence=ai.confidence,
-                sources=list(ai.sources),
+                sources=[
+                    AnswerSourceView(title=s["title"], file_path=s["file_path"], excerpts=list(s["excerpts"]))
+                    for s in ai.sources
+                ],
                 user_feedback=ai.user_feedback,
             )
             if ai

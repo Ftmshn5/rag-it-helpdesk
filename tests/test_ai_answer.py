@@ -7,7 +7,7 @@ from app.application.commands.tickets import CreateTicketCommand, CreateTicketHa
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
 from app.domain.enums import TicketCategory, TicketStatus
 from app.domain.events import AiAnswerRecorded, TicketStatusChanged
-from app.domain.ticket import Ticket
+from app.domain.ticket import AnswerSource, Ticket
 from app.domain.user import User
 from app.infrastructure.ai.fake_ai_support import FakeAiSupport
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
@@ -17,6 +17,8 @@ from tests.fakes import FakeUnitOfWork, subscribe_all
 THRESHOLD = 0.6
 
 
+SOURCE = AnswerSource(title="Bilgi", file_path="k.md", excerpts=("Kapatıp açın.",))
+
 class FixedAiSupport(AiSupportFacade):
     """Her talebe verilen güvenle aynı yanıtı döndüren test dublörü."""
 
@@ -24,7 +26,7 @@ class FixedAiSupport(AiSupportFacade):
         self.confidence = confidence
 
     def try_auto_resolve(self, ticket: Ticket) -> AutoAnswer:
-        return AutoAnswer(answer="Yeniden başlatın.", confidence=self.confidence, sources=["k.md"])
+        return AutoAnswer(answer="Yeniden başlatın.", confidence=self.confidence, sources=[SOURCE])
 
 
 class BrokenAiSupport(AiSupportFacade):
@@ -76,7 +78,7 @@ def test_confident_answer_is_saved_and_ticket_becomes_ai_answered(uow):
     assert (response.answer, response.confidence, response.sources) == (
         "Yeniden başlatın.",
         0.8,
-        ["k.md"],
+        [SOURCE],
     )
     recorded, status_changed = uow.event_bus.published
     assert isinstance(recorded, AiAnswerRecorded) and not recorded.escalated
@@ -235,4 +237,7 @@ def test_ai_flow_on_real_database(session_factory):
         response = uow.ai_responses.get_by_ticket(ticket_id)
     assert ticket.status == TicketStatus.AI_ANSWERED
     assert response.confidence == 0.75
-    assert response.sources == ["knowledge/kablosuz-ag-baglantisi.md"]
+    # Kaynak, kullanılan parçanın anlık kopyasıyla birlikte saklanır (E4)
+    [source] = response.sources
+    assert (source.title, source.file_path) == ("Kablosuz Ağ (eduroam) Bağlantısı", "knowledge/kablosuz-ag-baglantisi.md")
+    assert source.excerpts and "tarih ve saat" in source.excerpts[0]

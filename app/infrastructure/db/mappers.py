@@ -21,7 +21,7 @@ from app.domain.entity import Entity
 from app.domain.enums import TicketModifier
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
 from app.domain.notifications import UserNotification
-from app.domain.ticket import AIResponse, Ticket, TicketAttachment, TicketComment
+from app.domain.ticket import AIResponse, AnswerSource, Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.models import (
@@ -228,7 +228,10 @@ class AIResponseMapper(Mapper[AIResponse, AIResponseModel]):
             ticket_id=model.ticket_id,
             answer=model.answer,
             confidence=model.confidence,
-            sources=list(model.sources),
+            sources=[
+                AnswerSource(title=s["title"], file_path=s["file_path"], excerpts=tuple(s["excerpts"]))
+                for s in model.sources
+            ],
             user_feedback=model.user_feedback,
         )
 
@@ -237,7 +240,9 @@ class AIResponseMapper(Mapper[AIResponse, AIResponseModel]):
             "ticket_id": entity.ticket_id,
             "answer": entity.answer,
             "confidence": entity.confidence,
-            "sources": entity.sources,
+            "sources": [
+                {"title": s.title, "file_path": s.file_path, "excerpts": list(s.excerpts)} for s in entity.sources
+            ],
             "user_feedback": entity.user_feedback,
         }
 

@@ -293,7 +293,7 @@ it-support/
 - **MaintenanceRecord:** id, device_id, technician_id, ticket_id (opsiyonel), type (REPAIR / PERIODIC / PART_REPLACEMENT), description, previous_device_status, performed_at (başlangıç), completed_at (boşsa bakım sürüyor)
 - **Ticket:** id, title, description, category (HARDWARE / SOFTWARE / NETWORK / ACCOUNT), status, requester_id, assignee_id, device_id (opsiyonel), modifiers (liste), support_level (AI / TIER_1 / TIER_2), created_at, resolved_at
 - **TicketAttachment:** id, ticket_id, file_path, mime_type, uploaded_at
-- **AIResponse:** id, ticket_id, answer, confidence, sources, user_feedback (HELPFUL / NOT_HELPFUL / boş)
+- **AIResponse:** id, ticket_id, answer, confidence, sources (doküman başlığı, yolu ve AI'ın kullandığı parçaların anlık kopyası; `AnswerSource` değer nesnesi, JSONB), user_feedback (HELPFUL / NOT_HELPFUL / boş)
 - **TicketComment:** id, ticket_id, author_id, content, created_at
 - **KnowledgeDocument:** id, title, file_path, indexed_at
 - **KnowledgeChunk:** id, document_id, content, embedding (pgvector `vector` tipi)
@@ -380,7 +380,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
   - [x] **E1. SLA geri sayımı — Decorator:** her talep kartında çözülme süresine kalan zaman geri sayar. Süre decorator'lardan gelen `sla_hours()` değerinden hesaplanır (VIP/Acil daha kısa). Kalan süre %25'in altına inince sarı, süre geçince kırmızı. Detay sayfasında hangi decorator'ların uygulandığı ve SLA'yı nasıl etkilediği (72 → 24 → 4 saat) görünür.
   - [x] **E2. Teknisyen Kanban panosu — State:** "Atandı / İşlemde / Çözüldü" sütunları, sürükle-bırak ile durum değişikliği (dnd-kit). Geçişi backend'deki State sınıfları doğrular; geçersiz geçişte kart eski yerine animasyonla döner ve backend'in hata mesajı toast olarak gösterilir. Geçiş kuralı frontend'de tekrar yazılmaz, tek yerde (backend State) kalır.
   - [x] **E3. Talep zaman çizelgesi — Observer (+ CQRS okuma tarafı):** talep detayında dikey timeline: oluşturulma, AI yanıtı, kullanıcı geri bildirimi, eskalasyon, atama, durum değişiklikleri, notlar; her adımda saat ve kişi. Veri, event bus'a yayınlanan olaylardan beslenen `read.ticket_timeline` read model'inden okunur.
-  - [ ] **E4. AI cevabında kaynak gösterimi — Facade (RAG):** `AutoAnswer.sources` alanındaki dokümanlar cevabın altında tıklanabilir etiketler olarak görünür; tıklanınca ilgili doküman parçası açılır.
+  - [x] **E4. AI cevabında kaynak gösterimi — Facade (RAG):** `AutoAnswer.sources` alanındaki dokümanlar cevabın altında tıklanabilir etiketler olarak görünür; tıklanınca ilgili doküman parçası açılır.
   - [ ] **E5. Cihaz QR kodu — CQRS okuma tarafı (opsiyonel, en son):** yeni bir desen eklemez; cihaz detayı mevcut `read.device_inventory` read model'inden okunur. Her cihaz için QR etiketi; okutulunca cihaz detay sayfası açılır (zimmet, bakım geçmişi, "Arıza bildir" düğmesi). Yazdırılabilir etiket sayfası.
 - [ ] **13. Kalite ve CV:** GitHub Actions CI, test kapsamı, ekran görüntülü ve mimari diyagramlı README, GitHub'a yükleme
 - [ ] **14. Dokümantasyon:** UML sınıf/sekans diyagramları (`docs/`; sınıf diyagramları `pyreverse` ile koddan otomatik üretilebilir), her desen ve OOP ilkesi için "nerede, neden" tablosu, ders raporu

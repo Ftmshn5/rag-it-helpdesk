@@ -116,7 +116,9 @@ def test_answer_uses_llm_text_and_top_similarity_for_confidence():
     assert answer.answer == "Kağıdı çıkarın ve yazıcıyı yeniden açın."
     assert answer.confidence == pytest.approx(CONFIDENCE.score(0.70))
     # Aynı dokümandan iki parça: kaynak bir kez
-    assert answer.sources == ["knowledge/yazici-sorunlari.md"]
+    # Aynı dokümandan iki parça: tek kaynak, iki alıntı (E4)
+    [source] = answer.sources
+    assert (source.title, source.file_path, len(source.excerpts)) == ("Yazıcı", "knowledge/yazici-sorunlari.md", 2)
 
 
 def test_ticket_title_and_description_are_embedded_and_top_k_is_used():
@@ -141,7 +143,7 @@ def test_irrelevant_chunks_are_not_given_to_llm_and_not_listed_as_sources():
     _, user_prompt = chat.prompts[0]
     assert "knowledge/yazici.md" in user_prompt
     assert "knowledge/vpn.md" not in user_prompt
-    assert answer.sources == ["knowledge/yazici.md"]
+    assert [s.file_path for s in answer.sources] == ["knowledge/yazici.md"]
 
 
 def test_no_relevant_chunk_skips_llm_and_returns_zero_confidence():

@@ -15,7 +15,7 @@ arayüzün tek metodunu çağırır. Böylece:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from app.domain.ticket import Ticket
+from app.domain.ticket import AnswerSource, Ticket
 
 
 @dataclass(frozen=True)
@@ -23,8 +23,8 @@ class AutoAnswer:
     answer: str
     # 0.0 - 1.0 arası; iş kuralı 4'teki eşikle karşılaştırılır
     confidence: float
-    # Yanıtın dayandığı bilgi bankası dokümanları (kullanıcıya kaynak olarak gösterilir)
-    sources: list[str] = field(default_factory=list)
+    # Yanıtın dayandığı bilgi bankası dokümanları ve kullanılan parçalar (kullanıcıya kaynak olarak gösterilir)
+    sources: list[AnswerSource] = field(default_factory=list)
 
 
 class AiSupportFacade(ABC):

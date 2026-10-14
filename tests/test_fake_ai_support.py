@@ -28,7 +28,8 @@ def test_known_problems_get_confident_answer_with_source(title, description, con
     result = FakeAiSupport().try_auto_resolve(make_ticket(title, description))
 
     assert result.confidence == confidence
-    assert result.sources == [source]
+    assert [s.file_path for s in result.sources] == [source]
+    assert all(s.title and s.excerpts for s in result.sources)
     assert result.answer
 
 

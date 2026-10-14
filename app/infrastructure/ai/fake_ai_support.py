@@ -11,7 +11,7 @@ güvende eskalasyon) iki yolu da elle denenebilir, hem de testler kararlıdır.
 from dataclasses import dataclass
 
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
-from app.domain.ticket import Ticket
+from app.domain.ticket import AnswerSource, Ticket
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class CannedAnswer:
     keywords: tuple[str, ...]
     answer: str
     confidence: float
-    source: str
+    source: AnswerSource  # gerçek RAG gibi: dayandığı doküman ve parça (data/knowledge ile tutarlı)
 
 
 CANNED_ANSWERS: tuple[CannedAnswer, ...] = (
@@ -31,7 +31,17 @@ CANNED_ANSWERS: tuple[CannedAnswer, ...] = (
             "15 dakika kilitlenir; bu süre sonunda tekrar deneyin."
         ),
         confidence=0.85,
-        source="knowledge/hesap-sifre-sifirlama.md",
+        source=AnswerSource(
+            title="Hesap ve Şifre İşlemleri",
+            file_path="knowledge/hesap-sifre-sifirlama.md",
+            excerpts=(
+                "Şifremi unuttum\n\nŞifrenizi https://hesap.ornekfakulte.edu.tr adresindeki \"Şifremi unuttum\" "
+                "bağlantısından kendiniz sıfırlayabilirsiniz. Sıfırlama bağlantısı sistemde kayıtlı kişisel e-posta "
+                "adresinize ve cep telefonunuza SMS olarak gönderilir. Bağlantı 30 dakika geçerlidir.",
+                "Hesabım kilitlendi\n\nArt arda 5 hatalı şifre denemesinden sonra hesabınız güvenlik nedeniyle "
+                "15 dakika kilitlenir. Bu süre dolunca hesap kendiliğinden açılır.",
+            ),
+        ),
     ),
     CannedAnswer(
         keywords=("wifi", "wi-fi", "kablosuz", "eduroam", "internet"),
@@ -41,7 +51,15 @@ CANNED_ANSWERS: tuple[CannedAnswer, ...] = (
             "sürerse cihazınızın tarih/saat ayarını kontrol edin."
         ),
         confidence=0.75,
-        source="knowledge/kablosuz-ag-baglantisi.md",
+        source=AnswerSource(
+            title="Kablosuz Ağ (eduroam) Bağlantısı",
+            file_path="knowledge/kablosuz-ag-baglantisi.md",
+            excerpts=(
+                "Bağlanamıyorum veya bağlantı sürekli kopuyor\n\n1. Ağı cihazınızda \"unutun\" ve bilgileri "
+                "yeniden girerek bağlanın.\n2. Cihazınızın tarih ve saat ayarının doğru olduğundan emin olun; "
+                "yanlış saat sertifika doğrulamasını bozar.",
+            ),
+        ),
     ),
     CannedAnswer(
         keywords=("yazıcı", "çıktı", "kağıt sıkış"),
@@ -51,7 +69,14 @@ CANNED_ANSWERS: tuple[CannedAnswer, ...] = (
             "seçtiğinizden emin olun."
         ),
         confidence=0.70,
-        source="knowledge/yazici-sorunlari.md",
+        source=AnswerSource(
+            title="Yazıcı ve Çıktı Sorunları",
+            file_path="knowledge/yazici-sorunlari.md",
+            excerpts=(
+                "Kağıt sıkışması\n\nYazıcıyı kapatın, ön ve arka kapakları açarak sıkışan kağıdı yavaşça, "
+                "kağıdın ilerleme yönünde çekerek çıkarın. Kapakları kapatıp yazıcıyı yeniden açın.",
+            ),
+        ),
     ),
 )
 

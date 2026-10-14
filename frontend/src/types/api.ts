@@ -58,10 +58,17 @@ export interface TicketSummary {
   resolved_at: string | null
 }
 
+/** AI yanıtının dayandığı doküman ve kullanılan parçalar (E4; yanıtla birlikte saklanan anlık kopya). */
+export interface AnswerSource {
+  title: string
+  file_path: string
+  excerpts: string[]
+}
+
 export interface AiAnswer {
   answer: string
   confidence: number
-  sources: string[]
+  sources: AnswerSource[]
   user_feedback: AiFeedback | null
 }
 

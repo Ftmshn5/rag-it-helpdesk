@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 
 import { useEvaluateAiAnswer } from '@/api/commands/tickets'
 import { ErrorText } from '@/components/layout/QueryState'
+import { AnswerSources } from '@/components/tickets/AnswerSources'
 import { Button } from '@/components/ui/button'
 import { formatPercent } from '@/lib/format'
 import type { TicketDetail } from '@/types/api'
@@ -65,16 +66,7 @@ export function AiAnswerCard({ ticket, isRequester }: { ticket: TicketDetail; is
     <AiBox aside={`Güven ${formatPercent(answer.confidence)}`}>
       <p className="whitespace-pre-wrap text-foreground">{answer.answer}</p>
 
-      {answer.sources.length > 0 && (
-        <div className="text-sm">
-          Kaynaklar:{' '}
-          {answer.sources.map((source) => (
-            <code key={source} className="mr-2 rounded bg-white/70 px-1">
-              {source}
-            </code>
-          ))}
-        </div>
-      )}
+      <AnswerSources sources={answer.sources} />
 
       {canEvaluate && (
         <div className="space-y-2 rounded-lg border bg-card p-3 text-foreground">

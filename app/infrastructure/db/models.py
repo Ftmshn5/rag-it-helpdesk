@@ -22,7 +22,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.domain.enums import (
@@ -206,7 +206,8 @@ class AIResponseModel(Base):
     )
     answer: Mapped[str] = mapped_column(Text)
     confidence: Mapped[float] = mapped_column(Float)
-    sources: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    # [{"title", "file_path", "excerpts": [...]}, …] — AI'ın kullandığı parçaların anlık kopyası
+    sources: Mapped[list[dict]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     user_feedback: Mapped[AiFeedback | None] = mapped_column(ColumnFactory.enum(AiFeedback, "user_feedback"))
 
 

@@ -16,7 +16,7 @@ import logging
 from dataclasses import dataclass
 
 from app.application.interfaces.ai_support import AiSupportFacade, AutoAnswer
-from app.domain.ticket import Ticket
+from app.domain.ticket import AnswerSource, Ticket
 from app.infrastructure.ai.prompting import PromptBuilder
 from app.infrastructure.ai.providers import EmbeddingProvider, LlmProvider
 from app.infrastructure.ai.retriever import KnowledgeRetriever, RetrievedChunk
@@ -103,7 +103,18 @@ class RagAiSupport(AiSupportFacade):
         return AutoAnswer(answer=answer, confidence=confidence, sources=sources)
 
     @staticmethod
-    def _unique_sources(chunks: list[RetrievedChunk]) -> list[str]:
-        # Aynı dokümandan birden fazla parça gelebilir; kaynak bir kez gösterilir (sıra korunur)
-        return list(dict.fromkeys(chunk.file_path for chunk in chunks))
+    def _unique_sources(chunks: list[RetrievedChunk]) -> list[AnswerSource]:
+        """Parçaları dokümana göre toplar: her doküman bir kaynak, kullanılan parçaları onun alıntıları.
+        Sıra korunur (en benzer parçanın dokümanı önce)."""
+        by_document: dict[str, list[RetrievedChunk]] = {}
+        for chunk in chunks:
+            by_document.setdefault(chunk.file_path, []).append(chunk)
+        return [
+            AnswerSource(
+                title=group[0].document_title,
+                file_path=file_path,
+                excerpts=tuple(chunk.content for chunk in group),
+            )
+            for file_path, group in by_document.items()
+        ]
 

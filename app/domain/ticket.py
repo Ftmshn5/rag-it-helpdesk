@@ -4,6 +4,7 @@ Davranış ekleyen decorator'lar ticket_behavior.py'de, durum geçişleri (State
 ticket_state.py'de, destek seviyeleri (Chain of Responsibility) support_tier.py'dedir.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 
 from app.domain.clock import Clock
@@ -347,6 +348,20 @@ class TicketComment(Entity):
         return self._created_at
 
 
+@dataclass(frozen=True)
+class AnswerSource:
+    """AI yanıtının dayandığı bilgi bankası dokümanı (değer nesnesi, E4).
+
+    `excerpts`: AI'a verilen parçaların o anki metni. Anlık kopya olarak saklanır: bilgi
+    bankası yeniden indekslense veya doküman değişse bile yanıtın hangi metne
+    dayandığı görülebilir (denetim kaydı).
+    """
+
+    title: str
+    file_path: str
+    excerpts: tuple[str, ...] = ()
+
+
 class AIResponse(Entity):
     """AI asistanın talebe ürettiği yanıt; yalnızca kullanıcı geri bildirimi sonradan eklenir."""
 
@@ -357,7 +372,7 @@ class AIResponse(Entity):
         ticket_id: int,
         answer: str,
         confidence: float,
-        sources: list[str] | None = None,
+        sources: list[AnswerSource] | None = None,
         user_feedback: AiFeedback | None = None,
     ) -> None:
         super().__init__(id)
@@ -380,7 +395,7 @@ class AIResponse(Entity):
         return self._confidence
 
     @property
-    def sources(self) -> list[str]:
+    def sources(self) -> list[AnswerSource]:
         return list(self._sources)
 
     @property

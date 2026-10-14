@@ -52,10 +52,17 @@ class TicketSummaryView:
 
 
 @dataclass(frozen=True)
+class AnswerSourceView:
+    title: str
+    file_path: str
+    excerpts: list[str]  # AI'ın kullandığı parçalar (tıklanınca gösterilir)
+
+
+@dataclass(frozen=True)
 class AiAnswerView:
     answer: str
     confidence: float
-    sources: list[str]
+    sources: list[AnswerSourceView]
     user_feedback: AiFeedback | None
 
 

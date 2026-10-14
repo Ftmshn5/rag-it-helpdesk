@@ -9,6 +9,7 @@ from app.application.commands.ticket_workflow import AddCommentCommand, AddComme
 from app.application.errors import AuthenticationError, NotFoundError, PermissionDeniedError
 from app.application.queries.tickets import (
     AiAnswerView,
+    AnswerSourceView,
     GetTicketDetailHandler,
     GetTicketDetailQuery,
     ListAllTicketsHandler,
@@ -24,7 +25,7 @@ from app.application.queries.tickets import (
 from app.application.queries.users import UserQueries, UserView
 from app.core.dependencies import get_db_session
 from app.domain.enums import SupportLevel, TicketCategory, TicketModifier, TicketStatus, UserRole
-from app.domain.ticket import AIResponse, Ticket
+from app.domain.ticket import AIResponse, AnswerSource, Ticket
 from app.domain.user import User
 from app.infrastructure.db.projections import TicketSummaryProjector
 from app.infrastructure.db.queries import SqlTicketQueries
@@ -140,7 +141,7 @@ def detail_with_ai(confidence: float) -> TicketDetailView:
     return TicketDetailView(
         summary=summary(),
         description="d",
-        ai_answer=AiAnswerView("Cevap", confidence, ["k.md"], None),
+        ai_answer=AiAnswerView("Cevap", confidence, [], None),
     )
 
 
@@ -202,7 +203,12 @@ def data(session_factory):
             Ticket(title="Çözüldü", created_at=old, **(base | {"status": S.RESOLVED}))
         )
         uow.ai_responses.add(
-            AIResponse(ticket_id=vip.id, answer="Yeniden başlatın.", confidence=0.7, sources=["k.md"])
+            AIResponse(
+                ticket_id=vip.id,
+                answer="Yeniden başlatın.",
+                confidence=0.7,
+                sources=[AnswerSource(title="Bilgi", file_path="k.md", excerpts=("Kapatıp açın.",))],
+            )
         )
         uow.commit()
     AddCommentHandler(uow).handle(AddCommentCommand(actor_id=tech.id, ticket_id=vip.id, content="Bakıyorum."))
@@ -244,7 +250,9 @@ def test_detail_combines_read_model_and_write_tables(session_factory, data):
 
     assert detail.description == "Açıklama metni"
     assert detail.summary.sla_hours == 24
-    assert detail.ai_answer == AiAnswerView("Yeniden başlatın.", 0.7, ["k.md"], None)
+    assert detail.ai_answer == AiAnswerView(
+        "Yeniden başlatın.", 0.7, [AnswerSourceView("Bilgi", "k.md", ["Kapatıp açın."])], None
+    )
     assert [(c.author_name, c.content) for c in detail.comments] == [("Q Teknisyen", "Bakıyorum.")]
     assert detail.summary.comment_count == 1
 
