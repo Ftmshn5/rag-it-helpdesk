@@ -108,6 +108,27 @@ infrastructure/
 - Arayüzdeki rol koruması (`RequireRole`) yalnızca kullanıcı deneyimi içindir; yetkinin asıl kontrolü backend'dedir.
 - Sayfalar role göre ayrılır: kullanıcı, teknisyen, yönetici.
 
+### Tasarım sistemi
+- Renkler yalnızca `frontend/src/index.css` tema değişkenlerinden gelir (shadcn/ui); bileşenlerde sabit renk yazılmaz. Tek istisna rozet renkleri (aşağıda), onlar da tek dosyada: `components/ui/status-badge.tsx`.
+- Düzen: koyu yan menü (rolün sayfaları) + beyaz üst çubuk (bildirimler, seçili kullanıcı) + lavanta zemin üzerinde beyaz kartlar.
+
+| Değişken | Renk | Kullanım |
+|---|---|---|
+| `--background` | `#E6E1F7` | sayfa zemini (lavanta) |
+| `--card`, `--popover` | `#FFFFFF` | kartlar ve paneller |
+| `--border`, `--input` | `#D9D3F0` | kenarlık |
+| `--foreground` / `--muted-foreground` | `#1E1B4B` / `#6B6890` | ana / ikincil metin |
+| `--primary` / `--primary-hover` | `#4F46E5` / `#4338CA` | düğmeler, bağlantılar, seçili öğeler |
+| `--sidebar` / `--sidebar-accent` | `#1E1B4B` / `#312E81` | yan menü zemini / seçili menü |
+| `--sidebar-foreground` / `--sidebar-accent-foreground` | `#A5A3C9` / `#FFFFFF` | pasif / seçili menü yazısı |
+| `--ai` / `--ai-border` / `--ai-foreground` | `#F5F3FF` / `#7C3AED` / `#5B21B6` | AI içeriği: zemin, 3px sol çizgi, yazı |
+
+- **AI içeriği** yalnızca renkle ayırt edilmez: kutunun başında sparkles ikonu ve "AI önerisi" etiketi bulunur (`AiAnswerCard`).
+- **Rozetler** tek bileşenden: `StatusBadge` (talep durumları ve işaretleri), aynı kalıpla `DeviceStatusBadge`. Her rozetin metni vardır; işaret rozetlerinde ayrıca ikon bulunur. Zemin / yazı:
+  - Talep: Açık `#F1F5F9`/`#334155` · AI yanıtladı `#EDE9FE`/`#5B21B6` · Eskale `#FEF3C7`/`#92400E` · Atandı `#E0E7FF`/`#3730A3` · İşlemde `#E0F2FE`/`#075985` · Çözüldü `#DCFCE7`/`#166534` · Kapandı `#F1F5F9`/`#64748B`
+  - İşaret: VIP `#FEF9C3`/`#854D0E` (taç) · Acil `#FEE2E2`/`#991B1B` (uyarı) · Gecikti Acil renginde (saat) · Kıdemli destek Atandı renginde (kalkan)
+  - Cihaz: Depoda yeşil · Zimmetli indigo · Bakımda turuncu · Hurda gri
+
 ### Repository
 - Command handler'lar veritabanına doğrudan değil, `application/interfaces` içindeki repository arayüzleri üzerinden erişir.
 - Testlerde in-memory sahte repository kullanılabilir.

@@ -7,7 +7,6 @@ import { useState, type FormEvent } from 'react'
 
 import { useCompleteMaintenance, useStartMaintenance } from '@/api/commands/inventory'
 import { useMaintenanceHistory } from '@/api/queries/inventory'
-import { DeviceStatusBadge } from '@/components/inventory/DeviceStatusBadge'
 import { ErrorText, QueryState } from '@/components/layout/QueryState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { DeviceStatusBadge } from '@/components/ui/status-badge'
 import { formatDateTime } from '@/lib/format'
 import { MAINTENANCE_TYPE_LABELS } from '@/lib/labels'
 import type { DeviceInventory, MaintenanceType } from '@/types/api'

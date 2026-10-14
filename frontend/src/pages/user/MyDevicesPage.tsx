@@ -1,13 +1,15 @@
 // UC-04: kullanıcı kendisine zimmetli cihazları görür; buradan doğrudan arıza bildirebilir.
 
+import { LaptopIcon } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { useMyDevices } from '@/api/queries/inventory'
-import { DeviceStatusBadge } from '@/components/inventory/DeviceStatusBadge'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { PageMessage } from '@/components/layout/PageMessage'
 import { QueryState } from '@/components/layout/QueryState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { DeviceStatusBadge } from '@/components/ui/status-badge'
 import { formatDate } from '@/lib/format'
 
 export function MyDevicesPage() {
@@ -19,7 +21,7 @@ export function MyDevicesPage() {
       <QueryState query={devices}>
         {(data) =>
           data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Size zimmetli bir cihaz yok.</p>
+            <PageMessage title="Size zimmetli bir cihaz yok" icon={LaptopIcon} />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {data.map((device) => (

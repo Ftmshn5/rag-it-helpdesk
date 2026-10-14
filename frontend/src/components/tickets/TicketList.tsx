@@ -1,7 +1,9 @@
 import { Link } from 'react-router'
 
-import { TicketFlags, TicketStatusBadge } from '@/components/tickets/TicketBadges'
+import { PageMessage } from '@/components/layout/PageMessage'
+import { TicketFlags } from '@/components/tickets/TicketBadges'
 import { Card, CardContent } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { CATEGORY_LABELS } from '@/lib/labels'
 import { formatDateTime } from '@/lib/format'
 import type { TicketSummary } from '@/types/api'
@@ -17,7 +19,7 @@ interface TicketListProps {
 
 export function TicketList({ tickets, emptyMessage, showRequester, showPriority }: TicketListProps) {
   if (tickets.length === 0) {
-    return <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+    return <PageMessage title={emptyMessage} />
   }
 
   return (
@@ -49,7 +51,7 @@ export function TicketList({ tickets, emptyMessage, showRequester, showPriority 
                     </div>
                   </div>
                 )}
-                <TicketStatusBadge status={ticket.status} />
+                <StatusBadge kind={ticket.status} />
               </CardContent>
             </Card>
           </Link>

@@ -60,7 +60,7 @@ export function SummaryCards({ statistics }: { statistics: FailureStatistics }) 
 
 const weeklyConfig = {
   created: { label: 'Açılan', color: 'var(--chart-2)' },
-  resolved: { label: 'Çözülen', color: 'var(--chart-4)' },
+  resolved: { label: 'Çözülen', color: 'var(--chart-3)' },
 } satisfies ChartConfig
 
 export function WeeklyTrendChart({ weekly }: { weekly: WeeklyCount[] }) {
@@ -90,7 +90,7 @@ export function WeeklyTrendChart({ weekly }: { weekly: WeeklyCount[] }) {
 
 // --- Kategori dağılımı ---
 
-const categoryConfig = { count: { label: 'Talep', color: 'var(--chart-2)' } } satisfies ChartConfig
+const categoryConfig = { count: { label: 'Talep', color: 'var(--chart-1)' } } satisfies ChartConfig
 
 export function CategoryChart({ byCategory }: { byCategory: Record<TicketCategory, number> }) {
   const data = (Object.keys(byCategory) as TicketCategory[]).map((category) => ({
@@ -121,7 +121,7 @@ export function CategoryChart({ byCategory }: { byCategory: Record<TicketCategor
 // --- AI başarısı ---
 
 const aiConfig = {
-  answered: { label: 'Yanıt gösterildi', color: 'var(--chart-2)' },
+  answered: { label: 'Yanıt gösterildi', color: 'var(--chart-5)' },
   low_confidence: { label: 'Düşük güven → eskale', color: 'var(--chart-4)' },
   failed: { label: 'AI hata verdi → eskale', color: 'var(--destructive)' },
 } satisfies ChartConfig
@@ -176,7 +176,7 @@ export function AiOutcomeChart({ ai }: { ai: AiStatistics }) {
 // --- SLA uyumu ---
 
 const slaConfig = {
-  met: { label: 'Süresinde çözüldü', color: 'var(--chart-2)' },
+  met: { label: 'Süresinde çözüldü', color: 'var(--chart-3)' },
   breached: { label: 'Geç çözüldü', color: 'var(--chart-4)' },
   open_overdue: { label: 'Açık, süresi geçti', color: 'var(--destructive)' },
 } satisfies ChartConfig

@@ -3,8 +3,8 @@
 
 import { useState } from 'react'
 
-import { DeviceStatusBadge } from '@/components/inventory/DeviceStatusBadge'
 import { Input } from '@/components/ui/input'
+import { DeviceStatusBadge } from '@/components/ui/status-badge'
 import { cn } from '@/lib/utils'
 import type { DeviceInventory } from '@/types/api'
 
@@ -39,7 +39,7 @@ export function DevicePicker({ devices, selectedId, onSelect }: DevicePickerProp
               type="button"
               onClick={() => onSelect(device.device_id)}
               className={cn(
-                'flex w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-left text-sm hover:bg-muted',
+                'flex w-full items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-left text-sm hover:bg-muted',
                 device.device_id === selectedId && 'border-primary bg-muted',
               )}
             >

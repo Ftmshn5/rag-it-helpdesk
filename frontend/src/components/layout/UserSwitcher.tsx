@@ -1,4 +1,4 @@
-// Üst menüdeki kullanıcı seçme kutusu. Kimlik doğrulama kapsam dışı olduğu için
+// Yan menüdeki kullanıcı seçme kutusu. Kimlik doğrulama kapsam dışı olduğu için
 // "giriş" yerine kullanıcı seçilir; seçilen id her istekte X-User-Id olarak gider.
 
 import { useNavigate } from 'react-router'
@@ -19,7 +19,7 @@ import type { UserRole } from '@/types/api'
 
 const ROLE_ORDER: UserRole[] = ['USER', 'TECHNICIAN', 'ADMIN']
 
-export function UserSwitcher() {
+export function UserSwitcher({ className = 'w-64' }: { className?: string }) {
   const users = useUsers()
   const { userId, setUserId } = useCurrentUserId()
   const navigate = useNavigate()
@@ -37,7 +37,7 @@ export function UserSwitcher() {
 
   return (
     <Select value={userId?.toString() ?? ''} onValueChange={handleChange} disabled={users.isPending}>
-      <SelectTrigger className="w-64" aria-label="Kullanıcı seç">
+      <SelectTrigger className={className} aria-label="Kullanıcı seç">
         <SelectValue placeholder={users.isPending ? 'Yükleniyor…' : 'Kullanıcı seçin'} />
       </SelectTrigger>
       <SelectContent>

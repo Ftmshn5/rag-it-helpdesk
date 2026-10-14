@@ -7,6 +7,7 @@ import { Link } from 'react-router'
 
 import { useTicketQueue } from '@/api/queries/tickets'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { PageMessage } from '@/components/layout/PageMessage'
 import { QueryState } from '@/components/layout/QueryState'
 import { AssignTechnicianForm } from '@/components/tickets/AssignTechnicianForm'
 import { TicketFlags } from '@/components/tickets/TicketBadges'
@@ -65,7 +66,7 @@ export function AssignmentQueuePage() {
 
 function EscalatedList({ tickets, workload }: { tickets: TicketSummary[]; workload: Map<number, number> }) {
   if (tickets.length === 0) {
-    return <p className="text-sm text-muted-foreground">Atama bekleyen talep yok.</p>
+    return <PageMessage title="Atama bekleyen talep yok" description="Eskale edilen talepler burada öncelik sırasıyla listelenir." />
   }
 
   return (

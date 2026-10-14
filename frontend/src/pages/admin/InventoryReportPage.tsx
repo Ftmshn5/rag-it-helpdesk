@@ -7,11 +7,11 @@
 import { Link, useSearchParams } from 'react-router'
 
 import { useInventoryReport } from '@/api/queries/inventory'
-import { DeviceStatusBadge } from '@/components/inventory/DeviceStatusBadge'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { QueryState } from '@/components/layout/QueryState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DeviceStatusBadge } from '@/components/ui/status-badge'
 import { formatDate } from '@/lib/format'
 import { DEVICE_STATUS_LABELS } from '@/lib/labels'
 import { cn } from '@/lib/utils'

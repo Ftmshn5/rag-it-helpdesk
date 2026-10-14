@@ -12,11 +12,12 @@ import { QueryState } from '@/components/layout/QueryState'
 import { AdminTicketCard } from '@/components/tickets/AdminTicketCard'
 import { AiAnswerCard } from '@/components/tickets/AiAnswerCard'
 import { AttachmentsCard } from '@/components/tickets/AttachmentsCard'
-import { TicketFlags, TicketStatusBadge } from '@/components/tickets/TicketBadges'
+import { TicketFlags } from '@/components/tickets/TicketBadges'
 import { CommentsCard } from '@/components/tickets/CommentsCard'
 import { EscalateTicketCard } from '@/components/tickets/EscalateTicketCard'
 import { TicketActions, type Viewer } from '@/components/tickets/TicketActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { formatDateTime } from '@/lib/format'
 import { CATEGORY_LABELS, SUPPORT_LEVEL_LABELS } from '@/lib/labels'
 import type { TicketDetail } from '@/types/api'
@@ -48,7 +49,7 @@ export function TicketDetailPage() {
               actions={
                 <div className="flex flex-wrap gap-2">
                   <TicketFlags ticket={ticket.summary} />
-                  <TicketStatusBadge status={ticket.summary.status} />
+                  <StatusBadge kind={ticket.summary.status} />
                 </div>
               }
             />
