@@ -126,7 +126,8 @@ infrastructure/
 - **AI içeriği** yalnızca renkle ayırt edilmez: kutunun başında sparkles ikonu ve "AI önerisi" etiketi bulunur (`AiAnswerCard`).
 - **Rozetler** tek bileşenden: `StatusBadge` (talep durumları ve işaretleri), aynı kalıpla `DeviceStatusBadge`. Her rozetin metni vardır; işaret rozetlerinde ayrıca ikon bulunur. Zemin / yazı:
   - Talep: Açık `#F1F5F9`/`#334155` · AI yanıtladı `#EDE9FE`/`#5B21B6` · Eskale `#FEF3C7`/`#92400E` · Atandı `#E0E7FF`/`#3730A3` · İşlemde `#E0F2FE`/`#075985` · Çözüldü `#DCFCE7`/`#166534` · Kapandı `#F1F5F9`/`#64748B`
-  - İşaret: VIP `#FEF9C3`/`#854D0E` (taç) · Acil `#FEE2E2`/`#991B1B` (uyarı) · Gecikti Acil renginde (saat) · Kıdemli destek Atandı renginde (kalkan)
+  - İşaret: VIP `#FEF9C3`/`#854D0E` (taç) · Acil `#FEE2E2`/`#991B1B` (uyarı) · Kıdemli destek Atandı renginde (kalkan)
+  - SLA geri sayımı (`SlaBadge`): normal Açık renginde · kalan süre %25'in altında Eskale renginde (sarı) · süre geçti Acil renginde (kırmızı) · süresinde çözüldü Çözüldü renginde
   - Cihaz: Depoda yeşil · Zimmetli indigo · Bakımda turuncu · Hurda gri
 
 ### Repository

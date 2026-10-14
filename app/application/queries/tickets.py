@@ -73,10 +73,20 @@ class AttachmentView:
 
 
 @dataclass(frozen=True)
+class SlaLayerView:
+    """Decorator zincirinin bir katmanı: o katman uygulandıktan sonraki SLA ve öncelik."""
+
+    name: str
+    sla_hours: int
+    priority_score: int
+
+
+@dataclass(frozen=True)
 class TicketDetailView:
     summary: TicketSummaryView
     description: str
     ai_answer: AiAnswerView | None
+    sla_layers: list[SlaLayerView] = field(default_factory=list)  # SLA nasıl oluştu (Decorator)
     comments: list[CommentView] = field(default_factory=list)
     attachments: list[AttachmentView] = field(default_factory=list)
 

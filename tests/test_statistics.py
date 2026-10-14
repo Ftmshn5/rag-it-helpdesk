@@ -49,7 +49,7 @@ def summary_row(ticket_id: int, category: TicketCategory, status: TicketStatus, 
     return TicketSummaryModel(
         ticket_id=ticket_id, title=f"t{ticket_id}", category=category.value, status=status.value, support_level=SupportLevel.TIER_1.value,
         requester_id=1, requester_name="A", is_vip=False, is_urgent=False, sla_hours=72, priority_score=10,
-        due_at=due, ai_confidence=confidence, ai_feedback=feedback, comment_count=0, attachment_count=0,
+        due_at=due, sla_layers=[], ai_confidence=confidence, ai_feedback=feedback, comment_count=0, attachment_count=0,
         created_at=created, resolved_at=resolved, refreshed_at=NOW,
     )
 

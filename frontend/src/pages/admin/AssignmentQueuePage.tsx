@@ -10,11 +10,11 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { PageMessage } from '@/components/layout/PageMessage'
 import { QueryState } from '@/components/layout/QueryState'
 import { AssignTechnicianForm } from '@/components/tickets/AssignTechnicianForm'
+import { SlaCountdown } from '@/components/tickets/SlaCountdown'
 import { TicketFlags } from '@/components/tickets/TicketBadges'
 import { TicketList } from '@/components/tickets/TicketList'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDateTime } from '@/lib/format'
 import { CATEGORY_LABELS } from '@/lib/labels'
 import type { TicketSummary } from '@/types/api'
 
@@ -82,11 +82,11 @@ function EscalatedList({ tickets, workload }: { tickets: TicketSummary[]; worklo
                     {ticket.title}
                   </Link>
                   <TicketFlags ticket={ticket} />
+                  <SlaCountdown ticket={ticket} />
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
                   {CATEGORY_LABELS[ticket.category]} · {ticket.requester_name}
-                  {ticket.device_asset_tag && ` · ${ticket.device_asset_tag}`} · öncelik{' '}
-                  {ticket.priority_score} · son tarih {formatDateTime(ticket.due_at)}
+                  {ticket.device_asset_tag && ` · ${ticket.device_asset_tag}`} · öncelik {ticket.priority_score}
                 </div>
               </div>
               <AssignTechnicianForm ticketId={ticket.ticket_id} supportLevel={ticket.support_level} workload={workload} />

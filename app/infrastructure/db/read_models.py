@@ -11,6 +11,7 @@ Yazma tablolarından farklı olarak:
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, Float, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base
@@ -43,6 +44,8 @@ class TicketSummaryModel(Base):
     sla_hours: Mapped[int] = mapped_column(Integer)
     priority_score: Mapped[int] = mapped_column(Integer)
     due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Decorator zincirinin katmanları: [{"name", "sla_hours", "priority_score"}, …] (en içten dışa)
+    sla_layers: Mapped[list[dict]] = mapped_column(JSONB)
 
     ai_confidence: Mapped[float | None] = mapped_column(Float)
     ai_feedback: Mapped[str | None] = mapped_column(String(32))

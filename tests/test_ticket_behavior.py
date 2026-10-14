@@ -102,3 +102,22 @@ def test_factory_applies_decorators_in_canonical_order():
         NotificationAudience.IT_MANAGERS,
         NotificationAudience.ON_CALL_TECHNICIANS,
     ]
+
+
+# --- Katmanlar: SLA'nın nasıl oluştuğu (arayüzde gösterilir) ---
+
+
+def test_layers_report_each_decorators_effect_from_inner_to_outer():
+    layers = UrgentTicket(VipTicket(BasicTicket(make_ticket()))).layers()
+
+    assert [(layer.name, layer.sla_hours, layer.priority_score) for layer in layers] == [
+        ("Temel talep", 72, 10),
+        ("VIP", 24, 30),
+        ("Acil", 4, 80),
+    ]
+
+
+def test_basic_ticket_has_a_single_layer_matching_its_values():
+    behavior = TicketComponentFactory.create(make_ticket())
+    [layer] = behavior.layers()
+    assert (layer.sla_hours, layer.priority_score) == (behavior.sla_hours(), behavior.priority_score())

@@ -15,6 +15,7 @@ import { AttachmentsCard } from '@/components/tickets/AttachmentsCard'
 import { TicketFlags } from '@/components/tickets/TicketBadges'
 import { CommentsCard } from '@/components/tickets/CommentsCard'
 import { EscalateTicketCard } from '@/components/tickets/EscalateTicketCard'
+import { SlaCard } from '@/components/tickets/SlaCountdown'
 import { TicketActions, type Viewer } from '@/components/tickets/TicketActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -66,6 +67,7 @@ export function TicketDetailPage() {
                 <CommentsCard ticket={ticket} canContribute={canContribute} />
               </div>
               <div className="space-y-4">
+                <SlaCard ticket={ticket.summary} layers={ticket.sla_layers} />
                 <TicketActions ticket={ticket.summary} viewer={viewer} />
                 {viewer.isAssignee && <EscalateTicketCard ticket={ticket.summary} />}
                 {viewer.isAdmin && <AdminTicketCard ticket={ticket.summary} />}

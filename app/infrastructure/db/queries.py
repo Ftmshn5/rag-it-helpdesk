@@ -19,6 +19,7 @@ from app.application.queries.tickets import (
     AttachmentFileView,
     AttachmentView,
     CommentView,
+    SlaLayerView,
     TicketDetailView,
     TicketQueries,
     TicketSummaryView,
@@ -105,6 +106,7 @@ class SqlTicketQueries(TicketQueries):
             )
             if ai
             else None,
+            sla_layers=[SlaLayerView(**layer) for layer in summary.sla_layers],
             comments=[
                 CommentView(
                     id=comment.id,

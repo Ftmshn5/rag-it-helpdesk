@@ -79,10 +79,18 @@ export interface TicketAttachment {
   uploaded_at: string
 }
 
+/** Decorator zincirinin bir katmanı: o katman uygulandıktan sonraki SLA ve öncelik. */
+export interface SlaLayer {
+  name: string
+  sla_hours: number
+  priority_score: number
+}
+
 export interface TicketDetail {
   summary: TicketSummary
   description: string
   ai_answer: AiAnswer | null
+  sla_layers: SlaLayer[] // en içten dışa: Temel talep → VIP → Acil
   comments: TicketComment[]
   attachments: TicketAttachment[]
 }

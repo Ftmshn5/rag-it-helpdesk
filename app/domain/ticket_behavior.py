@@ -14,6 +14,7 @@ devreder ve sonucu kendi kuralıyla değiştirir:
 
     sla_hours():       72 → VIP: en geç 24 → Acil: en geç 4
     priority_score():  10 → VIP: +20       → Acil: +50
+    layers():          her katman kendi etkisini rapor eder (arayüzde SLA açıklaması)
     notify():          [teknisyenler] → + [BT yöneticisi e-posta] → + [nöbetçi teknisyen SMS]
 
 FACTORY
@@ -25,10 +26,24 @@ decorator'ların uygulandığını bilmek zorunda kalmaz.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from app.domain.enums import TicketModifier
 from app.domain.notifications import Notification, NotificationAudience, NotificationChannel
 from app.domain.ticket import Ticket
+
+
+@dataclass(frozen=True)
+class BehaviorLayer:
+    """Zincirin bir katmanı uygulandıktan sonraki SLA ve öncelik (değer nesnesi).
+
+    Arayüzde "SLA nasıl oluştu" açıklaması için: Temel 72 sa → VIP 24 sa → Acil 4 sa.
+    """
+
+    name: str
+    sla_hours: int
+    priority_score: int
+
 
 # --- Bileşen arayüzü ---
 
@@ -57,6 +72,10 @@ class TicketComponent(ABC):
     def notify(self) -> list[Notification]:
         """Talep açıldığında gönderilmesi gereken bildirimler."""
 
+    @abstractmethod
+    def layers(self) -> list[BehaviorLayer]:
+        """Zincirin katmanları, en içten dışa; her biri kendisi uygulandıktan sonraki değerlerle."""
+
 
 # --- Somut bileşen ---
 
@@ -64,6 +83,7 @@ class TicketComponent(ABC):
 class BasicTicket(TicketComponent):
     """Decorator deseni — Concrete Component: hiçbir özelliği olmayan talebin varsayılan davranışı."""
 
+    LAYER_NAME = "Temel talep"
     SLA_HOURS = 72
     PRIORITY_SCORE = 10
 
@@ -89,6 +109,9 @@ class BasicTicket(TicketComponent):
             )
         ]
 
+    def layers(self) -> list[BehaviorLayer]:
+        return [BehaviorLayer(self.LAYER_NAME, self.sla_hours(), self.priority_score())]
+
 
 # --- Decorator'lar ---
 
@@ -96,8 +119,11 @@ class BasicTicket(TicketComponent):
 class TicketDecorator(TicketComponent):
     """Decorator deseni — Decorator: varsayılan olarak her çağrıyı içteki nesneye devreder.
 
-    Alt sınıflar yalnızca değiştirmek istedikleri metodu ezer.
+    Alt sınıflar yalnızca değiştirmek istedikleri metodu ezer ve katmanın adını
+    (`LAYER_NAME`) verir.
     """
+
+    LAYER_NAME: str
 
     def __init__(self, inner: TicketComponent) -> None:
         self._inner = inner
@@ -115,11 +141,16 @@ class TicketDecorator(TicketComponent):
     def notify(self) -> list[Notification]:
         return self._inner.notify()
 
+    def layers(self) -> list[BehaviorLayer]:
+        # İçteki katmanlar + bu katman (kendi sla_hours/priority_score'u çok biçimli olarak hesaplanır)
+        return self._inner.layers() + [BehaviorLayer(self.LAYER_NAME, self.sla_hours(), self.priority_score())]
+
 
 class VipTicket(TicketDecorator):
     """Decorator deseni — Concrete Decorator: VIP taleplerin SLA süresini en geç 24 saate indirir,
     öncelik puanını artırır ve BT yöneticisine e-posta bildirimi ekler."""
 
+    LAYER_NAME = "VIP"
     MAX_SLA_HOURS = 24
     PRIORITY_BONUS = 20
 
@@ -144,6 +175,7 @@ class UrgentTicket(TicketDecorator):
     """Decorator deseni — Concrete Decorator: acil taleplerin SLA süresini en geç 4 saate indirir,
     öncelik puanını artırır ve nöbetçi teknisyene SMS bildirimi ekler."""
 
+    LAYER_NAME = "Acil"
     MAX_SLA_HOURS = 4
     PRIORITY_BONUS = 50
 

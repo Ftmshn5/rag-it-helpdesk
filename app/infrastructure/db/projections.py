@@ -25,6 +25,7 @@ Elle yeniden kurma:  python -m app.infrastructure.db.projections
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from dataclasses import asdict
 from datetime import timedelta
 from typing import Any
 
@@ -179,6 +180,7 @@ class TicketSummaryProjector(Projector):
             "sla_hours": behavior.sla_hours(),
             "priority_score": behavior.priority_score(),
             "due_at": ticket.created_at + timedelta(hours=behavior.sla_hours()),
+            "sla_layers": [asdict(layer) for layer in behavior.layers()],
             "ai_confidence": ai_response.confidence if ai_response else None,
             "ai_feedback": ai_response.user_feedback.value
             if ai_response and ai_response.user_feedback

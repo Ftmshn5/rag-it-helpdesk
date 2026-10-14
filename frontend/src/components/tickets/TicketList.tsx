@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 
 import { PageMessage } from '@/components/layout/PageMessage'
+import { SlaCountdown } from '@/components/tickets/SlaCountdown'
 import { TicketFlags } from '@/components/tickets/TicketBadges'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -43,14 +44,8 @@ export function TicketList({ tickets, emptyMessage, showRequester, showPriority 
                   </div>
                 </div>
 
-                {showPriority && (
-                  <div className="text-right text-sm">
-                    <div>Öncelik {ticket.priority_score}</div>
-                    <div className="text-muted-foreground">
-                      Son tarih {formatDateTime(ticket.due_at)}
-                    </div>
-                  </div>
-                )}
+                {showPriority && <span className="text-sm text-muted-foreground">Öncelik {ticket.priority_score}</span>}
+                <SlaCountdown ticket={ticket} />
                 <StatusBadge kind={ticket.status} />
               </CardContent>
             </Card>

@@ -86,6 +86,12 @@ def test_refresh_builds_denormalized_row(session_factory, projector, people):
     # Decorator'dan gelen hesaplanmış alanlar
     assert (row.sla_hours, row.priority_score) == (4, 80)
     assert row.due_at == ticket.created_at + timedelta(hours=4)
+    # SLA'nın nasıl oluştuğu: Decorator zincirinin katmanları (detay sayfasında gösterilir)
+    assert [(layer["name"], layer["sla_hours"]) for layer in row.sla_layers] == [
+        ("Temel talep", 72),
+        ("VIP", 24),
+        ("Acil", 4),
+    ]
     assert row.status == "OPEN"
     assert row.assignee_name is None
 
