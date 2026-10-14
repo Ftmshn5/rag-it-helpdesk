@@ -39,6 +39,9 @@ export const queryKeys = {
     report: (status?: DeviceStatus, type?: string) => ['inventory', 'report', status, type] as const,
     devices: (status?: DeviceStatus) => ['inventory', 'devices', status] as const,
     mine: (userId: number) => ['inventory', 'mine', userId] as const,
+    // 'inventory' önekinde: zimmet/bakım işlemlerinden sonra kendiliğinden yenilenir.
+    // Ne gösterileceği kişiye bağlı (zimmet sahibi gizlenebilir): kullanıcı id'si anahtarda.
+    device: (deviceId: number, userId: number) => ['inventory', 'device', deviceId, userId] as const,
     maintenance: (deviceId: number) => ['inventory', 'maintenance', deviceId] as const,
   },
 }

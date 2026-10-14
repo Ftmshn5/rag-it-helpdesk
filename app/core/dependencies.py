@@ -47,6 +47,7 @@ from app.application.interfaces.notification_sender import NotificationSender
 from app.application.interfaces.task_runner import TaskRunner
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.application.queries.inventory import (
+    GetDeviceHandler,
     GetInventoryReportHandler,
     GetMaintenanceHistoryHandler,
     InventoryQueries,
@@ -393,6 +394,12 @@ def get_list_my_devices_handler(
     inventory: InventoryQueries = Depends(get_inventory_queries), users: UserQueries = Depends(get_user_queries)
 ) -> ListMyDevicesHandler:
     return ListMyDevicesHandler(inventory, users)
+
+
+def get_device_handler(
+    inventory: InventoryQueries = Depends(get_inventory_queries), users: UserQueries = Depends(get_user_queries)
+) -> GetDeviceHandler:
+    return GetDeviceHandler(inventory, users)
 
 
 def get_maintenance_history_handler(

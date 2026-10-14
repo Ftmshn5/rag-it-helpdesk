@@ -1,11 +1,11 @@
 """Envanter sorguları (CQRS okuma tarafı).
 
-UC-11 envanter raporu ve UC-04 zimmetli cihazlarım read.device_inventory'den;
+UC-11 envanter raporu, UC-04 zimmetli cihazlarım ve cihaz detayı (E5, QR) read.device_inventory'den;
 UC-17 bakım geçmişi doğrudan write tablosundan (tek tablo, projeksiyon gereksiz).
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 
 from app.application.errors import NotFoundError
@@ -70,6 +70,9 @@ class InventoryQueries(ABC):
     def list_held_by(self, user_id: int) -> list[DeviceInventoryView]: ...
 
     @abstractmethod
+    def get_device(self, device_id: int) -> DeviceInventoryView | None: ...
+
+    @abstractmethod
     def device_exists(self, device_id: int) -> bool: ...
 
     @abstractmethod
@@ -99,6 +102,11 @@ class ListMyDevicesQuery(ActorQuery):
 
 @dataclass(frozen=True, kw_only=True)
 class GetMaintenanceHistoryQuery(ActorQuery):
+    device_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class GetDeviceQuery(ActorQuery):
     device_id: int
 
 
@@ -156,3 +164,23 @@ class GetMaintenanceHistoryHandler(InventoryQueryHandler[GetMaintenanceHistoryQu
         if not self._inventory.device_exists(query.device_id):
             raise NotFoundError("Cihaz bulunamadı.")
         return self._inventory.maintenance_history(query.device_id)
+
+
+class GetDeviceHandler(InventoryQueryHandler[GetDeviceQuery, DeviceInventoryView]):
+    """E5: cihaz detayı (cihazın QR etiketi okutulunca açılan sayfa). Her rol görebilir.
+
+    Zimmet sahibi kişisel bilgidir: yalnızca personel (teknisyen, yönetici) ve cihazın
+    kendi sahibi görür. Örneğin laboratuvardaki bir bilgisayarı okutan öğrenci, cihazın
+    durumunu ve konumunu görür ama kime zimmetli olduğunu görmez.
+    """
+
+    def handle(self, query: GetDeviceQuery) -> DeviceInventoryView:
+        viewer = self._require_viewer(query.actor_id)
+        device = self._inventory.get_device(query.device_id)
+        if device is None:
+            raise NotFoundError("Cihaz bulunamadı.")
+
+        is_staff = viewer.role in (UserRole.TECHNICIAN, UserRole.ADMIN)
+        if is_staff or device.holder_id == viewer.id:
+            return device
+        return replace(device, holder_id=None, holder_name=None, holder_department=None, assigned_at=None)

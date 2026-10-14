@@ -1,7 +1,8 @@
 // UC-08 / UC-09: yönetici cihaz ekler, bilgilerini günceller, zimmetler/iade alır, hurdaya ayırır.
 // Seçim adreste tutulur: ?device=3 seçili cihaz, ?new=1 yeni cihaz formu.
 
-import { useSearchParams } from 'react-router'
+import { QrCodeIcon } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router'
 
 import { useDevices } from '@/api/queries/inventory'
 import {
@@ -30,7 +31,17 @@ export function DevicesPage() {
       <PageHeader
         title="Cihazlar ve zimmet"
         description="Cihaz ekleme, güncelleme, zimmetleme ve iade."
-        actions={<Button onClick={() => setSearchParams({ new: '1' })}>Yeni cihaz</Button>}
+        actions={
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link to="/admin/devices/labels">
+                <QrCodeIcon />
+                QR etiketleri
+              </Link>
+            </Button>
+            <Button onClick={() => setSearchParams({ new: '1' })}>Yeni cihaz</Button>
+          </div>
+        }
       />
       <QueryState query={devices}>
         {(data) => {

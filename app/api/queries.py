@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, Query, Response
 
 from app.application.queries.inventory import (
     DeviceInventoryView,
+    GetDeviceHandler,
+    GetDeviceQuery,
     GetInventoryReportHandler,
     GetInventoryReportQuery,
     GetMaintenanceHistoryHandler,
@@ -46,6 +48,7 @@ from app.application.queries.users import ListUsersHandler, ListUsersQuery, User
 from app.core.dependencies import (
     get_attachment_file_handler,
     get_current_user_id,
+    get_device_handler,
     get_failure_statistics_handler,
     get_inventory_report_handler,
     get_list_all_tickets_handler,
@@ -155,6 +158,17 @@ def list_my_devices(
     handler: ListMyDevicesHandler = Depends(get_list_my_devices_handler),
 ) -> list[DeviceInventoryView]:
     return handler.handle(ListMyDevicesQuery(actor_id=actor_id))
+
+
+# /devices/mine'dan SONRA tanımlanır: aksi halde "mine" bir cihaz numarası sanılıp 422 dönerdi
+@router.get("/devices/{device_id}", response_model=DeviceInventoryView)
+def get_device(
+    device_id: int,
+    actor_id: int = Depends(get_current_user_id),
+    handler: GetDeviceHandler = Depends(get_device_handler),
+) -> DeviceInventoryView:
+    """E5: cihaz detayı (QR etiketi). Zimmet sahibi yalnızca personel ve sahibine görünür."""
+    return handler.handle(GetDeviceQuery(actor_id=actor_id, device_id=device_id))
 
 
 @router.get("/devices/{device_id}/maintenance-records", response_model=list[MaintenanceRecordView])

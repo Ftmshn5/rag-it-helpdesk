@@ -270,6 +270,10 @@ class SqlInventoryQueries(InventoryQueries):
         )
         return [self._to_inventory_view(row) for row in self._session.scalars(statement)]
 
+    def get_device(self, device_id: int) -> DeviceInventoryView | None:
+        row = self._session.get(DeviceInventoryModel, device_id)
+        return self._to_inventory_view(row) if row else None
+
     def device_exists(self, device_id: int) -> bool:
         return self._session.get(DeviceModel, device_id) is not None
 

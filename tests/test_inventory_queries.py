@@ -19,6 +19,8 @@ from app.application.commands.maintenance import (
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.application.queries.inventory import (
+    GetDeviceHandler,
+    GetDeviceQuery,
     GetInventoryReportHandler,
     GetInventoryReportQuery,
     GetMaintenanceHistoryHandler,
@@ -202,3 +204,52 @@ def test_inventory_endpoints(session_factory, setup):
         f"/devices/{device_id}/maintenance-records", headers={"X-User-Id": str(tech.id)}
     )
     assert (history.status_code, history.json()) == (200, [])
+
+
+# --- E5: cihaz detayı (QR etiketi) ---
+
+
+def get_device(session_factory, actor_id, device_id):
+    with session_factory() as session:
+        handler = GetDeviceHandler(SqlInventoryQueries(session), SqlUserQueries(session))
+        return handler.handle(GetDeviceQuery(actor_id=actor_id, device_id=device_id))
+
+
+def test_device_detail_hides_holder_from_other_users(session_factory, setup):
+    uow, admin, tech, user = setup
+    device_id = register(uow, admin, "INV-QR01")
+    AssignDeviceHandler(uow).handle(AssignDeviceCommand(actor_id=admin.id, device_id=device_id, user_id=user.id))
+    with uow:
+        stranger = uow.users.add(User(full_name="Okutan Öğrenci", email="inv.qr@test.edu"))
+        uow.commit()
+
+    # Personel ve cihazın sahibi zimmet bilgisini görür
+    for viewer in (admin, tech, user):
+        device = get_device(session_factory, viewer.id, device_id)
+        assert (device.holder_name, device.holder_department) == ("Envanter Kul.", "Fizik")
+
+    # Başka bir kullanıcı (örn. QR'ı okutan öğrenci) durumu görür, kime zimmetli olduğunu görmez
+    seen = get_device(session_factory, stranger.id, device_id)
+    assert (seen.asset_tag, seen.status) == ("INV-QR01", DeviceStatus.ASSIGNED)
+    assert (seen.holder_id, seen.holder_name, seen.holder_department, seen.assigned_at) == (None, None, None, None)
+
+
+def test_device_detail_not_found_and_endpoint(session_factory, setup):
+    uow, admin, _, user = setup
+    device_id = register(uow, admin, "INV-QR02")
+    with pytest.raises(NotFoundError):
+        get_device(session_factory, user.id, 999_999)
+
+    app = create_app()
+
+    def test_session():
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db_session] = test_session
+    client = TestClient(app)
+    headers = {"X-User-Id": str(user.id)}
+    assert client.get(f"/devices/{device_id}", headers=headers).json()["asset_tag"] == "INV-QR02"
+    assert client.get("/devices/999999", headers=headers).status_code == 404
+    # /devices/mine hâlâ kendi uç noktasına gider (sıra önemli)
+    assert client.get("/devices/mine", headers=headers).status_code == 200

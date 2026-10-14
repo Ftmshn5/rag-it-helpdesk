@@ -48,6 +48,7 @@ Bir fakültenin BT departmanı için: cihaz envanteri ve zimmet takibi, bakım g
 - Veritabanı: `docker compose up -d` ile başlar. İmaj: `pgvector/pgvector:pg16`.
 - API: `uvicorn app.main:app --reload` → `http://127.0.0.1:8000/docs`
 - Frontend: `frontend/` klasöründe `npm run dev` → `http://localhost:5173`
+- Cihaz QR etiketleri (E5) `VITE_PUBLIC_URL` adresini kodlar (yoksa tarayıcının adresi). Telefonla okutulacaksa uygulamanın ağdaki adresi verilmeli (örn. `http://192.168.1.20:5173`), `localhost` çalışmaz.
 - Backend'de frontend adresi için CORS izni tanımlanır.
 - Gerçek RAG hazır olana kadar AI tarafı sahte (fake) implementasyonla çalışır.
 - Ollama modelleri: `ollama pull bge-m3` (embedding, 1024 boyut), `ollama pull qwen2.5:3b` (yanıt).
@@ -373,7 +374,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
   - [x] R3. Domain kapsülleme (`_` alanlar, `@property`, anlamlı metotlar), mapper sınıfları, adların dokümana uydurulması (`TicketComponent`, `LlmProvider`, `assign_to` …)
   - [x] R4. `EventHandler` sınıfları, global veritabanı nesneleri yerine `Database` sınıfı, modül seviyesi yardımcı fonksiyonların sınıflara taşınması
   - [x] R5. Eksiksiz type hint, desen docstring'leri, OOP kurallarını denetleyen mimari testler
-- [ ] **12. Ekler:** her ek, bir tasarım desenini arayüzde görünür kılar. Sıra: E1–E4, ardından (MVP ve gerçek RAG bittikten sonra) E5.
+- [x] **12. Ekler:** her ek, bir tasarım desenini arayüzde görünür kılar. Sıra: E1–E4, ardından (MVP ve gerçek RAG bittikten sonra) E5.
   - [x] Arıza istatistikleri ve grafikler (yönetici paneli; UC-12)
   - [x] Eskalasyon zinciri (Chain of Responsibility; UC-07)
   - [x] Bildirimler (Observer + Strategy)
@@ -381,7 +382,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
   - [x] **E2. Teknisyen Kanban panosu — State:** "Atandı / İşlemde / Çözüldü" sütunları, sürükle-bırak ile durum değişikliği (dnd-kit). Geçişi backend'deki State sınıfları doğrular; geçersiz geçişte kart eski yerine animasyonla döner ve backend'in hata mesajı toast olarak gösterilir. Geçiş kuralı frontend'de tekrar yazılmaz, tek yerde (backend State) kalır.
   - [x] **E3. Talep zaman çizelgesi — Observer (+ CQRS okuma tarafı):** talep detayında dikey timeline: oluşturulma, AI yanıtı, kullanıcı geri bildirimi, eskalasyon, atama, durum değişiklikleri, notlar; her adımda saat ve kişi. Veri, event bus'a yayınlanan olaylardan beslenen `read.ticket_timeline` read model'inden okunur.
   - [x] **E4. AI cevabında kaynak gösterimi — Facade (RAG):** `AutoAnswer.sources` alanındaki dokümanlar cevabın altında tıklanabilir etiketler olarak görünür; tıklanınca ilgili doküman parçası açılır.
-  - [ ] **E5. Cihaz QR kodu — CQRS okuma tarafı (opsiyonel, en son):** yeni bir desen eklemez; cihaz detayı mevcut `read.device_inventory` read model'inden okunur. Her cihaz için QR etiketi; okutulunca cihaz detay sayfası açılır (zimmet, bakım geçmişi, "Arıza bildir" düğmesi). Yazdırılabilir etiket sayfası.
+  - [x] **E5. Cihaz QR kodu — CQRS okuma tarafı (opsiyonel, en son):** yeni bir desen eklemez; cihaz detayı mevcut `read.device_inventory` read model'inden okunur. Her cihaz için QR etiketi; okutulunca cihaz detay sayfası açılır (zimmet, bakım geçmişi, "Arıza bildir" düğmesi). Yazdırılabilir etiket sayfası.
 - [ ] **13. Kalite ve CV:** GitHub Actions CI, test kapsamı, ekran görüntülü ve mimari diyagramlı README, GitHub'a yükleme
 - [ ] **14. Dokümantasyon:** UML sınıf/sekans diyagramları (`docs/`; sınıf diyagramları `pyreverse` ile koddan otomatik üretilebilir), her desen ve OOP ilkesi için "nerede, neden" tablosu, ders raporu
 

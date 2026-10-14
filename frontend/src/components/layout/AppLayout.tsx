@@ -19,9 +19,9 @@ export function AppLayout() {
   const closeMenu = () => setMenuOpen(false)
 
   return (
-    <div className="flex min-h-svh bg-background">
+    <div className="flex min-h-svh bg-background print:bg-white">
       {/* Dış kutu sayfa boyunca uzanır (koyu zemin kesilmez); iç kutu kaydırırken sabit kalır */}
-      <aside className="hidden w-64 shrink-0 border-r border-sidebar-border bg-sidebar lg:block">
+      <aside className="hidden w-64 shrink-0 border-r border-sidebar-border bg-sidebar lg:block print:hidden">
         <div className="sticky top-0 h-svh">
           <AppSidebar />
         </div>
@@ -37,7 +37,7 @@ export function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-card/95 px-4 backdrop-blur lg:px-8">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-card/95 px-4 backdrop-blur lg:px-8 print:hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -53,7 +53,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
           <Outlet />
         </main>
         <Toaster />

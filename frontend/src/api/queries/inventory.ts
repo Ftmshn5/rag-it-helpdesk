@@ -32,6 +32,16 @@ export function useMyDevices() {
   })
 }
 
+/** E5: tek cihaz (QR etiketi okutulunca açılan sayfa; her rol). */
+export function useDevice(deviceId: number) {
+  const { userId } = useCurrentUserId()
+  return useQuery({
+    queryKey: queryKeys.inventory.device(deviceId, userId ?? 0),
+    queryFn: () => apiRequest<DeviceInventory>(`/devices/${deviceId}`, { userId: userId! }),
+    enabled: userId !== null && Number.isInteger(deviceId),
+  })
+}
+
 /** UC-17: cihazın bakım geçmişi (teknisyen, yönetici). */
 export function useMaintenanceHistory(deviceId: number) {
   const { userId } = useCurrentUserId()

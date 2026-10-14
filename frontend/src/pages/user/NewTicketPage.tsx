@@ -8,7 +8,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 
 import { useAttachScreenshot, useCreateTicket } from '@/api/commands/tickets'
-import { useMyDevices } from '@/api/queries/inventory'
+import { useDevice, useMyDevices } from '@/api/queries/inventory'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ErrorText } from '@/components/layout/QueryState'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,11 @@ export function NewTicketPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const devices = useMyDevices()
+  // QR etiketinden gelinmişse cihaz kullanıcıya zimmetli olmayabilir (örn. laboratuvar bilgisayarı)
+  const scannedId = Number(searchParams.get('device')) || null
+  const scanned = useDevice(scannedId ?? Number.NaN)
+  const scannedDevice =
+    scanned.data && !devices.data?.some((device) => device.device_id === scanned.data.device_id) ? scanned.data : null
   const createTicket = useCreateTicket()
   const attachScreenshot = useAttachScreenshot()
 
@@ -122,6 +127,11 @@ export function NewTicketPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_DEVICE}>Cihaz yok / bilmiyorum</SelectItem>
+                    {scannedDevice && (
+                      <SelectItem value={scannedDevice.device_id.toString()}>
+                        {scannedDevice.asset_tag} — {scannedDevice.brand} {scannedDevice.model} (QR)
+                      </SelectItem>
+                    )}
                     {devices.data?.map((device) => (
                       <SelectItem key={device.device_id} value={device.device_id.toString()}>
                         {device.asset_tag} — {device.brand} {device.model}
