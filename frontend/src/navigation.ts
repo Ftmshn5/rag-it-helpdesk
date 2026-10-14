@@ -27,6 +27,7 @@ export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { to: '/admin/queue', label: 'Atama bekleyenler' }, // UC-10
     { to: '/admin/devices', label: 'Cihazlar ve zimmet' }, // UC-08, UC-09
     { to: '/admin/inventory', label: 'Envanter raporu' }, // UC-11
+    { to: '/admin/statistics', label: 'İstatistikler' }, // UC-12
   ],
 }
 

@@ -124,3 +124,41 @@ export interface MaintenanceRecord {
 export interface Created {
   id: number
 }
+
+// --- Arıza istatistikleri (UC-12; backend: app/application/queries/statistics.py) ---
+
+export interface WeeklyCount {
+  week_start: string // YYYY-MM-DD (pazartesi)
+  created: number
+  resolved: number
+}
+
+export interface SlaStatistics {
+  met: number
+  breached: number
+  open_overdue: number
+  compliance_rate: number | null
+}
+
+export interface AiStatistics {
+  processed: number
+  answered: number
+  low_confidence: number
+  failed: number
+  helpful: number
+  not_helpful: number
+  auto_resolution_rate: number | null
+  average_confidence: number | null
+}
+
+export interface FailureStatistics {
+  generated_at: string
+  total: number
+  open: number
+  by_category: Record<TicketCategory, number>
+  by_status: Record<TicketStatus, number>
+  weekly: WeeklyCount[]
+  average_resolution_hours: number | null
+  sla: SlaStatistics
+  ai: AiStatistics
+}

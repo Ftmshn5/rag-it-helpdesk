@@ -20,6 +20,9 @@ export const queryKeys = {
       ['tickets', 'assigned', userId, status] as const,
     queue: (status?: TicketStatus) => ['tickets', 'queue', status] as const,
     detail: (ticketId: number) => ['tickets', 'detail', ticketId] as const,
+    // İstatistikler talep verisinden hesaplanır: 'tickets' önekinde olduğu için
+    // her talep işleminden sonra (invalidate) kendiliğinden yenilenir.
+    statistics: (weeks: number) => ['tickets', 'statistics', weeks] as const,
     // 'tickets' önekinin dışında: dosya değişmez, talep yenilenince tekrar indirilmez.
     // Yetki kişiye bağlı olduğu için kullanıcı id'si anahtarda.
     attachment: (ticketId: number, attachmentId: number, userId: number) =>

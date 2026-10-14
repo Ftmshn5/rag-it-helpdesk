@@ -1,6 +1,7 @@
 // Uygulamanın tüm adresleri. Her rolün sayfaları kendi grubunda ve RequireRole
 // ile korunur (yalnızca arayüz düzeyinde; asıl yetki kontrolü backend'dedir).
 
+import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router'
 
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -16,6 +17,12 @@ import { TicketDetailPage } from '@/pages/TicketDetailPage'
 import { MyDevicesPage } from '@/pages/user/MyDevicesPage'
 import { MyTicketsPage } from '@/pages/user/MyTicketsPage'
 import { NewTicketPage } from '@/pages/user/NewTicketPage'
+
+// Grafik kütüphanesi (Recharts) büyük ve yalnızca yöneticinin istatistik sayfasında
+// kullanılıyor: sayfa ayrı bir parçaya bölünür ve yalnızca açıldığında indirilir.
+const StatisticsPage = lazy(() =>
+  import('@/pages/admin/StatisticsPage').then((module) => ({ default: module.StatisticsPage })),
+)
 
 export default function App() {
   return (
@@ -39,6 +46,14 @@ export default function App() {
           <Route path="queue" element={<AssignmentQueuePage />} />
           <Route path="devices" element={<DevicesPage />} />
           <Route path="inventory" element={<InventoryReportPage />} />
+          <Route
+            path="statistics"
+            element={
+              <Suspense fallback={<p className="text-sm text-muted-foreground">Yükleniyor…</p>}>
+                <StatisticsPage />
+              </Suspense>
+            }
+          />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
