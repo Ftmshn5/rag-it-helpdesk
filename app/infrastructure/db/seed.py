@@ -19,7 +19,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.domain.enums import DeviceStatus, MaintenanceType, UserRole
+from app.domain.enums import DeviceStatus, MaintenanceType, SupportLevel, UserRole
 from app.infrastructure.db.models import AssignmentModel, DeviceModel, MaintenanceRecordModel, UserModel
 from app.infrastructure.db.projections import ReadModelRebuilder
 from app.infrastructure.db.session import Database
@@ -90,9 +90,25 @@ class DemoDataSeeder:
         session.commit()
         return True
 
-    def _user(self, key: str, full_name: str, role: UserRole, department: str, is_vip: bool = False) -> UserModel:
+    def _user(
+        self,
+        key: str,
+        full_name: str,
+        role: UserRole,
+        department: str,
+        is_vip: bool = False,
+        support_level: SupportLevel | None = None,
+    ) -> UserModel:
+        # Domain kuralıyla aynı: teknisyenin seviyesi belirtilmezse L1, diğer rollerde boş
+        if role == UserRole.TECHNICIAN and support_level is None:
+            support_level = SupportLevel.TIER_1
         return UserModel(
-            full_name=full_name, email=f"{key}@{self.EMAIL_DOMAIN}", role=role, department=department, is_vip=is_vip
+            full_name=full_name,
+            email=f"{key}@{self.EMAIL_DOMAIN}",
+            role=role,
+            department=department,
+            is_vip=is_vip,
+            support_level=support_level,
         )
 
     def _build_users(self) -> dict[str, UserModel]:
@@ -102,7 +118,10 @@ class DemoDataSeeder:
             # VIP: ticket'ları otomatik olarak VipTicket decorator'ı ile sarılacak
             "dekan": self._user("dekan", "Prof. Dr. Zeynep Demir", UserRole.USER, "Dekanlık", is_vip=True),
             "ali.celik": self._user("ali.celik", "Ali Çelik", UserRole.TECHNICIAN, "Bilgi İşlem"),
-            "elif.sahin": self._user("elif.sahin", "Elif Şahin", UserRole.TECHNICIAN, "Bilgi İşlem"),
+            # Kıdemli teknisyen (L2): üst seviyeye eskale edilen talepler yalnızca ona atanabilir
+            "elif.sahin": self._user(
+                "elif.sahin", "Elif Şahin", UserRole.TECHNICIAN, "Bilgi İşlem", support_level=SupportLevel.TIER_2
+            ),
             "bt.yonetici": self._user("bt.yonetici", "Can Arslan", UserRole.ADMIN, "Bilgi İşlem"),
         }
 

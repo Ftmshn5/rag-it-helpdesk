@@ -14,6 +14,7 @@ from app.application.interfaces.event_bus import EventBus, EventHandler
 from app.application.interfaces.repositories import Repository
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.domain.inventory import MaintenanceRecord
+from app.domain.support_tier import AiTier, SeniorTechnicianTier, SupportChain, SupportTier, TechnicianTier
 from app.domain.ticket import Ticket
 from app.domain.ticket_behavior import (
     BasicTicket,
@@ -60,6 +61,7 @@ PATTERN_CLASSES: dict[str, list[type]] = {
         ResolvedState,
         ClosedState,
     ],
+    "Chain of Responsibility": [SupportTier, AiTier, TechnicianTier, SeniorTechnicianTier, SupportChain],
     "Observer": [EventBus, EventHandler, InMemoryEventBus, EventLogger, AutoAnswerScheduler, Projector],
     "Template Method": [TicketTransitionHandler, Projector, TicketSummaryProjector, DeviceInventoryProjector, UnitOfWork],
     "Repository": [Repository, SqlAlchemyRepository],

@@ -181,7 +181,7 @@ Bu bölüm eklenmeden önce yazılmış kod varsa, bir sonraki adıma geçmeden 
 - **Unit of Work:** Bir command'ın tüm değişikliklerini tek transaction'da toplar (`with uow: ... uow.commit()`). Domain olayları `uow.add_event()` ile eklenir ve yalnızca başarılı commit'ten sonra event bus'a yayınlanır; rollback'te atılır.
 - **Factory:** Decorator'lı ticket nesnesi üretimi.
 - **Strategy:** LLM sağlayıcısını değiştirilebilir yapmak.
-- **Chain of Responsibility:** AI → teknisyen → üst seviye eskalasyon (opsiyonel).
+- **Chain of Responsibility:** destek seviyeleri AI (L0) → teknisyen (L1) → kıdemli teknisyen (L2) (`domain/support_tier.py`). `Ticket.escalate()` iki desene sorar: State eskalasyonun bu durumda mümkün olup olmadığına, zincir talebi hangi seviyenin üstleneceğine karar verir. Yeniden açma seviyeyi değiştirmez.
 
 ---
 
@@ -262,11 +262,11 @@ it-support/
 
 ## Domain modeli
 
-- **User:** id, full_name, email, role (USER / TECHNICIAN / ADMIN), department, is_vip
+- **User:** id, full_name, email, role (USER / TECHNICIAN / ADMIN), department, is_vip, support_level (yalnızca teknisyen: TIER_1 / TIER_2)
 - **Device:** id, asset_tag, type, brand, model, serial_number, status (IN_STOCK / ASSIGNED / IN_REPAIR / RETIRED), location, purchase_date
 - **Assignment:** id, device_id, user_id, assigned_by, assigned_at, returned_at (boşsa aktif)
 - **MaintenanceRecord:** id, device_id, technician_id, ticket_id (opsiyonel), type (REPAIR / PERIODIC / PART_REPLACEMENT), description, previous_device_status, performed_at (başlangıç), completed_at (boşsa bakım sürüyor)
-- **Ticket:** id, title, description, category (HARDWARE / SOFTWARE / NETWORK / ACCOUNT), status, requester_id, assignee_id, device_id (opsiyonel), modifiers (liste), created_at, resolved_at
+- **Ticket:** id, title, description, category (HARDWARE / SOFTWARE / NETWORK / ACCOUNT), status, requester_id, assignee_id, device_id (opsiyonel), modifiers (liste), support_level (AI / TIER_1 / TIER_2), created_at, resolved_at
 - **TicketAttachment:** id, ticket_id, file_path, mime_type, uploaded_at
 - **AIResponse:** id, ticket_id, answer, confidence, sources, user_feedback (HELPFUL / NOT_HELPFUL / boş)
 - **TicketComment:** id, ticket_id, author_id, content, created_at
@@ -297,6 +297,7 @@ Durum nesneleri yalnızca karar verir (izinliyse hedef durumu döndürür); geç
 Ek geçişler (State deseni, `domain/ticket_state.py`):
 - `OPEN → ESCALATED`: AI güveni eşiğin altında (iş kuralı 4).
 - `ASSIGNED / IN_PROGRESS → ASSIGNED`: başka teknisyene devir.
+- `ASSIGNED / IN_PROGRESS → ESCALATED`: teknisyen üst seviyeye eskale eder (UC-07); atama boşalır.
 - `RESOLVED → CLOSED`: talep sahibi veya yönetici çözümü onaylar.
 - `RESOLVED → ESCALATED`: talep sahibi yeniden açar (sorun sürüyor).
 - `CLOSED`: son durum; ek ve aciliyet değişikliği kabul etmez.
@@ -313,6 +314,7 @@ Ek geçişler (State deseni, `domain/ticket_state.py`):
 9. Bakımdaki cihaz iade alınamaz (bakım bitince `ASSIGNED`'a dönüp zimmetsiz kalmasın diye).
 10. Yetki (basit rol kontrolü, `X-User-Id`): cihaz/zimmet işlemleri `ADMIN`, bakım işlemleri `TECHNICIAN`, talep açma her rol, aciliyeti değiştirme ve teknisyen atama `ADMIN`, çalışmaya başlama/çözme yalnızca atanan teknisyen, kapatma talep sahibi veya `ADMIN`, yeniden açma yalnızca talep sahibi; ek ve not ekleme talebin tarafları (talep sahibi, atanan teknisyen, `ADMIN`).
 11. Ticket modifier'ları istemciden alınmaz: VIP talep sahibinin `is_vip` alanından, URGENT `is_urgent` isteğinden gelir. Decorator'larda SLA üst sınırdır (VIP en geç 24, Acil en geç 4 saat), öncelik puanı katmanlarca eklenir.
+12. Talep yalnızca seviyesine yetecek teknisyene atanabilir: L2 (kıdemli) talep yalnızca `TIER_2` teknisyene; en üst seviyedeki talep daha fazla eskale edilemez.
 
 ### Ana akış
 1. Kullanıcı arıza kaydı açar (UC-01), isteğe bağlı ekran görüntüsü ekler (UC-15).

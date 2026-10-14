@@ -7,7 +7,7 @@ durumu değiştirmemeli.
 
 import pytest
 
-from app.domain.enums import TicketCategory, TicketStatus, UserRole
+from app.domain.enums import SupportLevel, TicketCategory, TicketStatus, UserRole
 from app.domain.errors import DomainError
 from app.domain.ticket import Ticket
 from app.domain.user import User
@@ -36,7 +36,9 @@ ALLOWED_TRANSITIONS = {
     (S.ESCALATED, "assign"): S.ASSIGNED,
     (S.ASSIGNED, "assign"): S.ASSIGNED,
     (S.ASSIGNED, "start_work"): S.IN_PROGRESS,
+    (S.ASSIGNED, "escalate"): S.ESCALATED,  # UC-07: üst seviyeye
     (S.IN_PROGRESS, "assign"): S.ASSIGNED,
+    (S.IN_PROGRESS, "escalate"): S.ESCALATED,  # UC-07: üst seviyeye
     (S.IN_PROGRESS, "resolve"): S.RESOLVED,
     (S.RESOLVED, "close"): S.CLOSED,
     (S.RESOLVED, "reopen"): S.ESCALATED,
@@ -44,12 +46,15 @@ ALLOWED_TRANSITIONS = {
 
 
 def make_ticket(status: TicketStatus = S.OPEN) -> Ticket:
+    # AI'dan çıkmış (eskale edilmiş) talepler gerçek akışta teknisyen seviyesindedir
+    level = SupportLevel.AI if status in (S.OPEN, S.AI_ANSWERED) else SupportLevel.TIER_1
     return Ticket(
         title="Wi-Fi yok",
         description="Bağlanmıyor",
         category=TicketCategory.NETWORK,
         requester_id=1,
         status=status,
+        support_level=level,
     )
 
 

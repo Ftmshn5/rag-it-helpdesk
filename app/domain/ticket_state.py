@@ -7,8 +7,8 @@ kendi sınıfında yalnızca kendisinden mümkün olan geçişleri tanımlar:
     OPEN         → AI_ANSWERED (AI yanıt verdi)  | ESCALATED (düşük güven)
     AI_ANSWERED  → RESOLVED (kullanıcı: çözüldü) | ESCALATED (kullanıcı: çözülmedi)
     ESCALATED    → ASSIGNED (teknisyene atandı)
-    ASSIGNED     → IN_PROGRESS (çalışmaya başlandı) | ASSIGNED (başkasına atandı)
-    IN_PROGRESS  → RESOLVED (teknisyen çözdü)       | ASSIGNED (başkasına atandı)
+    ASSIGNED     → IN_PROGRESS (çalışmaya başlandı) | ASSIGNED (başkasına atandı) | ESCALATED (üst seviyeye)
+    IN_PROGRESS  → RESOLVED (teknisyen çözdü)       | ASSIGNED (başkasına atandı) | ESCALATED (üst seviyeye)
     RESOLVED     → CLOSED (çözüm onaylandı)         | ESCALATED (yeniden açıldı)
     CLOSED       → (son durum)
 
@@ -128,6 +128,9 @@ class AssignedState(TicketState):
     def start_work(self) -> TicketStatus:
         return TicketStatus.IN_PROGRESS
 
+    def escalate(self) -> TicketStatus:
+        return TicketStatus.ESCALATED  # UC-07: üst seviyeye (hangi seviye: SupportChain)
+
 
 class InProgressState(TicketState):
     """State deseni — Concrete State: teknisyen üzerinde çalışıyor."""
@@ -139,6 +142,9 @@ class InProgressState(TicketState):
 
     def resolve(self) -> TicketStatus:
         return TicketStatus.RESOLVED
+
+    def escalate(self) -> TicketStatus:
+        return TicketStatus.ESCALATED  # UC-07: üst seviyeye (hangi seviye: SupportChain)
 
 
 class ResolvedState(TicketState):

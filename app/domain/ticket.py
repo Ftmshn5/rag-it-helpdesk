@@ -1,20 +1,22 @@
 """Ticket modülünün varlıkları: talep, ek, yorum ve AI yanıtı.
 
 Davranış ekleyen decorator'lar ticket_behavior.py'de, durum geçişleri (State)
-ticket_state.py'dedir.
+ticket_state.py'de, destek seviyeleri (Chain of Responsibility) support_tier.py'dedir.
 """
 
 from datetime import datetime
 
 from app.domain.clock import Clock
 from app.domain.entity import Entity
-from app.domain.enums import AiFeedback, TicketCategory, TicketModifier, TicketStatus
+from app.domain.enums import AiFeedback, SupportLevel, TicketCategory, TicketModifier, TicketStatus
 from app.domain.errors import (
     AiAnswerAlreadyEvaluatedError,
+    InsufficientSupportLevelError,
     InvalidAssigneeError,
     TicketClosedError,
     UrgencyChangeNotAllowedError,
 )
+from app.domain.support_tier import SUPPORT_CHAIN, SupportTier
 from app.domain.ticket_state import STATES, TicketState
 from app.domain.user import User
 
@@ -38,6 +40,7 @@ class Ticket(Entity):
         assignee_id: int | None = None,
         device_id: int | None = None,
         modifiers: list[TicketModifier] | None = None,
+        support_level: SupportLevel = SupportLevel.AI,
         created_at: datetime | None = None,
         resolved_at: datetime | None = None,
     ) -> None:
@@ -51,6 +54,7 @@ class Ticket(Entity):
         self._device_id = device_id
         # Decorator nesneleri değil, yalnızca hangi decorator'ların uygulanacağı saklanır
         self._modifiers = list(modifiers or [])
+        self._support_level = support_level  # her talep AI seviyesinde (L0) açılır
         self._created_at = created_at or Clock.now()
         self._resolved_at = resolved_at
 
@@ -133,6 +137,15 @@ class Ticket(Entity):
         return STATES[self._status]
 
     @property
+    def support_level(self) -> SupportLevel:
+        return self._support_level
+
+    @property
+    def support_tier(self) -> SupportTier:
+        """Talebin seviyesine karşılık gelen zincir halkası (Chain of Responsibility)."""
+        return SUPPORT_CHAIN.tier(self._support_level)
+
+    @property
     def is_urgent(self) -> bool:
         return TicketModifier.URGENT in self._modifiers
 
@@ -173,14 +186,31 @@ class Ticket(Entity):
         self._move_to(self.state.accept_ai_answer())
 
     def escalate(self) -> None:
-        self._move_to(self.state.escalate())
+        """Talebi bir üst destek seviyesine taşır: AI → teknisyen (iş kuralı 4, UC-02)
+        veya teknisyen → kıdemli teknisyen (UC-07).
+
+        İki desen birlikte karar verir: State bu durumda eskalasyonun mümkün olup
+        olmadığını, Chain of Responsibility talebi hangi seviyenin üstleneceğini.
+        İkisi de hata fırlatabilir; bu yüzden önce ikisi sorulur, sonra uygulanır
+        (yarım kalmış değişiklik olmaz).
+        """
+        new_status = self.state.escalate()
+        new_level = SUPPORT_CHAIN.escalate_from(self._support_level)
+        self._move_to(new_status)
+        self._support_level = new_level
+        # Yeni seviyede talebi yönetici atar; eski teknisyenin sorumluluğu biter
+        self._assignee_id = None
 
     def assign_to(self, technician: User) -> None:
         """Talebi teknisyene atar veya başka teknisyene devreder (UC-10)."""
         # İş kuralı 3: durumdan bağımsız, her atamada geçerli
         if not technician.is_technician:
             raise InvalidAssigneeError()
-        self._move_to(self.state.assign())
+        new_status = self.state.assign()
+        # İş kuralı 12: teknisyenin seviyesi talebin seviyesine yetmeli
+        if not self.support_tier.can_be_handled_by(technician):
+            raise InsufficientSupportLevelError()
+        self._move_to(new_status)
         self._assignee_id = technician.id
 
     def start_work(self) -> None:

@@ -58,6 +58,7 @@ class UserMapper(Mapper[User, UserModel]):
             role=model.role,
             department=model.department,
             is_vip=model.is_vip,
+            support_level=model.support_level,
         )
 
     def to_values(self, entity: User) -> dict[str, Any]:
@@ -67,6 +68,7 @@ class UserMapper(Mapper[User, UserModel]):
             "role": entity.role,
             "department": entity.department,
             "is_vip": entity.is_vip,
+            "support_level": entity.support_level,
         }
 
 
@@ -158,6 +160,7 @@ class TicketMapper(Mapper[Ticket, TicketModel]):
             device_id=model.device_id,
             # Veritabanında düz metin dizisi; domain'de enum listesi
             modifiers=[TicketModifier(value) for value in model.modifiers],
+            support_level=model.support_level,
             created_at=model.created_at,
             resolved_at=model.resolved_at,
         )
@@ -172,6 +175,7 @@ class TicketMapper(Mapper[Ticket, TicketModel]):
             "assignee_id": entity.assignee_id,
             "device_id": entity.device_id,
             "modifiers": [modifier.value for modifier in entity.modifiers],
+            "support_level": entity.support_level,
             "created_at": entity.created_at,
             "resolved_at": entity.resolved_at,
         }

@@ -86,7 +86,7 @@ class MaintenanceDeviceMismatchError(MaintenanceError):
     default_message = "Bakım kaydı bu cihaza ait değil."
 
 
-# --- Talep (iş kuralları 3, 5, 11 ve durum geçişleri) ---
+# --- Talep (iş kuralları 3, 5, 11, 12 ve durum geçişleri) ---
 
 
 class TicketError(DomainError):
@@ -113,6 +113,18 @@ class UrgencyChangeNotAllowedError(TicketError):
 
 class AiAnswerAlreadyEvaluatedError(TicketError):
     default_message = "Bu AI yanıtı zaten değerlendirilmiş."
+
+
+class HighestSupportLevelError(TicketError):
+    """Chain of Responsibility: zincirde talebi üstlenecek bir üst halka kalmadı."""
+
+    default_message = "Talep zaten en üst destek seviyesinde, daha fazla eskale edilemez."
+
+
+class InsufficientSupportLevelError(TicketError):
+    """İş kuralı 12: talebin seviyesi teknisyenin seviyesinden yüksek."""
+
+    default_message = "Bu talep kıdemli teknisyen gerektiriyor; seçilen teknisyene atanamaz."
 
 
 # --- Dosya (iş kuralı 5) ---

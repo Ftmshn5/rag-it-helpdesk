@@ -13,6 +13,18 @@ class UserRole(StrEnum):
     ADMIN = "ADMIN"
 
 
+class SupportLevel(StrEnum):
+    """Destek seviyesi (Chain of Responsibility halkaları, bkz. support_tier.py).
+
+    Talepte: talebin şu an hangi seviyede olduğu. Teknisyende: hangi seviyedeki
+    taleplere bakabildiği (TIER_1 veya TIER_2).
+    """
+
+    AI = "AI"
+    TIER_1 = "TIER_1"
+    TIER_2 = "TIER_2"
+
+
 class DeviceStatus(StrEnum):
     IN_STOCK = "IN_STOCK"
     ASSIGNED = "ASSIGNED"

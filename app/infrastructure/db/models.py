@@ -29,6 +29,7 @@ from app.domain.enums import (
     AiFeedback,
     DeviceStatus,
     MaintenanceType,
+    SupportLevel,
     TicketCategory,
     TicketModifier,
     TicketStatus,
@@ -72,6 +73,8 @@ class UserModel(Base):
     role: Mapped[UserRole] = mapped_column(ColumnFactory.enum(UserRole, "role"))
     department: Mapped[str | None] = mapped_column(String(120))
     is_vip: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Yalnızca teknisyenlerde dolu (TIER_1 / TIER_2); diğer rollerde boş
+    support_level: Mapped[SupportLevel | None] = mapped_column(ColumnFactory.enum(SupportLevel, "support_level"))
 
 
 class DeviceModel(Base):
@@ -134,6 +137,9 @@ class TicketModel(Base):
     # Decorator'lar değil, yalnızca adları saklanır; Factory okurken nesneyi sarar
     modifiers: Mapped[list[str]] = mapped_column(
         ARRAY(String(32)), server_default=text("'{}'")
+    )
+    support_level: Mapped[SupportLevel] = mapped_column(
+        ColumnFactory.enum(SupportLevel, "support_level"), server_default=SupportLevel.AI.value
     )
     created_at: Mapped[datetime] = ColumnFactory.created_at()
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

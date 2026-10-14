@@ -17,7 +17,7 @@ from app.application.commands.ticket_workflow import (
     StartWorkHandler,
 )
 from app.application.errors import NotFoundError, PermissionDeniedError
-from app.domain.enums import TicketCategory, TicketStatus, UserRole
+from app.domain.enums import SupportLevel, TicketCategory, TicketStatus, UserRole
 from app.domain.errors import DomainError
 from app.domain.events import TicketCommentAdded, TicketStatusChanged
 from app.domain.ticket import Ticket
@@ -48,6 +48,7 @@ def add_ticket(uow, status=S.ESCALATED, assignee_id=None) -> int:
             requester_id=REQUESTER,
             assignee_id=assignee_id,
             status=status,
+            support_level=SupportLevel.TIER_1,  # AI'dan eskale edilmiş talepler L1'dedir
         )
     )
     return ticket.id
