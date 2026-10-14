@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from sqlalchemy.orm import sessionmaker
 
@@ -15,6 +17,9 @@ def db_connection():
     """
     database = get_database()
     if not database.is_available():
+        # CI'da veritabanı testlerinin sessizce atlanıp "yeşil" görünmesini önler
+        if os.environ.get("REQUIRE_DATABASE") == "1":
+            pytest.fail("REQUIRE_DATABASE=1 ama veritabanına bağlanılamadı.")
         pytest.skip("Veritabanı çalışmıyor (docker compose up -d)")
     connection = database.engine.connect()
     transaction = connection.begin()

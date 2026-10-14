@@ -1,0 +1,88 @@
+# Her push ve pull request'te backend ve frontend ayrı işlerde (paralel) denetlenir.
+#
+# Backend: ruff (lint + zorunlu tip ipucu) → migration'lar boş veritabanına uygulanır →
+# pytest (OOP/mimari kural testleri dahil). Veritabanı testleri atlanmaz: REQUIRE_DATABASE=1.
+# Frontend: oxlint (bileşenlerden doğrudan API çağrısı yasağı dahil) → tsc + vite build.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # CLAUDE.md "Python 3.11+": en düşük desteklenen sürüm ve geliştirmede kullanılan sürüm
+        python-version: ["3.11", "3.14"]
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: it_support
+          POSTGRES_PASSWORD: it_support_ci
+          POSTGRES_DB: it_support
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U it_support -d it_support"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://it_support:it_support_ci@localhost:5432/it_support
+      AI_PROVIDER: fake
+      REQUIRE_DATABASE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Bağımlılıklar
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check app tests migrations
+
+      - name: Migration'lar
+        run: alembic upgrade head
+
+      - name: Model ile migration'lar uyumlu mu
+        run: alembic check
+
+      - name: Testler
+        run: pytest -q
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Lint (oxlint)
+        run: npm run lint
+
+      - name: Tip denetimi ve derleme
+        run: npm run build
