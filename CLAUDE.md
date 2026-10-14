@@ -74,6 +74,7 @@ infrastructure/
   db/            → SQLAlchemy modelleri, session, repository implementasyonları
   ai/            → RAG alt sistemleri + Facade implementasyonu + FakeAiSupport
   events/        → event bus implementasyonu (uygulama içi, senkron)
+  notifications/ → bildirim kanallarının göndericileri (Strategy; e-posta/SMS benzetim)
   storage/       → ekran görüntüsü dosya depolama
 ```
 
@@ -90,7 +91,7 @@ infrastructure/
   - `write` şeması: normalize tablolar, iş kuralları burada uygulanır.
   - `read` şeması: raporlar için denormalize read model tabloları (örn. `ticket_summary`, `inventory_report`, `failure_stats`).
 - Read model'ler, yazma işleminden sonra **uygulama içi event bus** (Observer) ile aynı istekte güncellenir. Mesaj kuyruğu (RabbitMQ vb.) kullanılmayacak.
-- Dinleyiciler `EventHandler` soyut sınıfından türer: `EventLogger`, `AutoAnswerScheduler` (`application/event_handlers.py`) ve projektörler (her projektör `source_events` ile hangi olayları dinlediğini kendisi bildirir). Abonelikler tek yerde: `core/event_subscriptions.py` (`EventSubscriptions`).
+- Dinleyiciler `EventHandler` soyut sınıfından türer: `EventLogger`, `AutoAnswerScheduler`, bildiriciler `TicketCreatedNotifier` / `TicketStatusNotifier` (`application/event_handlers.py`) ve projektörler (her projektör `source_events` ile hangi olayları dinlediğini kendisi bildirir). Abonelikler tek yerde: `core/event_subscriptions.py` (`EventSubscriptions`).
 - Veritabanı bağlantısı global değildir: `Database` sınıfının tek nesnesi kompozisyon kökünde (`get_database`) kurulur; sınıflara oturum fabrikası enjekte edilir.
 - Uygulanan read model'ler: `read.ticket_summary` (talep listeleri), `read.device_inventory` (envanter raporu, zimmetli cihazlarım).
 - Arıza istatistikleri (UC-12) ayrı bir `failure_stats` tablosu yerine `read.ticket_summary` üzerinde toplama sorgularıyla hesaplanır (`infrastructure/db/statistics.py`, PostgreSQL `FILTER`); ikinci bir kopyayı tutarlı tutma maliyeti bu ölçekte gereksiz.
@@ -180,7 +181,8 @@ Bu bölüm eklenmeden önce yazılmış kod varsa, bir sonraki adıma geçmeden 
 - **Data Mapper:** Domain varlığı ↔ SQLAlchemy modeli çevirisi (`infrastructure/db/mappers.py`); domain sınıfları veritabanını bilmez.
 - **Unit of Work:** Bir command'ın tüm değişikliklerini tek transaction'da toplar (`with uow: ... uow.commit()`). Domain olayları `uow.add_event()` ile eklenir ve yalnızca başarılı commit'ten sonra event bus'a yayınlanır; rollback'te atılır.
 - **Factory:** Decorator'lı ticket nesnesi üretimi.
-- **Strategy:** LLM sağlayıcısını değiştirilebilir yapmak.
+- **Strategy:** LLM sağlayıcısını değiştirilebilir yapmak; bildirim kanalları (`NotificationSender`: uygulama içi, e-posta ve SMS benzetimi).
+- **Bildirimler:** hangi bildirimin gerektiğine domain karar verir — talep açılınca Decorator zinciri (`notify()`), durum değişince yeni durumun State nesnesi (`entry_notifications()`). Alıcı bir kitledir (`NotificationAudience`), kişilere application'da çevrilir; nöbetçi = kıdemli (L2) teknisyenler. Bildirimler `write.notifications`'a kaydedilir, teslim commit'ten sonra yapılır; işlemi yapan kendi işlemi için bildirim almaz. Arayüzde zil menüsü yoklama (polling) ile okur.
 - **Chain of Responsibility:** destek seviyeleri AI (L0) → teknisyen (L1) → kıdemli teknisyen (L2) (`domain/support_tier.py`). `Ticket.escalate()` iki desene sorar: State eskalasyonun bu durumda mümkün olup olmadığına, zincir talebi hangi seviyenin üstleneceğine karar verir. Yeniden açma seviyeyi değiştirmez.
 
 ---

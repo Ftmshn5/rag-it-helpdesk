@@ -7,13 +7,25 @@ sınıfta" listesidir; yeni bir desen sınıfı eklenince buraya da eklenir.
 
 import pytest
 
+from app.application.commands.notifications import (
+    NotifyTicketCreatedHandler,
+    NotifyTicketStatusChangedHandler,
+    TicketNotificationHandler,
+)
 from app.application.commands.ticket_workflow import TicketTransitionHandler
-from app.application.event_handlers import AutoAnswerScheduler
+from app.application.event_handlers import (
+    AutoAnswerScheduler,
+    TicketCreatedNotifier,
+    TicketNotifier,
+    TicketStatusNotifier,
+)
 from app.application.interfaces.ai_support import AiSupportFacade
 from app.application.interfaces.event_bus import EventBus, EventHandler
+from app.application.interfaces.notification_sender import NotificationSender
 from app.application.interfaces.repositories import Repository
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.domain.inventory import MaintenanceRecord
+from app.domain.notifications import UserNotification
 from app.domain.support_tier import AiTier, SeniorTechnicianTier, SupportChain, SupportTier, TechnicianTier
 from app.domain.ticket import Ticket
 from app.domain.ticket_behavior import (
@@ -44,10 +56,20 @@ from app.infrastructure.db.repositories import SqlAlchemyRepository
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.event_logger import EventLogger
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
+from app.infrastructure.notifications.senders import InAppSender, SimulatedEmailSender, SimulatedSmsSender
 
 PATTERN_CLASSES: dict[str, list[type]] = {
     "Facade": [AiSupportFacade, RagAiSupport, FakeAiSupport],
-    "Strategy": [EmbeddingProvider, LlmProvider, OllamaEmbeddingProvider, OllamaLlmProvider],
+    "Strategy": [
+        EmbeddingProvider,
+        LlmProvider,
+        OllamaEmbeddingProvider,
+        OllamaLlmProvider,
+        NotificationSender,
+        InAppSender,
+        SimulatedEmailSender,
+        SimulatedSmsSender,
+    ],
     "Decorator": [TicketComponent, BasicTicket, TicketDecorator, VipTicket, UrgentTicket],
     "Factory": [TicketComponentFactory],
     "State": [
@@ -62,8 +84,27 @@ PATTERN_CLASSES: dict[str, list[type]] = {
         ClosedState,
     ],
     "Chain of Responsibility": [SupportTier, AiTier, TechnicianTier, SeniorTechnicianTier, SupportChain],
-    "Observer": [EventBus, EventHandler, InMemoryEventBus, EventLogger, AutoAnswerScheduler, Projector],
-    "Template Method": [TicketTransitionHandler, Projector, TicketSummaryProjector, DeviceInventoryProjector, UnitOfWork],
+    "Observer": [
+        EventBus,
+        EventHandler,
+        InMemoryEventBus,
+        EventLogger,
+        AutoAnswerScheduler,
+        Projector,
+        TicketNotifier,
+        TicketCreatedNotifier,
+        TicketStatusNotifier,
+    ],
+    "Template Method": [
+        TicketTransitionHandler,
+        Projector,
+        TicketSummaryProjector,
+        DeviceInventoryProjector,
+        UnitOfWork,
+        TicketNotificationHandler,
+        NotifyTicketCreatedHandler,
+        NotifyTicketStatusChangedHandler,
+    ],
     "Repository": [Repository, SqlAlchemyRepository],
     "Unit of Work": [UnitOfWork, SqlAlchemyUnitOfWork],
     "Data Mapper": [Mapper],
@@ -79,5 +120,5 @@ def test_pattern_class_docstring_names_the_pattern(pattern, cls):
 
 
 def test_factory_methods_name_their_pattern():
-    for method in (Ticket.open, MaintenanceRecord.open):
+    for method in (Ticket.open, MaintenanceRecord.open, UserNotification.deliver):
         assert "Factory Method" in (method.__doc__ or "")

@@ -34,6 +34,7 @@ from app.application.interfaces.repositories import (
     TicketAttachmentRepository,
     TicketCommentRepository,
     TicketRepository,
+    UserNotificationRepository,
     UserRepository,
 )
 from app.domain.events import DomainEvent
@@ -55,6 +56,7 @@ class UnitOfWork(ABC):
     ticket_attachments: TicketAttachmentRepository
     ticket_comments: TicketCommentRepository
     ai_responses: AIResponseRepository
+    notifications: UserNotificationRepository
 
     def __init__(self, event_bus: EventBus) -> None:
         self.event_bus = event_bus

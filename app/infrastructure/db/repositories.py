@@ -20,10 +20,13 @@ from app.application.interfaces.repositories import (
     TicketAttachmentRepository,
     TicketCommentRepository,
     TicketRepository,
+    UserNotificationRepository,
     UserRepository,
 )
 from app.domain.entity import Entity
+from app.domain.enums import UserRole
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
+from app.domain.notifications import UserNotification
 from app.domain.ticket import AIResponse, Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 from app.infrastructure.db.base import Base
@@ -37,12 +40,14 @@ from app.infrastructure.db.mappers import (
     TicketCommentMapper,
     TicketMapper,
     UserMapper,
+    UserNotificationMapper,
 )
 from app.infrastructure.db.models import (
     AIResponseModel,
     AssignmentModel,
     DeviceModel,
     MaintenanceRecordModel,
+    NotificationModel,
     TicketAttachmentModel,
     TicketCommentModel,
     TicketModel,
@@ -93,10 +98,16 @@ class SqlAlchemyRepository(Generic[E, M]):
         model = self._session.scalars(statement).first()
         return self.mapper.to_entity(model) if model else None
 
+    def _all(self, statement: Select[tuple[M]]) -> list[E]:
+        return [self.mapper.to_entity(model) for model in self._session.scalars(statement)]
+
 
 class SqlAlchemyUserRepository(SqlAlchemyRepository[User, UserModel], UserRepository):
     model_class = UserModel
     mapper = UserMapper()
+
+    def list_by_role(self, role: UserRole) -> list[User]:
+        return self._all(select(UserModel).where(UserModel.role == role).order_by(UserModel.id))
 
 
 class SqlAlchemyDeviceRepository(SqlAlchemyRepository[Device, DeviceModel], DeviceRepository):
@@ -163,3 +174,17 @@ class SqlAlchemyAIResponseRepository(SqlAlchemyRepository[AIResponse, AIResponse
 
     def get_by_ticket(self, ticket_id: int) -> AIResponse | None:
         return self._first(select(AIResponseModel).where(AIResponseModel.ticket_id == ticket_id))
+
+
+class SqlAlchemyUserNotificationRepository(
+    SqlAlchemyRepository[UserNotification, NotificationModel], UserNotificationRepository
+):
+    model_class = NotificationModel
+    mapper = UserNotificationMapper()
+
+    def list_unread_for(self, recipient_id: int) -> list[UserNotification]:
+        return self._all(
+            select(NotificationModel).where(
+                NotificationModel.recipient_id == recipient_id, NotificationModel.read_at.is_(None)
+            )
+        )

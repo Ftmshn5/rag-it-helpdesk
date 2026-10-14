@@ -23,6 +23,7 @@ from app.domain.entity import Entity
 from app.domain.enums import DeviceStatus, MaintenanceType, TicketCategory
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
 from app.domain.knowledge import KnowledgeChunk, KnowledgeDocument
+from app.domain.notifications import NotificationChannel, UserNotification
 from app.domain.ticket import AIResponse, Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 
@@ -84,6 +85,7 @@ ENTITY_SAMPLES = [
     AIResponse(ticket_id=1, answer="a", confidence=0.9),
     KnowledgeDocument(title="t", file_path="knowledge/t.md"),
     KnowledgeChunk(document_id=1, content="c"),
+    UserNotification(recipient_id=1, ticket_id=None, channel=NotificationChannel.IN_APP, message="m"),
 ]
 
 

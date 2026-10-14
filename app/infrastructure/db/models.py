@@ -35,6 +35,7 @@ from app.domain.enums import (
     TicketStatus,
     UserRole,
 )
+from app.domain.notifications import NotificationChannel
 from app.infrastructure.db.base import Base
 
 # bge-m3 (Ollama) embedding modelinin vektör boyutu; model değişirse migration gerekir.
@@ -207,6 +208,24 @@ class AIResponseModel(Base):
     confidence: Mapped[float] = mapped_column(Float)
     sources: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
     user_feedback: Mapped[AiFeedback | None] = mapped_column(ColumnFactory.enum(AiFeedback, "user_feedback"))
+
+
+class NotificationModel(Base):
+    """Kullanıcıya gönderilmiş bildirim (her kanal kaydedilir; e-posta/SMS benzetimdir)."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        # Zil menüsünün sorgusu: bir kullanıcının en yeni / okunmamış bildirimleri
+        Index("ix_notifications_recipient_created", "recipient_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipient_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"))
+    channel: Mapped[NotificationChannel] = mapped_column(ColumnFactory.enum(NotificationChannel, "channel"))
+    message: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = ColumnFactory.created_at()
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class KnowledgeDocumentModel(Base):

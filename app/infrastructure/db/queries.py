@@ -5,7 +5,7 @@ Listeler yalnızca read şemasındaki tabloları okur (JOIN yok). Talep detayı,
 AI yanıtı) doğrudan write tablolarından salt okunur sorgularla alır.
 """
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.application.queries.inventory import (
@@ -13,6 +13,7 @@ from app.application.queries.inventory import (
     InventoryQueries,
     MaintenanceRecordView,
 )
+from app.application.queries.notifications import NotificationQueries, NotificationView
 from app.application.queries.tickets import (
     AiAnswerView,
     AttachmentFileView,
@@ -29,6 +30,7 @@ from app.infrastructure.db.models import (
     AIResponseModel,
     DeviceModel,
     MaintenanceRecordModel,
+    NotificationModel,
     TicketAttachmentModel,
     TicketCommentModel,
     TicketModel,
@@ -187,6 +189,37 @@ class SqlUserQueries(UserQueries):
             department=user.department,
             is_vip=user.is_vip,
             support_level=user.support_level,
+        )
+
+
+class SqlNotificationQueries(NotificationQueries):
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def recent_for(self, user_id: int, limit: int) -> list[NotificationView]:
+        rows = self._session.scalars(
+            select(NotificationModel)
+            .where(NotificationModel.recipient_id == user_id)
+            .order_by(NotificationModel.created_at.desc(), NotificationModel.id.desc())
+            .limit(limit)
+        )
+        return [
+            NotificationView(
+                id=row.id,
+                ticket_id=row.ticket_id,
+                channel=row.channel,
+                message=row.message,
+                created_at=row.created_at,
+                is_read=row.read_at is not None,
+            )
+            for row in rows
+        ]
+
+    def unread_count(self, user_id: int) -> int:
+        return self._session.scalar(
+            select(func.count())
+            .select_from(NotificationModel)
+            .where(NotificationModel.recipient_id == user_id, NotificationModel.read_at.is_(None))
         )
 
 

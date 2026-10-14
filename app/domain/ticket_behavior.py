@@ -14,7 +14,7 @@ devreder ve sonucu kendi kuralıyla değiştirir:
 
     sla_hours():       72 → VIP: en geç 24 → Acil: en geç 4
     priority_score():  10 → VIP: +20       → Acil: +50
-    notify():          [ekip] → + [BT yöneticisi] → + [nöbetçi teknisyen SMS]
+    notify():          [teknisyenler] → + [BT yöneticisi e-posta] → + [nöbetçi teknisyen SMS]
 
 FACTORY
 -------
@@ -25,31 +25,10 @@ decorator'ların uygulandığını bilmek zorunda kalmaz.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from enum import StrEnum
 
 from app.domain.enums import TicketModifier
+from app.domain.notifications import Notification, NotificationAudience, NotificationChannel
 from app.domain.ticket import Ticket
-
-
-class NotificationChannel(StrEnum):
-    IN_APP = "IN_APP"
-    EMAIL = "EMAIL"
-    SMS = "SMS"
-
-
-@dataclass(frozen=True)
-class Notification:
-    """Gönderilmesi gereken bir bildirimin tarifi.
-
-    Domain bildirimi göndermez, yalnızca "kime, hangi kanaldan, ne" sorusunu
-    cevaplar. Gönderme işi altyapıdadır (ileride bir event dinleyicisi).
-    """
-
-    channel: NotificationChannel
-    recipient: str
-    message: str
-
 
 # --- Bileşen arayüzü ---
 
@@ -105,7 +84,7 @@ class BasicTicket(TicketComponent):
         return [
             Notification(
                 NotificationChannel.IN_APP,
-                "technicians",
+                NotificationAudience.TECHNICIANS,
                 f"Yeni talep: {self._ticket.title}",
             )
         ]
@@ -155,7 +134,7 @@ class VipTicket(TicketDecorator):
         return self._inner.notify() + [
             Notification(
                 NotificationChannel.EMAIL,
-                "it_manager",
+                NotificationAudience.IT_MANAGERS,
                 f"VIP kullanıcının talebi: {self.ticket.title}",
             )
         ]
@@ -178,7 +157,7 @@ class UrgentTicket(TicketDecorator):
         return self._inner.notify() + [
             Notification(
                 NotificationChannel.SMS,
-                "on_call_technician",
+                NotificationAudience.ON_CALL_TECHNICIANS,
                 f"ACİL talep: {self.ticket.title}",
             )
         ]

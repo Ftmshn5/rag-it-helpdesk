@@ -21,14 +21,18 @@ from app.application.interfaces.repositories import (
     TicketAttachmentRepository,
     TicketCommentRepository,
     TicketRepository,
+    UserNotificationRepository,
     UserRepository,
 )
 from app.application.interfaces.task_runner import TaskRunner
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.core.event_subscriptions import EventSubscriptions
+from app.domain.enums import UserRole
 from app.domain.events import DomainEvent
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
+from app.domain.notifications import UserNotification
 from app.domain.ticket import AIResponse
+from app.domain.user import User
 from app.infrastructure.db.projections import Projector
 from app.infrastructure.events.task_runner import InlineTaskRunner
 
@@ -63,9 +67,13 @@ class InMemoryRepository(Generic[E]):
                 return deepcopy(item)
         return None
 
+    def _all(self, predicate) -> list[E]:
+        return [deepcopy(item) for item in self.items.values() if predicate(item)]
 
-class InMemoryUserRepository(InMemoryRepository, UserRepository):
-    pass
+
+class InMemoryUserRepository(InMemoryRepository[User], UserRepository):
+    def list_by_role(self, role: UserRole) -> list[User]:
+        return self._all(lambda user: user.role == role)
 
 
 class InMemoryDeviceRepository(InMemoryRepository[Device], DeviceRepository):
@@ -103,6 +111,11 @@ class InMemoryTicketCommentRepository(InMemoryRepository, TicketCommentRepositor
 class InMemoryAIResponseRepository(InMemoryRepository[AIResponse], AIResponseRepository):
     def get_by_ticket(self, ticket_id: int) -> AIResponse | None:
         return self._first(lambda response: response.ticket_id == ticket_id)
+
+
+class InMemoryUserNotificationRepository(InMemoryRepository[UserNotification], UserNotificationRepository):
+    def list_unread_for(self, recipient_id: int) -> list[UserNotification]:
+        return self._all(lambda n: n.recipient_id == recipient_id and not n.is_read)
 
 
 class InMemoryFileStorage(FileStorage):
@@ -153,6 +166,7 @@ class FakeUnitOfWork(UnitOfWork):
         self.ticket_attachments = InMemoryTicketAttachmentRepository()
         self.ticket_comments = InMemoryTicketCommentRepository()
         self.ai_responses = InMemoryAIResponseRepository()
+        self.notifications = InMemoryUserNotificationRepository()
         self.committed = False
 
     def _commit(self) -> None:

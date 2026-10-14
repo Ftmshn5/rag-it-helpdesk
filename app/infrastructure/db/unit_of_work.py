@@ -20,6 +20,7 @@ from app.infrastructure.db.repositories import (
     SqlAlchemyTicketAttachmentRepository,
     SqlAlchemyTicketCommentRepository,
     SqlAlchemyTicketRepository,
+    SqlAlchemyUserNotificationRepository,
     SqlAlchemyUserRepository,
 )
 
@@ -41,6 +42,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.ticket_attachments = SqlAlchemyTicketAttachmentRepository(self._session)
         self.ticket_comments = SqlAlchemyTicketCommentRepository(self._session)
         self.ai_responses = SqlAlchemyAIResponseRepository(self._session)
+        self.notifications = SqlAlchemyUserNotificationRepository(self._session)
         return super().__enter__()
 
     def __exit__(

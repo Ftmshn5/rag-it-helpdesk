@@ -16,6 +16,11 @@ Taban sınıftaki her işlem varsayılan olarak "bu durumda yapılamaz" hatası
 verir; bir durum sınıfı yalnızca izin verdiği işlemleri ezer (çok biçimlilik).
 Yeni bir geçiş eklemek, ilgili durum sınıfına tek bir metot eklemek demektir.
 
+Her durum ayrıca kendisine girilince kime haber verileceğini bilir
+(`entry_notifications`): örneğin ASSIGNED'a girilince atanan teknisyene ve talep
+sahibine bildirim gider. Bildirimi gönderen kod hangi durumda ne söyleneceğini
+bilmez; yeni durumun nesnesine sorar (çok biçimlilik, if/elif yok).
+
 Durum nesneleri yalnızca karar verir: geçiş izinliyse bir sonraki durumu
 döndürür. Değişikliği Context (Ticket) kendisi uygular; böylece Ticket'ın
 alanlarına dışarıdan dokunulmaz (kapsülleme). Durum sınıfları veri tutmadığı
@@ -26,6 +31,7 @@ from abc import ABC
 
 from app.domain.enums import TicketStatus
 from app.domain.errors import InvalidTicketTransitionError
+from app.domain.notifications import Notification, NotificationAudience, NotificationChannel
 
 STATUS_LABELS = {
     TicketStatus.OPEN: "Açık",
@@ -49,6 +55,14 @@ class TicketState(ABC):
     accepts_contributions = True  # ek ve not eklenebilir mi
     allows_urgency_change = True  # aciliyet değiştirilebilir mi
     is_resolved = False  # çözülmüş sayılır mı (resolved_at dolu olmalı mı)
+
+    def entry_notifications(self, title: str) -> list[Notification]:
+        """Talep bu duruma girince gönderilecek bildirimler (varsayılan: yok)."""
+        return []
+
+    @staticmethod
+    def _in_app(audience: NotificationAudience, message: str) -> Notification:
+        return Notification(NotificationChannel.IN_APP, audience, message)
 
     def _not_allowed(self, action: str) -> InvalidTicketTransitionError:
         return InvalidTicketTransitionError(f"'{STATUS_LABELS[self.status]}' durumundaki talep için {action} yapılamaz.")
@@ -101,6 +115,11 @@ class AiAnsweredState(TicketState):
 
     status = TicketStatus.AI_ANSWERED
 
+    def entry_notifications(self, title: str) -> list[Notification]:
+        return [
+            self._in_app(NotificationAudience.REQUESTER, f"AI asistan bir çözüm önerdi, lütfen değerlendirin: {title}")
+        ]
+
     def accept_ai_answer(self) -> TicketStatus:
         return TicketStatus.RESOLVED
 
@@ -113,6 +132,9 @@ class EscalatedState(TicketState):
 
     status = TicketStatus.ESCALATED
 
+    def entry_notifications(self, title: str) -> list[Notification]:
+        return [self._in_app(NotificationAudience.IT_MANAGERS, f"Talep teknisyen ataması bekliyor: {title}")]
+
     def assign(self) -> TicketStatus:
         return TicketStatus.ASSIGNED
 
@@ -121,6 +143,12 @@ class AssignedState(TicketState):
     """State deseni — Concrete State: teknisyene atandı, çalışma başlamadı."""
 
     status = TicketStatus.ASSIGNED
+
+    def entry_notifications(self, title: str) -> list[Notification]:
+        return [
+            self._in_app(NotificationAudience.ASSIGNEE, f"Size bir talep atandı: {title}"),
+            self._in_app(NotificationAudience.REQUESTER, f"Talebiniz bir teknisyene atandı: {title}"),
+        ]
 
     def assign(self) -> TicketStatus:
         return TicketStatus.ASSIGNED  # başka bir teknisyene devir
@@ -136,6 +164,9 @@ class InProgressState(TicketState):
     """State deseni — Concrete State: teknisyen üzerinde çalışıyor."""
 
     status = TicketStatus.IN_PROGRESS
+
+    def entry_notifications(self, title: str) -> list[Notification]:
+        return [self._in_app(NotificationAudience.REQUESTER, f"Talebiniz üzerinde çalışılıyor: {title}")]
 
     def assign(self) -> TicketStatus:
         return TicketStatus.ASSIGNED  # devredilen teknisyen işe yeniden başlar
@@ -153,6 +184,11 @@ class ResolvedState(TicketState):
     status = TicketStatus.RESOLVED
     allows_urgency_change = False
     is_resolved = True
+
+    def entry_notifications(self, title: str) -> list[Notification]:
+        return [
+            self._in_app(NotificationAudience.REQUESTER, f"Talebiniz çözüldü, lütfen çözümü onaylayın: {title}")
+        ]
 
     def close(self) -> TicketStatus:
         return TicketStatus.CLOSED

@@ -20,6 +20,7 @@ from typing import Any, Generic, TypeVar
 from app.domain.entity import Entity
 from app.domain.enums import TicketModifier
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
+from app.domain.notifications import UserNotification
 from app.domain.ticket import AIResponse, Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 from app.infrastructure.db.base import Base
@@ -28,6 +29,7 @@ from app.infrastructure.db.models import (
     AssignmentModel,
     DeviceModel,
     MaintenanceRecordModel,
+    NotificationModel,
     TicketAttachmentModel,
     TicketCommentModel,
     TicketModel,
@@ -237,4 +239,27 @@ class AIResponseMapper(Mapper[AIResponse, AIResponseModel]):
             "confidence": entity.confidence,
             "sources": entity.sources,
             "user_feedback": entity.user_feedback,
+        }
+
+
+class UserNotificationMapper(Mapper[UserNotification, NotificationModel]):
+    def to_entity(self, model: NotificationModel) -> UserNotification:
+        return UserNotification(
+            id=model.id,
+            recipient_id=model.recipient_id,
+            ticket_id=model.ticket_id,
+            channel=model.channel,
+            message=model.message,
+            created_at=model.created_at,
+            read_at=model.read_at,
+        )
+
+    def to_values(self, entity: UserNotification) -> dict[str, Any]:
+        return {
+            "recipient_id": entity.recipient_id,
+            "ticket_id": entity.ticket_id,
+            "channel": entity.channel,
+            "message": entity.message,
+            "created_at": entity.created_at,
+            "read_at": entity.read_at,
         }

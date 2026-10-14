@@ -22,6 +22,11 @@ from app.application.commands.assignments import AssignDeviceHandler, ReturnDevi
 from app.application.commands.attachments import AttachScreenshotHandler
 from app.application.commands.devices import RegisterDeviceHandler, RetireDeviceHandler, UpdateDeviceDetailsHandler
 from app.application.commands.maintenance import CompleteMaintenanceHandler, StartMaintenanceHandler
+from app.application.commands.notifications import (
+    MarkNotificationsReadHandler,
+    NotifyTicketCreatedHandler,
+    NotifyTicketStatusChangedHandler,
+)
 from app.application.commands.ticket_workflow import (
     AddCommentHandler,
     AssignTicketHandler,
@@ -33,10 +38,11 @@ from app.application.commands.ticket_workflow import (
 )
 from app.application.commands.tickets import CreateTicketHandler, SetTicketUrgencyHandler
 from app.application.errors import AuthenticationError
-from app.application.event_handlers import AutoAnswerScheduler
+from app.application.event_handlers import AutoAnswerScheduler, TicketCreatedNotifier, TicketStatusNotifier
 from app.application.interfaces.ai_support import AiSupportFacade
 from app.application.interfaces.event_bus import EventBus
 from app.application.interfaces.file_storage import FileStorage
+from app.application.interfaces.notification_sender import NotificationSender
 from app.application.interfaces.task_runner import TaskRunner
 from app.application.interfaces.unit_of_work import UnitOfWork
 from app.application.queries.inventory import (
@@ -46,6 +52,7 @@ from app.application.queries.inventory import (
     ListDevicesHandler,
     ListMyDevicesHandler,
 )
+from app.application.queries.notifications import GetMyNotificationsHandler, NotificationQueries
 from app.application.queries.statistics import GetFailureStatisticsHandler, StatisticsQueries
 from app.application.queries.tickets import (
     GetAttachmentFileHandler,
@@ -66,11 +73,12 @@ from app.infrastructure.ai.rag_ai_support import RagAiSupport, SimilarityConfide
 from app.infrastructure.ai.retriever import PgVectorRetriever
 from app.infrastructure.db.models import EMBEDDING_DIMENSION
 from app.infrastructure.db.projections import DeviceInventoryProjector, TicketSummaryProjector
-from app.infrastructure.db.queries import SqlInventoryQueries, SqlTicketQueries, SqlUserQueries
+from app.infrastructure.db.queries import SqlInventoryQueries, SqlNotificationQueries, SqlTicketQueries, SqlUserQueries
 from app.infrastructure.db.session import Database
 from app.infrastructure.db.statistics import SqlStatisticsQueries
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
+from app.infrastructure.notifications.senders import InAppSender, SimulatedEmailSender, SimulatedSmsSender
 from app.infrastructure.storage.local_file_storage import LocalFileStorage
 
 # --- Uygulama ömrü boyunca tek nesneler ---
@@ -129,6 +137,25 @@ def create_auto_answer_scheduler(event_bus: EventBus, task_runner: TaskRunner) -
     return AutoAnswerScheduler(lambda: make_auto_answer_handler(event_bus), task_runner)
 
 
+def get_notification_senders() -> tuple[NotificationSender, ...]:
+    """Bildirim kanallarının teslim stratejilerini seçen tek yer (Strategy).
+
+    Gerçek e-posta/SMS'e geçmek için yalnızca buradaki benzetim sınıfları değişir.
+    """
+    return (InAppSender(), SimulatedEmailSender(), SimulatedSmsSender())
+
+
+def create_notifiers(event_bus: EventBus) -> tuple[TicketCreatedNotifier, TicketStatusNotifier]:
+    def uow() -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(event_bus, get_database().session_factory)
+
+    senders = get_notification_senders()
+    return (
+        TicketCreatedNotifier(lambda: NotifyTicketCreatedHandler(uow(), senders)),
+        TicketStatusNotifier(lambda: NotifyTicketStatusChangedHandler(uow(), senders)),
+    )
+
+
 def create_event_bus(task_runner: TaskRunner) -> EventBus:
     """Uygulama açılışında bir kez çağrılır; dinleyiciler burada kaydedilir."""
     event_bus = InMemoryEventBus()
@@ -136,6 +163,7 @@ def create_event_bus(task_runner: TaskRunner) -> EventBus:
     EventSubscriptions(
         auto_answer=create_auto_answer_scheduler(event_bus, task_runner),
         projectors=(TicketSummaryProjector(session_factory), DeviceInventoryProjector(session_factory)),
+        notifiers=create_notifiers(event_bus),
     ).register(event_bus)
     return event_bus
 
@@ -292,6 +320,10 @@ def get_inventory_queries(session: Session = Depends(get_db_session)) -> Invento
     return SqlInventoryQueries(session)
 
 
+def get_notification_queries(session: Session = Depends(get_db_session)) -> NotificationQueries:
+    return SqlNotificationQueries(session)
+
+
 def get_statistics_queries(session: Session = Depends(get_db_session)) -> StatisticsQueries:
     return SqlStatisticsQueries(session)
 
@@ -360,3 +392,16 @@ def get_failure_statistics_handler(
     statistics: StatisticsQueries = Depends(get_statistics_queries), users: UserQueries = Depends(get_user_queries)
 ) -> GetFailureStatisticsHandler:
     return GetFailureStatisticsHandler(statistics, users, get_settings().ai_confidence_threshold)
+
+
+def get_my_notifications_handler(
+    notifications: NotificationQueries = Depends(get_notification_queries),
+    users: UserQueries = Depends(get_user_queries),
+) -> GetMyNotificationsHandler:
+    return GetMyNotificationsHandler(notifications, users)
+
+
+def get_mark_notifications_read_handler(
+    uow: UnitOfWork = Depends(get_unit_of_work),
+) -> MarkNotificationsReadHandler:
+    return MarkNotificationsReadHandler(uow)

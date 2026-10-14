@@ -11,7 +11,9 @@ işlemler var. Listeler ve raporlar CQRS okuma tarafının (queries/) işidir.
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
+from app.domain.enums import UserRole
 from app.domain.inventory import Assignment, Device, MaintenanceRecord
+from app.domain.notifications import UserNotification
 from app.domain.ticket import AIResponse, Ticket, TicketAttachment, TicketComment
 from app.domain.user import User
 
@@ -37,7 +39,9 @@ class Repository(ABC, Generic[E]):
 
 
 class UserRepository(Repository[User], ABC):
-    pass
+    @abstractmethod
+    def list_by_role(self, role: UserRole) -> list[User]:
+        """Bir roldeki tüm kullanıcılar (örn. bildirim kitlesi "tüm teknisyenler")."""
 
 
 class DeviceRepository(Repository[Device], ABC):
@@ -76,3 +80,9 @@ class AIResponseRepository(Repository[AIResponse], ABC):
     @abstractmethod
     def get_by_ticket(self, ticket_id: int) -> AIResponse | None:
         """Talebin AI yanıtı (bir talebin en fazla bir AI yanıtı olur)."""
+
+
+class UserNotificationRepository(Repository[UserNotification], ABC):
+    @abstractmethod
+    def list_unread_for(self, recipient_id: int) -> list[UserNotification]:
+        """Kullanıcının okunmamış bildirimleri ("tümünü okundu işaretle" için)."""

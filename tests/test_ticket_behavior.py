@@ -3,10 +3,10 @@
 import pytest
 
 from app.domain.enums import TicketCategory, TicketModifier
+from app.domain.notifications import NotificationAudience, NotificationChannel
 from app.domain.ticket import Ticket
 from app.domain.ticket_behavior import (
     BasicTicket,
-    NotificationChannel,
     TicketComponentFactory,
     UrgentTicket,
     VipTicket,
@@ -52,10 +52,10 @@ def test_priority_bonuses_are_added_by_each_layer():
 def test_notifications_are_chained_from_inner_to_outer():
     notifications = UrgentTicket(VipTicket(BasicTicket(make_ticket()))).notify()
 
-    assert [(n.channel, n.recipient) for n in notifications] == [
-        (NotificationChannel.IN_APP, "technicians"),
-        (NotificationChannel.EMAIL, "it_manager"),
-        (NotificationChannel.SMS, "on_call_technician"),
+    assert [(n.channel, n.audience) for n in notifications] == [
+        (NotificationChannel.IN_APP, NotificationAudience.TECHNICIANS),
+        (NotificationChannel.EMAIL, NotificationAudience.IT_MANAGERS),
+        (NotificationChannel.SMS, NotificationAudience.ON_CALL_TECHNICIANS),
     ]
     assert notifications[-1].message == "ACİL talep: Yazıcı çalışmıyor"
 
@@ -97,8 +97,8 @@ def test_factory_applies_decorators_in_canonical_order():
     """Liste sırasından bağımsız olarak VIP içte, Acil dışta: bildirim sırası hep aynı."""
     behavior = TicketComponentFactory.create(make_ticket([URGENT, VIP]))
 
-    assert [n.recipient for n in behavior.notify()] == [
-        "technicians",
-        "it_manager",
-        "on_call_technician",
+    assert [n.audience for n in behavior.notify()] == [
+        NotificationAudience.TECHNICIANS,
+        NotificationAudience.IT_MANAGERS,
+        NotificationAudience.ON_CALL_TECHNICIANS,
     ]

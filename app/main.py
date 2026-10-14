@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import devices, health, maintenance, queries, tickets
+from app.api import devices, health, maintenance, notifications, queries, tickets
 from app.api.errors import HttpErrorMapper
 from app.application.interfaces.task_runner import TaskRunner
 from app.core.config import get_settings
@@ -56,6 +56,7 @@ def create_app(task_runner: TaskRunner | None = None) -> FastAPI:
     app.include_router(maintenance.router)
     app.include_router(tickets.router)
     app.include_router(queries.router)
+    app.include_router(notifications.router)
     return app
 
 
