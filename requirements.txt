@@ -12,4 +12,5 @@ httpx==0.28.1  # Ollama REST istemcisi (testlerde TestClient da kullanır)
 
 # --- Test ---
 pytest==9.1.1
+pytest-cov==7.1.0  # test kapsamı (pyproject.toml: [tool.coverage])
 ruff==0.17.0  # lint: pyflakes + import sırası + zorunlu tip ipucu (pyproject.toml)

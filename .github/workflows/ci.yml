@@ -1,7 +1,8 @@
 # Her push ve pull request'te backend ve frontend ayrı işlerde (paralel) denetlenir.
 #
 # Backend: ruff (lint + zorunlu tip ipucu) → migration'lar boş veritabanına uygulanır →
-# pytest (OOP/mimari kural testleri dahil). Veritabanı testleri atlanmaz: REQUIRE_DATABASE=1.
+# pytest (OOP/mimari kural testleri dahil) + test kapsamı (alt sınır pyproject.toml'da).
+# Veritabanı testleri atlanmaz: REQUIRE_DATABASE=1.
 # Frontend: oxlint (bileşenlerden doğrudan API çağrısı yasağı dahil) → tsc + vite build.
 name: CI
 
@@ -59,8 +60,8 @@ jobs:
       - name: Model ile migration'lar uyumlu mu
         run: alembic check
 
-      - name: Testler
-        run: pytest -q
+      - name: Testler ve kapsam
+        run: pytest -q --cov
 
   frontend:
     name: Frontend

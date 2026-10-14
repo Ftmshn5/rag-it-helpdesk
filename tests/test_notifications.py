@@ -3,6 +3,7 @@ Decorator (talep açılınca kime) ve State (durum değişince kime).
 """
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.application.commands.notifications import (
@@ -13,9 +14,17 @@ from app.application.commands.notifications import (
     NotifyTicketStatusChangedCommand,
     NotifyTicketStatusChangedHandler,
 )
-from app.application.errors import NotFoundError
+from app.application.errors import AuthenticationError, NotFoundError
 from app.application.event_handlers import TicketCreatedNotifier, TicketStatusNotifier
 from app.application.interfaces.notification_sender import NotificationSender
+from app.application.queries.notifications import (
+    GetMyNotificationsHandler,
+    GetMyNotificationsQuery,
+    NotificationQueries,
+    NotificationView,
+)
+from app.application.queries.users import UserQueries, UserView
+from app.core.dependencies import get_db_session, get_unit_of_work
 from app.core.event_subscriptions import EventSubscriptions
 from app.domain.enums import SupportLevel, TicketCategory, TicketModifier, TicketStatus, UserRole
 from app.domain.events import TicketCreated, TicketStatusChanged
@@ -24,8 +33,10 @@ from app.domain.ticket import Ticket
 from app.domain.ticket_state import STATES
 from app.domain.user import User
 from app.infrastructure.db.queries import SqlNotificationQueries
+from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.in_memory_event_bus import InMemoryEventBus
-from tests.fakes import FakeUnitOfWork
+from app.main import create_app
+from tests.fakes import FakeEventBus, FakeUnitOfWork
 
 S = TicketStatus
 C = NotificationChannel
@@ -291,3 +302,87 @@ def test_sql_repository_and_queries(sqlalchemy_uow, session_factory):
     items = queries.recent_for(user.id, limit=10)
     assert [(n.message, n.channel, n.is_read) for n in items] == [("yeni", C.IN_APP, False), ("eski", C.EMAIL, True)]
     session.close()
+
+
+# --- Okuma: zil menüsü sorgusu ---
+
+
+class FakeNotificationQueries(NotificationQueries):
+    def __init__(self) -> None:
+        self.requested: list[tuple[int, int]] = []
+
+    def recent_for(self, user_id: int, limit: int) -> list[NotificationView]:
+        self.requested.append((user_id, limit))
+        return []
+
+    def unread_count(self, user_id: int) -> int:
+        return 3
+
+
+class FakeUserQueries(UserQueries):
+    def get(self, user_id: int) -> UserView | None:
+        return UserView(user_id, "Ayşe", "a@x.edu", UserRole.USER, None, False, None) if user_id == 1 else None
+
+    def list_all(self) -> list[UserView]:
+        return []
+
+
+@pytest.mark.parametrize(("limit", "expected"), [(20, 20), (0, 1), (500, GetMyNotificationsHandler.MAX_LIMIT)])
+def test_my_notifications_are_read_for_the_viewer_with_a_bounded_limit(limit, expected):
+    notifications = FakeNotificationQueries()
+
+    view = GetMyNotificationsHandler(notifications, FakeUserQueries()).handle(
+        GetMyNotificationsQuery(actor_id=1, limit=limit)
+    )
+
+    assert view.unread_count == 3
+    assert notifications.requested == [(1, expected)]
+
+
+def test_unknown_viewer_cannot_read_notifications():
+    with pytest.raises(AuthenticationError):
+        GetMyNotificationsHandler(FakeNotificationQueries(), FakeUserQueries()).handle(GetMyNotificationsQuery(actor_id=99))
+
+
+# --- API ---
+
+
+def test_notification_endpoints(session_factory):
+    uow = SqlAlchemyUnitOfWork(FakeEventBus(), session_factory)
+    with uow:
+        user = uow.users.add(User(full_name="Zil Test", email="zil.test@x.edu"))
+        other = uow.users.add(User(full_name="Zil Başka", email="zil.baska@x.edu"))
+        first = uow.notifications.add(
+            UserNotification(recipient_id=user.id, ticket_id=None, channel=C.IN_APP, message="bir")
+        )
+        uow.notifications.add(UserNotification(recipient_id=user.id, ticket_id=None, channel=C.SMS, message="iki"))
+        foreign = uow.notifications.add(
+            UserNotification(recipient_id=other.id, ticket_id=None, channel=C.IN_APP, message="başkası")
+        )
+        uow.commit()
+
+    app = create_app()
+
+    def test_session():
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db_session] = test_session
+    app.dependency_overrides[get_unit_of_work] = lambda: SqlAlchemyUnitOfWork(FakeEventBus(), session_factory)
+    client = TestClient(app)
+    headers = {"X-User-Id": str(user.id)}
+
+    body = client.get("/notifications/mine", headers=headers).json()
+    assert body["unread_count"] == 2
+    assert [item["message"] for item in body["items"]] == ["iki", "bir"]  # en yeni önce
+
+    assert client.post("/notifications/read", json={"notification_ids": [first.id]}, headers=headers).status_code == 204
+    assert client.get("/notifications/mine", headers=headers).json()["unread_count"] == 1
+
+    # Başkasının bildirimi: 404 (varlığı sızdırılmaz)
+    response = client.post("/notifications/read", json={"notification_ids": [foreign.id]}, headers=headers)
+    assert response.status_code == 404
+
+    assert client.post("/notifications/read", json={}, headers=headers).status_code == 204
+    assert client.get("/notifications/mine", headers=headers).json()["unread_count"] == 0
+    assert client.get("/notifications/mine?limit=0", headers=headers).status_code == 422

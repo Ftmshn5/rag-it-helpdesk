@@ -2,6 +2,19 @@
 pythonpath = ["."]
 testpaths = ["tests"]
 
+# Test kapsamı: pytest --cov (CI her çalıştırmada raporlar)
+[tool.coverage.run]
+source = ["app"]
+branch = true  # yalnızca satır değil, if/else dallarının da çalışıp çalışmadığı
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# Elle çalıştırılan komut satırı giriş noktaları (seed, indeksleme, kalibrasyon) testlerde çağrılmaz
+exclude_also = ['if __name__ == "__main__":']
+# Kapsam bu değerin altına düşerse CI başarısız olur (bugün %93)
+fail_under = 90
+
 [tool.ruff]
 target-version = "py311"
 line-length = 120
