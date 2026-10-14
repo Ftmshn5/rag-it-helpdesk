@@ -51,7 +51,13 @@ from app.infrastructure.ai.ollama import OllamaEmbeddingProvider, OllamaLlmProvi
 from app.infrastructure.ai.providers import EmbeddingProvider, LlmProvider
 from app.infrastructure.ai.rag_ai_support import RagAiSupport
 from app.infrastructure.db.mappers import Mapper
-from app.infrastructure.db.projections import DeviceInventoryProjector, Projector, TicketSummaryProjector
+from app.infrastructure.db.projections import (
+    DeviceInventoryProjector,
+    Projector,
+    ReadModelProjection,
+    TicketSummaryProjector,
+    TicketTimelineProjector,
+)
 from app.infrastructure.db.repositories import SqlAlchemyRepository
 from app.infrastructure.db.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.events.event_logger import EventLogger
@@ -91,6 +97,8 @@ PATTERN_CLASSES: dict[str, list[type]] = {
         EventLogger,
         AutoAnswerScheduler,
         Projector,
+        ReadModelProjection,
+        TicketTimelineProjector,
         TicketNotifier,
         TicketCreatedNotifier,
         TicketStatusNotifier,

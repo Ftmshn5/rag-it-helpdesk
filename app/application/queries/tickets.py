@@ -7,11 +7,14 @@ Yazma tarafından farkları:
 
 Listeler denormalize read model'den (read.ticket_summary), talep detayı ise
 read model + write tablolarından (açıklama, notlar, ekler, AI yanıtı) gelir.
+Zaman çizelgesi, olaylardan beslenen read.ticket_timeline'dan okunur.
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from enum import StrEnum
+from typing import Any
 
 from app.application.errors import NotFoundError, PermissionDeniedError
 from app.application.interfaces.file_storage import FileStorage
@@ -72,6 +75,26 @@ class AttachmentView:
     uploaded_at: datetime
 
 
+class TimelineEntryKind(StrEnum):
+    """Zaman çizelgesindeki olay türleri (E3); metni arayüz üretir."""
+
+    CREATED = "CREATED"
+    AI_ANSWERED = "AI_ANSWERED"  # details: confidence, escalated (güven düşük / AI hata verdi)
+    AI_FEEDBACK = "AI_FEEDBACK"  # details: is_helpful
+    STATUS_CHANGED = "STATUS_CHANGED"  # details: old_status, new_status, assignee_name, support_level
+    COMMENT = "COMMENT"  # details: excerpt
+    ATTACHMENT = "ATTACHMENT"
+    URGENCY = "URGENCY"  # details: is_urgent, sla_hours
+
+
+@dataclass(frozen=True)
+class TimelineEntryView:
+    kind: TimelineEntryKind
+    occurred_at: datetime
+    actor_name: str | None  # None: sistem (AI asistan)
+    details: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class SlaLayerView:
     """Decorator zincirinin bir katmanı: o katman uygulandıktan sonraki SLA ve öncelik."""
@@ -87,6 +110,7 @@ class TicketDetailView:
     description: str
     ai_answer: AiAnswerView | None
     sla_layers: list[SlaLayerView] = field(default_factory=list)  # SLA nasıl oluştu (Decorator)
+    timeline: list[TimelineEntryView] = field(default_factory=list)  # eskiden yeniye (Observer)
     comments: list[CommentView] = field(default_factory=list)
     attachments: list[AttachmentView] = field(default_factory=list)
 
@@ -220,7 +244,17 @@ class GetTicketDetailHandler(TicketQueryHandler[GetTicketDetailQuery, TicketDeta
         answer = detail.ai_answer
         if answer and answer.confidence < self._ai_threshold and not is_staff:
             detail = replace(detail, ai_answer=None)
+        if not is_staff:
+            # Aynı kuralın zaman çizelgesindeki karşılığı: AI'ın güven skoru talep sahibine gösterilmez
+            detail = replace(detail, timeline=[self._without_confidence(entry) for entry in detail.timeline])
         return detail
+
+    @staticmethod
+    def _without_confidence(entry: TimelineEntryView) -> TimelineEntryView:
+        if "confidence" not in entry.details:
+            return entry
+        details = {key: value for key, value in entry.details.items() if key != "confidence"}
+        return replace(entry, details=details)
 
 
 class GetAttachmentFileHandler(TicketQueryHandler[GetAttachmentFileQuery, AttachmentContentView]):

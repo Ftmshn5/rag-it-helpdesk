@@ -23,6 +23,8 @@ from app.application.queries.tickets import (
     TicketDetailView,
     TicketQueries,
     TicketSummaryView,
+    TimelineEntryKind,
+    TimelineEntryView,
 )
 from app.application.queries.users import UserQueries, UserView
 from app.domain.clock import Clock
@@ -37,7 +39,7 @@ from app.infrastructure.db.models import (
     TicketModel,
     UserModel,
 )
-from app.infrastructure.db.read_models import DeviceInventoryModel, TicketSummaryModel
+from app.infrastructure.db.read_models import DeviceInventoryModel, TicketSummaryModel, TicketTimelineModel
 
 FINISHED = {TicketStatus.RESOLVED.value, TicketStatus.CLOSED.value}
 
@@ -107,6 +109,7 @@ class SqlTicketQueries(TicketQueries):
             if ai
             else None,
             sla_layers=[SlaLayerView(**layer) for layer in summary.sla_layers],
+            timeline=self._timeline(ticket_id),
             comments=[
                 CommentView(
                     id=comment.id,
@@ -139,6 +142,22 @@ class SqlTicketQueries(TicketQueries):
             )
         ).first()
         return AttachmentFileView(*row) if row else None
+
+    def _timeline(self, ticket_id: int) -> list[TimelineEntryView]:
+        rows = self._session.scalars(
+            select(TicketTimelineModel)
+            .where(TicketTimelineModel.ticket_id == ticket_id)
+            .order_by(TicketTimelineModel.occurred_at, TicketTimelineModel.id)
+        )
+        return [
+            TimelineEntryView(
+                kind=TimelineEntryKind(row.kind),
+                occurred_at=row.occurred_at,
+                actor_name=row.actor_name,
+                details=dict(row.details),
+            )
+            for row in rows
+        ]
 
     @staticmethod
     def _to_summary_view(row: TicketSummaryModel) -> TicketSummaryView:

@@ -7,7 +7,7 @@ sınıfı yazılır ve burada kaydedilir; olayı üreten koda dokunulmaz (Observ
 from app.application.event_handlers import AutoAnswerScheduler, TicketNotifier
 from app.application.interfaces.event_bus import EventBus, EventHandler
 from app.domain.events import DomainEvent, TicketCreated
-from app.infrastructure.db.projections import Projector
+from app.infrastructure.db.projections import ReadModelProjection
 from app.infrastructure.events.event_logger import EventLogger
 
 
@@ -22,7 +22,7 @@ class EventSubscriptions:
         self,
         *,
         auto_answer: AutoAnswerScheduler,
-        projectors: tuple[Projector, ...] = (),
+        projectors: tuple[ReadModelProjection, ...] = (),
         notifiers: tuple[TicketNotifier, ...] = (),
         event_logger: EventHandler[DomainEvent] | None = None,
     ) -> None:
@@ -38,7 +38,7 @@ class EventSubscriptions:
         # UC-14: yeni talep → AI asistan otomatik yanıt üretir (arka planda)
         event_bus.subscribe(TicketCreated, self._auto_answer)
 
-        # CQRS: her projektör, read model satırını etkileyen olaylara abone olur
+        # CQRS: her projektör (zaman çizelgesi dahil), read model'ini etkileyen olaylara abone olur
         for projector in self._projectors:
             for event_type in projector.source_events:
                 event_bus.subscribe(event_type, projector)

@@ -63,7 +63,7 @@ class SetTicketUrgencyCommand(ActorCommand):
 class SetTicketUrgencyHandler(CommandHandler[SetTicketUrgencyCommand, None]):
     def handle(self, command: SetTicketUrgencyCommand) -> None:
         with self._uow:
-            self._require_actor(command.actor_id, UserRole.ADMIN)
+            actor = self._require_actor(command.actor_id, UserRole.ADMIN)
             ticket = self._get_ticket(command.ticket_id)
 
             if ticket.is_urgent == command.is_urgent:
@@ -79,6 +79,7 @@ class SetTicketUrgencyHandler(CommandHandler[SetTicketUrgencyCommand, None]):
                     is_urgent=ticket.is_urgent,
                     sla_hours=behavior.sla_hours(),
                     priority_score=behavior.priority_score(),
+                    actor_id=actor.id,
                 )
             )
             self._uow.commit()

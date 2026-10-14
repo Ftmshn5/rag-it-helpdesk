@@ -86,11 +86,29 @@ export interface SlaLayer {
   priority_score: number
 }
 
+/** Zaman çizelgesi satırı (E3; backend: read.ticket_timeline, olaylardan beslenir). */
+export type TimelineEntryKind =
+  | 'CREATED'
+  | 'AI_ANSWERED'
+  | 'AI_FEEDBACK'
+  | 'STATUS_CHANGED'
+  | 'COMMENT'
+  | 'ATTACHMENT'
+  | 'URGENCY'
+
+export interface TimelineEntry {
+  kind: TimelineEntryKind
+  occurred_at: string
+  actor_name: string | null // null: sistem (AI asistan)
+  details: Record<string, unknown>
+}
+
 export interface TicketDetail {
   summary: TicketSummary
   description: string
   ai_answer: AiAnswer | null
   sla_layers: SlaLayer[] // en içten dışa: Temel talep → VIP → Acil
+  timeline: TimelineEntry[] // eskiden yeniye
   comments: TicketComment[]
   attachments: TicketAttachment[]
 }

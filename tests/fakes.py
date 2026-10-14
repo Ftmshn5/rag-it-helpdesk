@@ -33,7 +33,7 @@ from app.domain.inventory import Assignment, Device, MaintenanceRecord
 from app.domain.notifications import UserNotification
 from app.domain.ticket import AIResponse
 from app.domain.user import User
-from app.infrastructure.db.projections import Projector
+from app.infrastructure.db.projections import ReadModelProjection
 from app.infrastructure.events.task_runner import InlineTaskRunner
 
 E = TypeVar("E")
@@ -191,7 +191,7 @@ def subscribe_all(
     handler_factory: Callable[[], AutoAnswerTicketHandler],
     *,
     task_runner: TaskRunner | None = None,
-    projectors: tuple[Projector, ...] = (),
+    projectors: tuple[ReadModelProjection, ...] = (),
 ) -> None:
     """Uygulamadaki abonelikleri (EventSubscriptions) test bağımlılıklarıyla kurar."""
     EventSubscriptions(

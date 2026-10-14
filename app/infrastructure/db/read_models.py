@@ -10,7 +10,7 @@ Yazma tablolarından farklı olarak:
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Float, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -55,6 +55,29 @@ class TicketSummaryModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refreshed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class TicketTimelineModel(Base):
+    """Talep zaman çizelgesi (E3): her satır yayınlanmış bir olaydır (yalnızca eklenir).
+
+    Diğer read model'lerden farkı: satırlar write tablolarından yeniden hesaplanamaz,
+    çünkü durum geçmişi yalnızca olaylarda vardır. Bu yüzden tablo olaylarla büyür
+    ve "yeniden kur" onu silmez (bkz. TicketTimelineProjector).
+    """
+
+    __tablename__ = "ticket_timeline"
+    __table_args__ = (
+        Index("ix_ticket_timeline_ticket_occurred", "ticket_id", "occurred_at"),
+        {"schema": READ_SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(Integer)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    kind: Mapped[str] = mapped_column(String(32))
+    actor_id: Mapped[int | None] = mapped_column(Integer)
+    actor_name: Mapped[str | None] = mapped_column(String(120))  # yazıldığı andaki ad (denormalize)
+    details: Mapped[dict] = mapped_column(JSONB)  # türe özgü bilgiler (örn. eski/yeni durum, güven)
 
 
 class DeviceInventoryModel(Base):

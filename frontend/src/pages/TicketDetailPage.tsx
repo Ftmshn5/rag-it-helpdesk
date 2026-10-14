@@ -16,6 +16,7 @@ import { TicketFlags } from '@/components/tickets/TicketBadges'
 import { CommentsCard } from '@/components/tickets/CommentsCard'
 import { EscalateTicketCard } from '@/components/tickets/EscalateTicketCard'
 import { SlaCard } from '@/components/tickets/SlaCountdown'
+import { TimelineCard } from '@/components/tickets/TimelineCard'
 import { TicketActions, type Viewer } from '@/components/tickets/TicketActions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -64,6 +65,7 @@ export function TicketDetailPage() {
               <div className="space-y-4 lg:col-span-2">
                 <TicketInfoCard ticket={ticket} />
                 <AiAnswerCard ticket={ticket} isRequester={viewer.isRequester} />
+                <TimelineCard entries={ticket.timeline} />
                 <CommentsCard ticket={ticket} canContribute={canContribute} />
               </div>
               <div className="space-y-4">

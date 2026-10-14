@@ -73,7 +73,11 @@ from app.infrastructure.ai.ollama import OllamaEmbeddingProvider, OllamaLlmProvi
 from app.infrastructure.ai.rag_ai_support import RagAiSupport, SimilarityConfidence
 from app.infrastructure.ai.retriever import PgVectorRetriever
 from app.infrastructure.db.models import EMBEDDING_DIMENSION
-from app.infrastructure.db.projections import DeviceInventoryProjector, TicketSummaryProjector
+from app.infrastructure.db.projections import (
+    DeviceInventoryProjector,
+    TicketSummaryProjector,
+    TicketTimelineProjector,
+)
 from app.infrastructure.db.queries import SqlInventoryQueries, SqlNotificationQueries, SqlTicketQueries, SqlUserQueries
 from app.infrastructure.db.session import Database
 from app.infrastructure.db.statistics import SqlStatisticsQueries
@@ -163,7 +167,11 @@ def create_event_bus(task_runner: TaskRunner) -> EventBus:
     session_factory = get_database().session_factory
     EventSubscriptions(
         auto_answer=create_auto_answer_scheduler(event_bus, task_runner),
-        projectors=(TicketSummaryProjector(session_factory), DeviceInventoryProjector(session_factory)),
+        projectors=(
+            TicketSummaryProjector(session_factory),
+            DeviceInventoryProjector(session_factory),
+            TicketTimelineProjector(session_factory),
+        ),
         notifiers=create_notifiers(event_bus),
     ).register(event_bus)
     return event_bus

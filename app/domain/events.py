@@ -131,3 +131,4 @@ class TicketUrgencyChanged(TicketEvent):
     is_urgent: bool
     sla_hours: int
     priority_score: int
+    actor_id: int | None = None  # değişikliği yapan yönetici (zaman çizelgesi için)
